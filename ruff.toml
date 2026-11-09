@@ -1,5 +1,7 @@
 line-length = 100
 target-version = "py312"
+# Alembic-generated revisions keep their generated style.
+extend-exclude = ["packages/ei_db/src/ei_db/migrations/versions"]
 
 [lint]
 select = ["E", "F", "I", "B", "UP"]
@@ -8,7 +10,7 @@ select = ["E", "F", "I", "B", "UP"]
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
 
 [lint.isort]
-known-first-party = ["app", "ei_db", "ei_pipeline"]
+known-first-party = ["app", "ei_db", "ei_pipeline", "conftest", "test_meta_db"]
 
 [lint.per-file-ignores]
 # Markdown report template: long table rows are output text, not code.

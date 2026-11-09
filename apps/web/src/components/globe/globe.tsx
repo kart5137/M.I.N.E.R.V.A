@@ -12,9 +12,15 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 
+import { API_BASE_URL } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-export type CountryProps = { iso3: string; name: string; label: [number, number] };
+export type CountryProps = {
+  iso3: string;
+  name: string;
+  who_region: string | null;
+  label: [number, number];
+};
 type Countries = FeatureCollection<Polygon | MultiPolygon, CountryProps>;
 
 export interface GlobeProps {
@@ -26,8 +32,8 @@ export interface GlobeProps {
   onCountryClick?: (country: CountryProps) => void;
 }
 
-/** Country boundaries: Natural Earth 1:110m (public domain). Served from the API from M2. */
-const COUNTRIES_URL = "/geo/countries-110m.geojson";
+/** Country boundaries: Natural Earth 1:50m (public domain), served from PostGIS. */
+const COUNTRIES_URL = `${API_BASE_URL}/geo/countries`;
 const ROTATE_DEG_PER_SEC = 4;
 
 // Served by scripts/copy-maplibre-worker.mjs (runs before dev/build).
@@ -162,8 +168,11 @@ export function Globe({
       setHover({ x: e.point.x, y: e.point.y, country: f.properties as CountryProps });
     });
     map.on("mouseleave", "country-fill", clearHover);
+    // MapLibre stringifies nested properties (e.g. `label`) in events, so resolve the
+    // clicked country from the source data instead of the event payload.
+    const byIso3 = new Map(countries.features.map((f) => [f.properties.iso3, f.properties]));
     map.on("click", "country-fill", (e) => {
-      const props = e.features?.[0]?.properties as CountryProps | undefined;
+      const props = byIso3.get(String(e.features?.[0]?.id));
       if (props) clickRef.current?.(props);
     });
 

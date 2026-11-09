@@ -6,7 +6,7 @@ dashboard, built on public WHO FluNet data.
 > Analytical and educational tool. Not a diagnostic tool and not a substitute for
 > official public-health guidance.
 
-**Status:** M1 (foundation) complete; next is M2 (data ingestion). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
+**Status:** M2 (data ingestion) complete; next is M3 (surveillance core). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
 
 | Doc | |
 |---|---|
@@ -38,7 +38,7 @@ copy .env.example .env
 
 # Python (one virtualenv for API + pipeline)
 py -3.13 -m venv .venv
-.venv\Scripts\python -m pip install -e packages/ei_db -e "services/api[dev]" -r pipeline/requirements.txt
+.venv\Scripts\python -m pip install -e packages/ei_db -e "services/api[dev]" -e "pipeline[dev]"
 
 # Web
 cd apps/web
@@ -55,11 +55,15 @@ docker compose -f infra/docker-compose.yml up -d
 cd packages/ei_db
 ..\..\.venv\Scripts\alembic upgrade head
 
-# 3. API → http://localhost:8000/docs
+# 3. Data (downloads WHO FluNet, Natural Earth, World Bank; ~1 min)
+cd ../..
+.venv\Scripts\ei ingest all
+
+# 4. API → http://localhost:8000/docs
 cd services/api
 ..\..\.venv\Scripts\uvicorn app.main:app --reload --port 8000
 
-# 4. Web → http://localhost:3000
+# 5. Web → http://localhost:3000
 cd apps/web
 npm run dev
 ```
@@ -72,6 +76,7 @@ top-right status pill and on the Overview page.
 ```powershell
 .venv\Scripts\ruff check packages services pipeline
 cd services/api; ..\..\.venv\Scripts\pytest -q
+cd pipeline; ..\.venv\Scripts\pytest -q      # uses a separate test database
 cd apps/web; npm run lint; npm run typecheck; npm run build
 ```
 
@@ -89,3 +94,4 @@ Writes `docs/datasets/flunet_profile.md` and `data/profiles/flunet_country_profi
 
 - Influenza data: WHO FluNet, Global Influenza Surveillance and Response System (GISRS).
 - Country boundaries: Natural Earth (public domain).
+- Population: World Bank, World Development Indicators (CC BY 4.0).

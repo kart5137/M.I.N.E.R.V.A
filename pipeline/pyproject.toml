@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ei-pipeline"
+version = "0.1.0"
+description = "Epidemic Intelligence data ingestion and ML pipeline"
+requires-python = ">=3.12"
+dependencies = [
+    "ei-db",
+    "pandas==2.2.3",
+    "pyarrow==18.1.0",
+    "requests==2.32.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.4"]
+
+[project.scripts]
+ei = "ei_pipeline.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

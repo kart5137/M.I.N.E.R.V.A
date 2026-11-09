@@ -3,6 +3,8 @@
 Usage (from the repo root):
     .venv/Scripts/python pipeline/scripts/profile_flunet.py [--download]
 
+(requires `pip install -e pipeline`)
+
 Outputs:
     data/profiles/flunet_country_profile.csv   one row per country
     docs/datasets/flunet_profile.md            generated report
@@ -11,104 +13,17 @@ Outputs:
 from __future__ import annotations
 
 import argparse
-import sys
 from datetime import UTC, datetime
-from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "pipeline" / "src"))
-
-from ei_pipeline.sources import flunet  # noqa: E402
+from ei_pipeline.config import ROOT
+from ei_pipeline.quality.coverage import TIERS, WINDOW_WEEKS, analyse
+from ei_pipeline.sources import flunet
 
 RAW_PATH = ROOT / "data" / "raw" / "flunet" / "VIW_FNT.csv"
 PROFILE_CSV = ROOT / "data" / "profiles" / "flunet_country_profile.csv"
 REPORT_MD = ROOT / "docs" / "datasets" / "flunet_profile.md"
-
-WINDOW_WEEKS = 260  # five years of history ending at the latest week in the data
-LOW_TEST_THRESHOLD = 10
-
-# Tier rules. They are deliberately simple and are documented in the report.
-TIERS = {
-    "A": (
-        "Forecast-ready: >=85% weeks reported, longest gap <=8 weeks, "
-        "median >=30 tests/week, last report <=8 weeks old"
-    ),
-    "B": (
-        "Forecast with caution: >=60% weeks reported, median >=10 tests/week, "
-        "last report <=26 weeks old"
-    ),
-    "C": "Map and trends only: some data in the 5-year window",
-    "D": "Historical only: no data in the 5-year window",
-}
-
-
-def reference_week(weekly: pd.DataFrame, share: float = 0.8) -> tuple[pd.Timestamp, pd.Series]:
-    """Last week whose reporting count reaches `share` of the typical weekly count.
-
-    Countries report with a delay, so the newest weeks look artificially empty. Weeks
-    after the reference week are treated as provisional and excluded from the window.
-    """
-    counts = weekly[weekly["reported"]].groupby("week_start")["country_code"].nunique()
-    typical = counts.iloc[-60:-8].median()
-    complete = counts[counts >= share * typical]
-    ref = complete.index.max()
-    return ref, counts[counts.index > ref]
-
-
-def longest_run(flags: pd.Series, value: bool) -> int:
-    best = cur = 0
-    for f in flags:
-        cur = cur + 1 if f == value else 0
-        best = max(best, cur)
-    return best
-
-
-def profile_country(g: pd.DataFrame, window: pd.DatetimeIndex, latest: pd.Timestamp) -> dict:
-    rep = g[g["reported"]]
-    in_win = rep[rep["week_start"].isin(window)]
-    flags = pd.Series(window.isin(in_win["week_start"]), index=window)
-
-    row = {
-        "country_code": g["country_code"].iat[0],
-        "country_name": next(iter(g["country_name"].dropna()), ""),
-        "who_region": g["who_region"].iat[0],
-        "hemisphere": g["hemisphere"].iat[0],
-        "transmission_zone": g["transmission_zone"].iat[0],
-        "first_week": rep["week_start"].min(),
-        "last_week": rep["week_start"].max(),
-        "weeks_reported_all_time": len(rep),
-        "window_weeks_reported": int(flags.sum()),
-        "window_completeness": round(flags.mean(), 3),
-        "window_longest_gap": longest_run(flags, False),
-        "window_longest_run": longest_run(flags, True),
-        "median_tests_per_week": in_win["specimens_tested"].median(),
-        "share_low_test_weeks": round((in_win["specimens_tested"] < LOW_TEST_THRESHOLD).mean(), 3)
-        if len(in_win) else None,
-        "mean_positivity": round(in_win["positivity"].mean(), 3) if len(in_win) else None,
-        "positives_in_window": in_win["positives"].sum(),
-        "avg_weeks_per_year": round(flags.sum() / (WINDOW_WEEKS / 52), 1),
-    }
-    row["weeks_since_last_report"] = (
-        int((latest - row["last_week"]).days // 7) if pd.notna(row["last_week"]) else None
-    )
-    row["tier"] = assign_tier(row)
-    return row
-
-
-def assign_tier(r: dict) -> str:
-    if r["window_weeks_reported"] == 0:
-        return "D"
-    med = r["median_tests_per_week"] or 0
-    since = r["weeks_since_last_report"]
-    if (r["window_completeness"] >= 0.85 and r["window_longest_gap"] <= 8
-            and med >= 30 and since <= 8):
-        return "A"
-    if r["window_completeness"] >= 0.60 and med >= 10 and since <= 26:
-        return "B"
-    return "C"
-
 
 def md_table(df: pd.DataFrame) -> str:
     cols = list(df.columns)
@@ -221,12 +136,8 @@ def main() -> None:
 
     weekly, rep = flunet.clean(flunet.load_raw(RAW_PATH))
 
-    latest, provisional = reference_week(weekly)
-    window = pd.date_range(end=latest, periods=WINDOW_WEEKS, freq="W-MON")
-
-    prof = pd.DataFrame(
-        profile_country(g, window, latest) for _, g in weekly.groupby("country_code")
-    )
+    cov = analyse(weekly)
+    prof, latest, provisional, window = cov.profiles, cov.reference_week, cov.provisional, cov.window
 
     PROFILE_CSV.parent.mkdir(parents=True, exist_ok=True)
     prof.to_csv(PROFILE_CSV, index=False)

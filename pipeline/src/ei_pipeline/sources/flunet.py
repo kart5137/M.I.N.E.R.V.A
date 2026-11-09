@@ -11,9 +11,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
-import requests
+
+from ei_pipeline.config import RAW_DIR
+from ei_pipeline.util import download as _download
 
 FLUNET_URL = "https://xmart-api-public.who.int/FLUMART/VIW_FNT?$format=csv"
+RAW_PATH = RAW_DIR / "flunet" / "VIW_FNT.csv"
 
 # FluNet reports the UK as four nations under non-ISO pseudo-codes.
 UK_NATION_CODES = {"X09": "England", "X10": "Wales", "X11": "Northern Ireland", "X12": "Scotland"}
@@ -55,18 +58,12 @@ class CleaningReport:
     notes: list[str] = field(default_factory=list)
 
 
-def download(dest: Path, timeout: int = 600) -> Path:
+def download(dest: Path = RAW_PATH) -> Path:
     """Download the full FluNet table as CSV (~30 MB)."""
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    with requests.get(FLUNET_URL, stream=True, timeout=timeout) as resp:
-        resp.raise_for_status()
-        with dest.open("wb") as fh:
-            for chunk in resp.iter_content(chunk_size=1 << 20):
-                fh.write(chunk)
-    return dest
+    return _download(FLUNET_URL, dest)
 
 
-def load_raw(path: Path) -> pd.DataFrame:
+def load_raw(path: Path = RAW_PATH) -> pd.DataFrame:
     return pd.read_csv(path, low_memory=False)
 
 
@@ -79,6 +76,10 @@ def clean(raw: pd.DataFrame) -> tuple[pd.DataFrame, CleaningReport]:
 
     df = df[list(_RENAME)].rename(columns=_RENAME)
     df["week_start"] = pd.to_datetime(df["week_start"])
+    # Explicit numeric types: an all-empty column would otherwise be read as object.
+    for col in ("specimens_tested", "inf_all", "inf_a", "inf_b", "negatives"):
+        df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
+    df[["iso_year", "iso_week"]] = df[["iso_year", "iso_week"]].astype("int64")
 
     # Positives: INF_ALL when present, else INF_A + INF_B (identical wherever all exist).
     a_plus_b = df[["inf_a", "inf_b"]].sum(axis=1, min_count=1)

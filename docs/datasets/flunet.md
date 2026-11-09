@@ -61,15 +61,34 @@ Implemented in `pipeline/src/ei_pipeline/sources/flunet.py`.
    summed. `NOTDEFINED` rows sometimes repeat one of them (e.g. Austria 2013), so they
    are dropped for any week that also has sentinel/non-sentinel rows.
 5. **United Kingdom** is reported as four nations under pseudo-codes `X09` England,
-   `X10` Wales, `X11` Northern Ireland, `X12` Scotland. They are summed into `GBR`.
-   Weeks where only some nations reported will undercount; to be refined when building
-   ingestion (option: keep nations as sub-regions).
-6. **Kosovo** uses `XKX`, which is not an ISO 3166 code; boundary datasets label it
-   differently (Natural Earth: `KOS` / `-99`). Needs an explicit mapping.
+   `X10` Wales, `X11` Northern Ireland, `X12` Scotland. They are summed into `GBR`
+   (aliases recorded in `country_code_aliases`). Weeks where only some nations
+   reported undercount **positives** for GBR; positivity is less affected. Open item:
+   keep nations as sub-regions if an analysis needs it.
+6. **Kosovo** uses `XKX`, which is not an ISO 3166 code. `XKX` is the project's
+   canonical key; Natural Earth's `KOS` is mapped to it.
 7. **Positives > specimens tested** (~1.5k country-weeks): kept, but positivity is left
    empty for those weeks.
 8. A week counts as **reported** only if specimens tested > 0. Rows with 0 tests are
    "no surveillance", not "no influenza".
+
+## Loading (`ei ingest flunet`)
+
+Implemented in `pipeline/src/ei_pipeline/ingest/flunet.py`.
+
+- Cleaned rows pass row-level validation (`quality/validation.py`): country code format,
+  ISO week range, week start is a Monday and matches the ISO year/week, no future
+  weeks, no negative counts. Failing rows are excluded and counted in the run report.
+- Rows are upserted into `surveillance_weekly`. When a source revises a past week, the
+  previous values are appended to `surveillance_revisions` before the update.
+- `is_provisional` is set for weeks after the **reference week** (last week with ≥ 80%
+  of the typical number of reporting countries).
+- Coverage tiers (A–D, see [profile](flunet_profile.md)) are stored in
+  `coverage_profiles` for the reference week.
+- Areas FluNet reports that are not yet in `countries` are added without geometry;
+  WHO region, hemisphere and transmission zone are taken from FluNet.
+- Rows present in the database but no longer in the source are **not deleted**; their
+  count is reported (`rows_missing_from_source`).
 
 ## Known limitations
 

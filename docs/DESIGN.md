@@ -87,9 +87,9 @@ weekly, 189 countries/areas, 1995–2026; **88 countries forecast-ready (Tier A)
 
 | Dataset | Used for | Milestone | Status |
 |---|---|---|---|
-| WHO FluNet | Positives, specimens, positivity | M2 | Verified |
-| Natural Earth 1:50m Admin-0 | Globe polygons, centroids, spatial weights | M1–M2 | To verify (public domain) |
-| World Bank WDI `SP.POP.TOTL` | Population, per-capita normalisation | M2 | To verify |
+| WHO FluNet | Positives, specimens, positivity | M2 | Ingested |
+| Natural Earth 1:50m Admin-0 | Globe polygons, centroids, spatial weights | M1–M2 | Ingested |
+| World Bank WDI `SP.POP.TOTL` | Population, per-capita normalisation | M2 | Ingested |
 | World Bank / WHO GHO: hospital beds, physicians per 1,000 | Country health-system context | M4 | To verify |
 | Open-Meteo | Weather features (dengue phase) | Post-MVP | Partly verified |
 | OpenDengue | Dengue | Post-MVP | Licence open |
@@ -424,7 +424,7 @@ Each ends with: what was built, files changed, how to run, how to test.
 |---|---|---|---|
 | M0 | Spec + data verification | Spec v2, FluNet profiler, dataset docs | ✅ done |
 | M1 ✅ | Foundation | Monorepo skeleton, Postgres+PostGIS running, `ei_db` with core tables (reference + observations) and first migration, FastAPI `/health` + `/meta/status`, Next.js shell with design tokens, sidebar/topbar, **globe spike** rendering Natural Earth countries, CI (lint + tests) | `docker compose up` (or local equivalent) → web shows shell + rotating globe; API tests pass |
-| M2 | Data ingestion | Natural Earth, World Bank population, FluNet ingestion into DB with code aliases, quality report, revisions, provisional flags, coverage tiers; `ei ingest …` CLI | DB holds ~146k country-weeks; re-running is idempotent; quality report stored |
+| M2 ✅ | Data ingestion | Natural Earth, World Bank population, FluNet ingestion into DB with code aliases, quality report, revisions, provisional flags, coverage tiers; `ei ingest …` CLI | DB holds ~146k country-weeks; re-running is idempotent; quality report stored |
 | M3 | Surveillance core | API: countries, timeseries, overview, surveillance/global, geo · Web: Overview + Global Surveillance wired to real data (choropleth, columns, time slider, country panel) | Every number on both pages traces to DB rows; filters work end-to-end |
 | M4 | Country + Analytics | Country Intelligence (history, seasons, context) and Analytics pages; health indicators ingestion | Drill-down from globe to country works for all 189 areas, "Not available" where missing |
 | M5 | Forecasting | Feature builder, baselines, RF, XGBoost, rolling-origin backtest, conformal intervals, registry, SHAP; Prediction Center + model detail pages | Backtest report generated; active model beats seasonal-naive or baseline is shown as active |
@@ -442,7 +442,7 @@ Each ends with: what was built, files changed, how to run, how to test.
 | **Local database setup (decision needed)** | Docker and PostgreSQL are not installed on this machine. Options: (a) install Docker Desktop and run `postgis/postgis` via Compose — recommended, matches deployment; (b) install PostgreSQL + PostGIS natively via the EDB installer/StackBuilder; (c) use a free hosted Postgres with PostGIS (Supabase/Neon) for development. |
 | MapLibre globe + deck.gl interop | **Resolved in M1 spike.** deck.gl 9.4 *interleaved* mode renders nothing on MapLibre 6 (no error); *overlaid* mode works on globe and flat projections. Consequence: deck layers always draw above map layers. MapLibre 6 also needs its worker served explicitly (`setWorkerUrl`, copied by `apps/web/scripts/copy-maplibre-worker.mjs`). |
 | Node.js version | Tailwind 4.3 needs `require(esm)` → Node ≥ 20.19. Project standard: Node 26 LTS (`.nvmrc`). Node 20 is end-of-life. |
-| Boundary resolution | Natural Earth 1:110m (M1 spike) omits small states (e.g. Singapore, Malta). M2 ingests 1:50m into PostGIS and serves it from the API. Use `ISO_A3_EH`; Kosovo falls back to `ADM0_A3` (`KOS`). |
+| Boundary resolution | **Resolved in M2.** 1:50m boundaries in PostGIS, served by `GET /api/v1/geo/countries` (simplified, gzip ~0.5 MB, ETag). Overseas departments (GLP, GUF, MTQ) have no own geometry — see [natural_earth.md](datasets/natural_earth.md). |
 | MEM thresholds in Python | No standard Python package; implement and validate against R `mem`. If validation fails, fall back to documented percentile thresholds and label them as such. |
 | Data revisions | FluNet back-fills; ingestion keeps revision history and forecasts record which data snapshot they used. |
 | Hosting cost | All target hosts have free tiers; PostGIS on Supabase/Neon free tier has storage limits (~0.5 GB) — enough for MVP (~146k rows). |

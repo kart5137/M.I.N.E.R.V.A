@@ -40,12 +40,20 @@ function steps(s: PlatformState): { api: StepState; db: StepState; schema: StepS
   }
 }
 
+function formatWeek(iso: string | null) {
+  if (!iso) return "—";
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+  });
+}
+
 const code = (t: string) => <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">{t}</code>;
 
 export function PlatformStatusPanel() {
   const state = usePlatformStatus();
   const s = steps(state);
   const status = "status" in state ? state.status : null;
+  const flu = status?.diseases.find((d) => d.key === "influenza");
 
   return (
     <section className="rounded-lg border border-border bg-card p-4">
@@ -79,12 +87,18 @@ export function PlatformStatusPanel() {
         <Step
           state={s.data}
           title="Surveillance data"
-          detail={s.data === "done" ? "WHO FluNet loaded" : "WHO FluNet ingestion arrives in milestone M2"}
+          detail={
+            s.data === "done" && flu
+              ? `WHO FluNet · ${flu.country_weeks.toLocaleString("en-US")} country-weeks · reference week ${formatWeek(flu.reference_week)}`
+              : <>Load it with {code("ei ingest all")}</>
+          }
         />
       </ol>
       <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
-        Indicators, trends and forecasts appear here once real data is loaded. This dashboard never
-        shows placeholder or simulated figures.
+        {s.data === "done"
+          ? "Indicators, trends and forecasts are added to this page from milestone M3."
+          : "Indicators, trends and forecasts appear here once real data is loaded."}{" "}
+        This dashboard never shows placeholder or simulated figures.
       </p>
     </section>
   );

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
-from app.routers import meta
+from app.routers import geo, meta
 
 API_PREFIX = "/api/v1"
 
@@ -28,8 +29,10 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
     register_error_handlers(app)
     app.include_router(meta.router, prefix=API_PREFIX)
+    app.include_router(geo.router, prefix=API_PREFIX)
     return app
 
 
