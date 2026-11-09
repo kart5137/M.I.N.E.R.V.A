@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ei-db"
+version = "0.1.0"
+description = "Epidemic Intelligence shared database models and migrations"
+requires-python = ">=3.12"
+dependencies = [
+    "sqlalchemy==2.0.36",
+    "geoalchemy2==0.16.0",
+    "alembic==1.14.0",
+    "psycopg[binary]==3.2.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ei_db = ["migrations/*.py", "migrations/*.mako", "migrations/versions/*.py"]

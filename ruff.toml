@@ -1,0 +1,15 @@
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
+
+[lint.isort]
+known-first-party = ["app", "ei_db", "ei_pipeline"]
+
+[lint.per-file-ignores]
+# Markdown report template: long table rows are output text, not code.
+"pipeline/scripts/profile_flunet.py" = ["E501"]

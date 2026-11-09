@@ -151,5 +151,5 @@ def _aggregate_uk(weekly: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         )
         .assign(country_code="GBR", country_name="United Kingdom")
     )
-    uk = uk[[(y, w) not in gbr_weeks for y, w in zip(uk["iso_year"], uk["iso_week"])]]
+    uk = uk[[(y, w) not in gbr_weeks for y, w in zip(uk["iso_year"], uk["iso_week"], strict=False)]]
     return pd.concat([rest, uk], ignore_index=True), len(nations)

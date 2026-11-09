@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -31,8 +31,14 @@ LOW_TEST_THRESHOLD = 10
 
 # Tier rules. They are deliberately simple and are documented in the report.
 TIERS = {
-    "A": "Forecast-ready: >=85% weeks reported, longest gap <=8 weeks, median >=30 tests/week, last report <=8 weeks old",
-    "B": "Forecast with caution: >=60% weeks reported, median >=10 tests/week, last report <=26 weeks old",
+    "A": (
+        "Forecast-ready: >=85% weeks reported, longest gap <=8 weeks, "
+        "median >=30 tests/week, last report <=8 weeks old"
+    ),
+    "B": (
+        "Forecast with caution: >=60% weeks reported, median >=10 tests/week, "
+        "last report <=26 weeks old"
+    ),
     "C": "Map and trends only: some data in the 5-year window",
     "D": "Historical only: no data in the 5-year window",
 }
@@ -66,7 +72,7 @@ def profile_country(g: pd.DataFrame, window: pd.DatetimeIndex, latest: pd.Timest
 
     row = {
         "country_code": g["country_code"].iat[0],
-        "country_name": g["country_name"].dropna().iat[0] if g["country_name"].notna().any() else "",
+        "country_name": next(iter(g["country_name"].dropna()), ""),
         "who_region": g["who_region"].iat[0],
         "hemisphere": g["hemisphere"].iat[0],
         "transmission_zone": g["transmission_zone"].iat[0],
@@ -115,7 +121,7 @@ def md_table(df: pd.DataFrame) -> str:
 def build_report(weekly: pd.DataFrame, prof: pd.DataFrame, rep: flunet.CleaningReport,
                  window: pd.DatetimeIndex, latest: pd.Timestamp,
                  provisional: pd.Series) -> str:
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     tier_counts = prof["tier"].value_counts().reindex(list(TIERS), fill_value=0)
 
     by_region = (
@@ -144,8 +150,6 @@ def build_report(weekly: pd.DataFrame, prof: pd.DataFrame, rep: flunet.CleaningR
     def tier_table(t: str) -> str:
         sub = prof[prof["tier"] == t].sort_values(["who_region", "country_name"])[show]
         return md_table(sub) if len(sub) else "_None._"
-
-    near_miss = prof[(prof["tier"] == "B")].sort_values("window_completeness", ascending=False)
 
     return f"""# FluNet coverage profile (generated)
 
