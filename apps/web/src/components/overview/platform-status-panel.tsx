@@ -95,9 +95,7 @@ export function PlatformStatusPanel() {
         />
       </ol>
       <p className="mt-4 border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
-        {s.data === "done"
-          ? "Indicators, trends and forecasts are added to this page from milestone M3."
-          : "Indicators, trends and forecasts appear here once real data is loaded."}{" "}
+        Indicators and trends appear here once real data is loaded.{" "}
         This dashboard never shows placeholder or simulated figures.
       </p>
     </section>

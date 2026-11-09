@@ -12,4 +12,4 @@ export const Globe = dynamic(() => import("./globe").then((m) => m.Globe), {
   ),
 });
 
-export type { CountryProps, GlobeProps } from "./globe";
+export type { CountryProps, GlobeLayers, GlobeProps } from "./globe";

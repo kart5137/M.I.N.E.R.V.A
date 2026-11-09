@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 
 import { Brand } from "./brand";
 import { DataStatus } from "./data-status";
+import { FilterBar } from "./filter-bar";
 import { SidebarNav } from "./sidebar-nav";
 
 function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
@@ -57,6 +58,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               Influenza
             </span>
           </div>
+
+          {/* useSearchParams needs a Suspense boundary under Cache Components. */}
+          <Suspense fallback={null}>
+            <FilterBar />
+          </Suspense>
 
           <div className="ml-auto flex items-center gap-2">
             <DataStatus />

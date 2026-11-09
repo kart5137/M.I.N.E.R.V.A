@@ -1,18 +1,27 @@
 "use client";
 
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { ScatterplotLayer } from "@deck.gl/layers";
+import { ColumnLayer } from "@deck.gl/layers";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import {
+  type ExpressionSpecification,
   Map as MapLibreMap,
-  type MapGeoJSONFeature,
   setWorkerUrl,
   type StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { API_BASE_URL } from "@/lib/api";
+import { formatInt, formatPct } from "@/lib/format";
+import {
+  DETECTIONS_RGB,
+  FEW_SPECIMENS_COLOR,
+  MIN_SPECIMENS,
+  POSITIVITY_BINS,
+  positivityClass,
+} from "@/lib/positivity-scale";
+import type { CountryWindowValue } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export type CountryProps = {
@@ -23,24 +32,39 @@ export type CountryProps = {
 };
 type Countries = FeatureCollection<Polygon | MultiPolygon, CountryProps>;
 
+export interface GlobeLayers {
+  positivity: boolean;
+  detections: boolean;
+}
+
 export interface GlobeProps {
   projection?: "globe" | "mercator";
+  /** Initial camera tilt in degrees (makes 3D columns readable). */
+  pitch?: number;
   autoRotate?: boolean;
-  showCentroids?: boolean;
   interactive?: boolean;
   className?: string;
+  /** Per-country values for the current window (from /surveillance/global). */
+  values?: CountryWindowValue[];
+  /** Window length, used to show detections as a weekly average. */
+  windowWeeks?: number;
+  layers?: GlobeLayers;
+  selectedIso3?: string | null;
   onCountryClick?: (country: CountryProps) => void;
 }
 
 /** Country boundaries: Natural Earth 1:50m (public domain), served from PostGIS. */
 const COUNTRIES_URL = `${API_BASE_URL}/geo/countries`;
 const ROTATE_DEG_PER_SEC = 4;
+/** Column height (m) per √(weekly average detections). Fixed, so heights compare over time. */
+const METRES_PER_SQRT_DETECTION = 12_000;
+const DEFAULT_LAYERS: GlobeLayers = { positivity: true, detections: false };
 
 // Served by scripts/copy-maplibre-worker.mjs (runs before dev/build).
 setWorkerUrl("/vendor/maplibre-gl-worker.mjs");
 
-function token(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function token(name: string, fallback: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
 function buildStyle(projection: "globe" | "mercator"): StyleSpecification {
@@ -53,12 +77,30 @@ function buildStyle(projection: "globe" | "mercator"): StyleSpecification {
   };
 }
 
+function fillColor(showPositivity: boolean): ExpressionSpecification | string {
+  const land = token("--globe-land", "#15203a");
+  if (!showPositivity) return land;
+  const bins = POSITIVITY_BINS.flatMap((b, i) => [i + 1, b.color]);
+  return [
+    "match",
+    ["coalesce", ["feature-state", "cls"], -1],
+    0,
+    FEW_SPECIMENS_COLOR,
+    ...bins,
+    land,
+  ] as ExpressionSpecification;
+}
+
 export function Globe({
   projection = "globe",
+  pitch = 0,
   autoRotate = true,
-  showCentroids = false,
   interactive = true,
   className,
+  values,
+  windowWeeks = 1,
+  layers = DEFAULT_LAYERS,
+  selectedIso3 = null,
   onCountryClick,
 }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -68,13 +110,19 @@ export function Globe({
   const clickRef = useRef(onCountryClick);
   const [countries, setCountries] = useState<Countries | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [hover, setHover] = useState<{ x: number; y: number; country: CountryProps } | null>(null);
+  const [styleReady, setStyleReady] = useState(false);
+  const [hover, setHover] = useState<{ x: number; y: number; iso3: string } | null>(null);
+
+  const byIso3 = useMemo(
+    () => new Map(countries?.features.map((f) => [f.properties.iso3, f.properties]) ?? []),
+    [countries],
+  );
+  const valueByIso3 = useMemo(() => new Map(values?.map((v) => [v.iso3, v]) ?? []), [values]);
 
   useEffect(() => {
     clickRef.current = onCountryClick;
   }, [onCountryClick]);
 
-  // Re-enable or disable rotation when the prop changes (user interaction also stops it).
   useEffect(() => {
     rotatingRef.current = autoRotate;
   }, [autoRotate]);
@@ -100,6 +148,7 @@ export function Globe({
       style: buildStyle(projection),
       center: [15, 20],
       zoom: 1.35,
+      pitch,
       minZoom: 0.8,
       maxZoom: 6,
       interactive,
@@ -116,6 +165,12 @@ export function Globe({
     map.addControl(overlay);
 
     let hoveredId: string | null = null;
+    const accent = token("--globe-hover", "#22d3ee");
+    const active: ExpressionSpecification = [
+      "any",
+      ["boolean", ["feature-state", "hover"], false],
+      ["boolean", ["feature-state", "selected"], false],
+    ];
 
     map.on("load", () => {
       map.addSource("countries", { type: "geojson", data: countries, promoteId: "iso3" });
@@ -123,29 +178,18 @@ export function Globe({
         id: "country-fill",
         type: "fill",
         source: "countries",
-        paint: {
-          "fill-color": [
-            "case",
-            ["boolean", ["feature-state", "hover"], false],
-            "#1d3a5c",
-            token("--globe-land") || "#15203a",
-          ],
-        },
+        paint: { "fill-color": token("--globe-land", "#15203a") },
       });
       map.addLayer({
         id: "country-line",
         type: "line",
         source: "countries",
         paint: {
-          "line-color": [
-            "case",
-            ["boolean", ["feature-state", "hover"], false],
-            token("--globe-hover") || "#22d3ee",
-            token("--globe-border") || "#2b3a5a",
-          ],
-          "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 1.2, 0.5],
+          "line-color": ["case", active, accent, token("--globe-border", "#2b3a5a")],
+          "line-width": ["case", active, 1.6, 0.5],
         },
       });
+      setStyleReady(true);
     });
 
     const clearHover = () => {
@@ -156,24 +200,24 @@ export function Globe({
     };
 
     map.on("mousemove", "country-fill", (e) => {
-      const f = e.features?.[0] as MapGeoJSONFeature | undefined;
-      if (!f) return;
-      const id = String(f.id);
-      if (hoveredId !== id) {
+      const id = e.features?.[0]?.id;
+      if (id == null) return;
+      const iso3 = String(id);
+      if (hoveredId !== iso3) {
         if (hoveredId !== null) map.setFeatureState({ source: "countries", id: hoveredId }, { hover: false });
-        map.setFeatureState({ source: "countries", id }, { hover: true });
-        hoveredId = id;
+        map.setFeatureState({ source: "countries", id: iso3 }, { hover: true });
+        hoveredId = iso3;
       }
       map.getCanvas().style.cursor = "pointer";
-      setHover({ x: e.point.x, y: e.point.y, country: f.properties as CountryProps });
+      setHover({ x: e.point.x, y: e.point.y, iso3 });
     });
     map.on("mouseleave", "country-fill", clearHover);
     // MapLibre stringifies nested properties (e.g. `label`) in events, so resolve the
     // clicked country from the source data instead of the event payload.
-    const byIso3 = new Map(countries.features.map((f) => [f.properties.iso3, f.properties]));
+    const props = new Map(countries.features.map((f) => [f.properties.iso3, f.properties]));
     map.on("click", "country-fill", (e) => {
-      const props = byIso3.get(String(e.features?.[0]?.id));
-      if (props) clickRef.current?.(props);
+      const p = props.get(String(e.features?.[0]?.id));
+      if (p) clickRef.current?.(p);
     });
 
     // Slow auto-rotation that stops for good once the user interacts.
@@ -198,6 +242,7 @@ export function Globe({
 
     return () => {
       cancelAnimationFrame(frame);
+      setStyleReady(false);
       overlayRef.current = null;
       mapRef.current = null;
       map.remove();
@@ -209,32 +254,62 @@ export function Globe({
   // Projection toggle
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    const apply = () => map.setProjection({ type: projection });
-    if (map.isStyleLoaded()) apply();
-    else map.once("load", apply);
-  }, [projection]);
+    if (!map || !styleReady) return;
+    map.setProjection({ type: projection });
+  }, [projection, styleReady]);
 
-  // deck.gl layers
+  // Positivity choropleth: class per country in feature state, colour by expression.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReady || !countries) return;
+    for (const f of countries.features) {
+      const iso3 = f.properties.iso3;
+      map.setFeatureState({ source: "countries", id: iso3 }, { cls: positivityClass(valueByIso3.get(iso3)) });
+    }
+    map.setPaintProperty("country-fill", "fill-color", fillColor(layers.positivity));
+  }, [valueByIso3, layers.positivity, styleReady, countries]);
+
+  // Selection outline
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReady || !selectedIso3) return;
+    map.setFeatureState({ source: "countries", id: selectedIso3 }, { selected: true });
+    return () => {
+      if (map.getSource("countries")) {
+        map.setFeatureState({ source: "countries", id: selectedIso3 }, { selected: false });
+      }
+    };
+  }, [selectedIso3, styleReady]);
+
+  // Detections columns (deck.gl)
   useEffect(() => {
     const overlay = overlayRef.current;
-    if (!overlay || !countries) return;
+    if (!overlay || !styleReady) return;
+    const data = layers.detections
+      ? (values ?? []).flatMap((v) => {
+          const c = byIso3.get(v.iso3);
+          return c && v.positives ? [{ position: c.label, weekly: v.positives / windowWeeks }] : [];
+        })
+      : [];
     overlay.setProps({
-      layers: showCentroids
-        ? [
-            new ScatterplotLayer<CountryProps>({
-              id: "country-centroids",
-              data: countries.features.map((f) => f.properties),
-              getPosition: (d) => d.label,
-              getRadius: 45_000,
-              radiusMinPixels: 1.5,
-              radiusMaxPixels: 5,
-              getFillColor: [34, 211, 238, 200],
-            }),
-          ]
-        : [],
+      layers: [
+        new ColumnLayer<{ position: [number, number]; weekly: number }>({
+          id: "detections",
+          data,
+          diskResolution: 12,
+          radius: 70_000,
+          extruded: true,
+          getPosition: (d) => d.position,
+          getElevation: (d) => Math.sqrt(d.weekly) * METRES_PER_SQRT_DETECTION,
+          getFillColor: [...DETECTIONS_RGB, 225],
+          material: false,
+        }),
+      ],
     });
-  }, [showCentroids, countries]);
+  }, [layers.detections, values, windowWeeks, byIso3, styleReady]);
+
+  const hovered = hover ? byIso3.get(hover.iso3) : undefined;
+  const hoveredValue = hover ? valueByIso3.get(hover.iso3) : undefined;
 
   return (
     <div
@@ -254,18 +329,46 @@ export function Globe({
           Could not load country boundaries ({loadError}).
         </div>
       )}
-      {hover && (
+      {hover && hovered && (
         <div
-          className="pointer-events-none absolute z-10 rounded-md border border-border bg-popover/95 px-2.5 py-1.5 text-xs shadow-lg"
-          style={{ left: hover.x + 12, top: hover.y + 12 }}
+          className="pointer-events-none absolute z-10 min-w-40 rounded-md border border-border bg-popover/95 px-2.5 py-2 text-xs shadow-lg"
+          style={{ left: hover.x + 14, top: hover.y + 14 }}
         >
-          <div className="font-medium text-foreground">{hover.country.name}</div>
-          <div className="font-mono text-[10.5px] text-muted-foreground">{hover.country.iso3}</div>
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="font-medium text-foreground">{hovered.name}</span>
+            <span className="font-mono text-[10.5px] text-muted-foreground">{hovered.iso3}</span>
+          </div>
+          {values && <HoverValues v={hoveredValue} />}
         </div>
       )}
       <div className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-muted-foreground/60">
         Boundaries: Natural Earth
       </div>
+    </div>
+  );
+}
+
+function HoverValues({ v }: { v: CountryWindowValue | undefined }) {
+  if (!v) return <div className="mt-1 text-muted-foreground">No report in this window</div>;
+  const rows: [string, string][] = [
+    ["Positivity", formatPct(v.positivity)],
+    ["Detections", formatInt(v.positives)],
+    ["Specimens tested", formatInt(v.specimens_tested)],
+  ];
+  return (
+    <div className="mt-1.5 space-y-0.5">
+      {rows.map(([k, val]) => (
+        <div key={k} className="flex justify-between gap-4">
+          <span className="text-muted-foreground">{k}</span>
+          <span className="metric text-foreground">{val}</span>
+        </div>
+      ))}
+      {(v.specimens_tested ?? 0) < MIN_SPECIMENS && v.positivity != null && (
+        <div className="pt-1 text-[10.5px] text-muted-foreground">Fewer than {MIN_SPECIMENS} specimens: rate unstable</div>
+      )}
+      {v.provisional_weeks > 0 && (
+        <div className="pt-1 text-[10.5px] text-status-warn">Includes provisional weeks</div>
+      )}
     </div>
   );
 }

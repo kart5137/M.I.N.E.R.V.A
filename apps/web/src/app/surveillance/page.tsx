@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { SurveillanceView } from "@/components/surveillance/surveillance-view";
 
 export const metadata: Metadata = { title: "Global Surveillance" };
 
 export default function SurveillancePage() {
-  return <SurveillanceView />;
+  return (
+    <Suspense fallback={null}>
+      <SurveillanceView />
+    </Suspense>
+  );
 }

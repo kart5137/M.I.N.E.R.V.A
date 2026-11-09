@@ -223,14 +223,31 @@ interop; fallback is MapLibre-native `fill-extrusion` layers.
 
 ## 5. API
 
-All under `/api/v1`, JSON, OpenAPI docs at `/docs`. Common query params: `disease`,
-`from`, `to`, `region`, `iso3`, `page`, `page_size`. Responses include a `meta` block with
-`reference_week`, `provisional_from`, `sources`, and `demo: false`.
+All under `/api/v1`, JSON, OpenAPI docs at `/docs`. Common query params: `disease`
+(default `influenza`), `region` (WHO code), `page`, `page_size`. Surveillance responses
+include a `meta` block with `first_week`, `reference_week`, `provisional_from`,
+`latest_week`, `sources` and `demo: false`.
+
+**Windows (M3).** Map and Overview endpoints take `to` (any date, snapped to its ISO-week
+Monday; default = reference week) and `weeks` (1–52). The comparison window is the
+`weeks` immediately before. Time series take `from`/`to`.
+
+**Aggregation rules (M3)**, implemented once in `services/api/app/queries/common.py`:
+- *Detections* = sum of `positives` over all rows in the window.
+- *Positivity* = Σ positives / Σ specimens, pooled over rows whose weekly positivity is
+  valid (tests > 0, positives ≤ tests). Not a mean of country rates; high-testing
+  countries weigh more.
+- A country-week is *reported* when specimens tested > 0. Time series return a complete
+  weekly calendar with `reported: false` for gaps (never zero-filled).
+- *Top movers*: largest absolute positivity change vs. the previous window among
+  countries with ≥ 50 valid specimens in both windows (`movers_min_specimens`).
+- Indicators from later milestones (anomalies, hotspots, threshold exceedances) are
+  returned as `pending` with the milestone that adds them, never as numbers.
 
 | Endpoint | Serves |
 |---|---|
 | `GET /meta/status` | Reference week, provisional weeks, last ingestion/training runs |
-| `GET /diseases` | Diseases + capability flags |
+| `GET /diseases` | Diseases + capability flags (M3) |
 | `GET /countries` | Country list with tier, latest positivity (paginated) |
 | `GET /countries/{iso3}` | Profile: metadata, population, health indicators, tier |
 | `GET /countries/{iso3}/timeseries` | Weekly series (+ provisional flags) |
@@ -425,7 +442,7 @@ Each ends with: what was built, files changed, how to run, how to test.
 | M0 | Spec + data verification | Spec v2, FluNet profiler, dataset docs | ✅ done |
 | M1 ✅ | Foundation | Monorepo skeleton, Postgres+PostGIS running, `ei_db` with core tables (reference + observations) and first migration, FastAPI `/health` + `/meta/status`, Next.js shell with design tokens, sidebar/topbar, **globe spike** rendering Natural Earth countries, CI (lint + tests) | `docker compose up` (or local equivalent) → web shows shell + rotating globe; API tests pass |
 | M2 ✅ | Data ingestion | Natural Earth, World Bank population, FluNet ingestion into DB with code aliases, quality report, revisions, provisional flags, coverage tiers; `ei ingest …` CLI | DB holds ~146k country-weeks; re-running is idempotent; quality report stored |
-| M3 | Surveillance core | API: countries, timeseries, overview, surveillance/global, geo · Web: Overview + Global Surveillance wired to real data (choropleth, columns, time slider, country panel) | Every number on both pages traces to DB rows; filters work end-to-end |
+| M3 ✅ | Surveillance core | API: countries, timeseries, overview, surveillance/global, geo · Web: Overview + Global Surveillance wired to real data (choropleth, columns, time slider, country panel) | Every number on both pages traces to DB rows; filters work end-to-end |
 | M4 | Country + Analytics | Country Intelligence (history, seasons, context) and Analytics pages; health indicators ingestion | Drill-down from globe to country works for all 189 areas, "Not available" where missing |
 | M5 | Forecasting | Feature builder, baselines, RF, XGBoost, rolling-origin backtest, conformal intervals, registry, SHAP; Prediction Center + model detail pages | Backtest report generated; active model beats seasonal-naive or baseline is shown as active |
 | M6 | Detection | Seasonal thresholds, risk, anomalies, Gi\*/Local Moran hotspots; Hotspots & Anomalies page; globe layers | Outputs stored per weekly run; layers toggle on globe |
