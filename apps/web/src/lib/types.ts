@@ -289,3 +289,119 @@ export interface CountryTimeseries {
   window: WindowInfo;
   points: SeriesPoint[];
 }
+
+/* ---------- Forecasting (M5) ---------- */
+
+export interface Metrics {
+  mae: number | null;
+  rmse: number | null;
+  mase: number | null;
+  skill_vs_snaive: number | null;
+  coverage_80: number | null;
+  coverage_95: number | null;
+  n_obs: number | null;
+  n_origins: number | null;
+}
+
+export interface ModelSummary {
+  id: number;
+  model_type: string;
+  label: string;
+  kind: "baseline" | "ml";
+  horizon_weeks: number;
+  is_active: boolean;
+  selection_note: string | null;
+  metrics: Metrics;
+}
+
+export interface ModelRun {
+  meta: ResponseMeta;
+  run_key: string | null;
+  target: string;
+  trained_at: string | null;
+  train_end: string | null;
+  eval_start: string | null;
+  eval_end: string | null;
+  models: ModelSummary[];
+}
+
+export interface ModelDetail {
+  meta: ResponseMeta;
+  id: number;
+  run_key: string;
+  model_type: string;
+  label: string;
+  kind: "baseline" | "ml";
+  target: string;
+  horizon_weeks: number;
+  is_active: boolean;
+  selection_note: string | null;
+  train_start: string | null;
+  train_end: string;
+  trained_at: string;
+  features: string[] | null;
+  hyperparams: Record<string, unknown> | null;
+  git_sha: string | null;
+  artefact_uri: string | null;
+  metrics: Metrics;
+  reference: Metrics;
+  importance: { feature: string; label: string; value: number }[];
+  error_by_origin: { origin_week: string; mae: number; n: number }[];
+  countries: { iso3: string; name: string; metrics: Metrics }[];
+}
+
+export interface ForecastOut {
+  id: number;
+  model_version_id: number;
+  model_type: string;
+  label: string;
+  is_active: boolean;
+  horizon_weeks: number;
+  origin_week: string;
+  target_week: string;
+  point: number;
+  lo80: number | null;
+  hi80: number | null;
+  lo95: number | null;
+  hi95: number | null;
+  has_explanation: boolean;
+}
+
+export interface CountryForecasts {
+  meta: ResponseMeta;
+  iso3: string;
+  run_key: string | null;
+  eligible: boolean;
+  reason: string | null;
+  forecasts: ForecastOut[];
+  country_metrics: Record<string, Metrics>;
+}
+
+export interface Explanation {
+  forecast_id: number;
+  model_type: string;
+  horizon_weeks: number;
+  base_value: number | null;
+  prediction_logit: number;
+  point: number;
+  other_features: number;
+  contributions: { feature: string; label: string; shap_value: number; feature_value: number | null; rank: number }[];
+}
+
+export interface CountryBacktest {
+  meta: ResponseMeta;
+  iso3: string;
+  model_version_id: number;
+  model_type: string;
+  horizon_weeks: number;
+  points: {
+    origin_week: string;
+    target_week: string;
+    point: number;
+    lo80: number | null;
+    hi80: number | null;
+    lo95: number | null;
+    hi95: number | null;
+    actual: number;
+  }[];
+}

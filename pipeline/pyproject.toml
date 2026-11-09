@@ -9,9 +9,13 @@ description = "Epidemic Intelligence data ingestion and ML pipeline"
 requires-python = ">=3.12"
 dependencies = [
     "ei-db",
+    "numpy==2.2.6",  # pandas 2.2.3 predates numpy 2.3+ (timedelta deprecations)
     "pandas==2.2.3",
     "pyarrow==18.1.0",
     "requests==2.32.3",
+    "scikit-learn==1.9.1",
+    "xgboost==3.4.1",
+    "shap==0.54.1",
 ]
 
 [project.optional-dependencies]

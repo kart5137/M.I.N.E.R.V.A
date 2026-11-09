@@ -24,3 +24,27 @@ HEALTH_INDICATORS: tuple[IndicatorSpec, ...] = (
 )
 
 HEALTH_INDICATOR_BY_CODE = {i.code: i for i in HEALTH_INDICATORS}
+
+
+#: Forecasting model types (M5) and their display names.
+MODEL_LABELS = {
+    "seasonal_naive": "Seasonal naive", "last_value": "Last value",
+    "moving_average_4": "4-week moving average", "random_forest": "Random Forest",
+    "xgboost": "XGBoost",
+}
+
+#: Forecasting features (pipeline/src/ei_pipeline/forecasting/features.py) for display.
+FEATURE_LABELS = {
+    "y_lag0": "Positivity this week", "y_lag1": "Positivity 1 week ago",
+    "y_lag2": "Positivity 2 weeks ago", "y_lag3": "Positivity 3 weeks ago",
+    "y_mean4": "4-week mean positivity", "y_std4": "4-week volatility",
+    "y_mean8": "8-week mean positivity", "y_std8": "8-week volatility",
+    "y_diff1": "Change over 1 week", "y_diff2": "Change over 2 weeks",
+    "y_diff4": "Change over 4 weeks", "y_peak52": "Peak in the last 52 weeks",
+    "y_last_year": "Same week last year", "woy_sin": "Time of year (sin)",
+    "woy_cos": "Time of year (cos)", "weeks_into_season": "Weeks into the season",
+    "log_tests_lag0": "Specimens tested (log)", "tests_trend": "Testing trend",
+    "zone_mean_lag0": "Transmission-zone positivity", "season_nh": "Northern season",
+    "season_sh": "Southern season", "season_yr": "Year-round season",
+    "lat": "Latitude", "abs_lat": "Distance from equator",
+}

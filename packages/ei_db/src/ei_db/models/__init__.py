@@ -1,6 +1,13 @@
 """ORM models. M1 covers reference and observation tables; model/output tables arrive
 with their milestones (M5–M7), each with its own migration."""
 
+from ei_db.models.ml import (
+    BacktestPrediction,
+    Forecast,
+    ForecastExplanation,
+    ModelEvaluation,
+    ModelVersion,
+)
 from ei_db.models.observations import (
     CoverageProfile,
     HealthIndicator,
@@ -17,6 +24,11 @@ from ei_db.models.reference import (
 )
 
 __all__ = [
+    "BacktestPrediction",
+    "Forecast",
+    "ForecastExplanation",
+    "ModelEvaluation",
+    "ModelVersion",
     "Country",
     "CountryCodeAlias",
     "CoverageProfile",

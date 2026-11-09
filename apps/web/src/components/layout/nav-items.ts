@@ -23,7 +23,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Global Surveillance", href: "/surveillance", icon: Globe2, plannedFor: null },
   { label: "Countries", href: "/countries", icon: Flag, plannedFor: null },
   { label: "Hotspots & Anomalies", href: "/hotspots", icon: Radar, plannedFor: "M6" },
-  { label: "Prediction Center", href: "/predictions", icon: TrendingUp, plannedFor: "M5" },
+  { label: "Prediction Center", href: "/predictions", icon: TrendingUp, plannedFor: null },
   { label: "Analytics", href: "/analytics", icon: BarChart3, plannedFor: null },
   { label: "Reports & Alerts", href: "/reports", icon: Activity, plannedFor: "M7" },
   { label: "About the Data", href: "/about", icon: BookOpen, plannedFor: "M7" },

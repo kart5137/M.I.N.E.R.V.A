@@ -6,6 +6,7 @@
     ei ingest health [--refresh]     World Bank → health_indicators
     ei ingest flunet [--refresh]     WHO FluNet → surveillance_weekly
     ei ingest all [--refresh]        all of the above, in order
+    ei forecast run [--fast]         backtest, select, train and store forecasts (M5)
 """
 
 from __future__ import annotations
@@ -56,12 +57,23 @@ def main(argv: list[str] | None = None) -> int:
     ingest = sub.add_parser("ingest", help="load source data into the database")
     ingest.add_argument("step", choices=(*STEPS, "all"))
     ingest.add_argument("--refresh", action="store_true", help="re-download source files")
+    forecast = sub.add_parser("forecast", help="backtest, train and store forecasts")
+    forecast.add_argument("step", choices=("run",))
+    forecast.add_argument("--fast", action="store_true",
+                          help="small models for a quick check (not for real use)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     engine = make_engine()
+    if args.command == "forecast":
+        from ei_pipeline.forecasting.run import run_forecast  # heavy imports: only when used
+
+        t0 = time.perf_counter()
+        summary = run_forecast(engine, fast=args.fast)
+        print(f"[forecast] {time.perf_counter() - t0:.1f}s {json.dumps(summary, default=str)}")
+        return 0
     steps = STEPS if args.step == "all" else (args.step,)
     for step in steps:
         t0 = time.perf_counter()

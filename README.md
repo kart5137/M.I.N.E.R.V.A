@@ -59,11 +59,15 @@ cd packages/ei_db
 cd ../..
 .venv\Scripts\ei ingest all
 
-# 4. API → http://localhost:8000/docs
+# 4. Forecasts: backtest, model selection, training, SHAP (~15-20 min; writes
+#    models/ artefacts and docs/models/influenza-positivity.md)
+.venv\Scripts\ei forecast run
+
+# 5. API → http://localhost:8000/docs
 cd services/api
 ..\..\.venv\Scripts\uvicorn app.main:app --reload --port 8000
 
-# 5. Web → http://localhost:3000
+# 6. Web → http://localhost:3000
 cd apps/web
 npm run dev
 ```

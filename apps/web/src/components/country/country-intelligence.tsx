@@ -17,6 +17,7 @@ import { MIN_SPECIMENS } from "@/lib/positivity-scale";
 import type { CountryProfile, HealthValue } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+import { ForecastSummary } from "./forecast-summary";
 import { SeasonChart, SeasonTable } from "./season-chart";
 
 const RANGES = [
@@ -119,7 +120,7 @@ export function CountryIntelligence() {
         </>
       )}
       <div className="grid gap-4 md:grid-cols-3">
-        <Pending title="Forecast" milestone="M5" text="1-, 2- and 4-week positivity forecasts with 80/95% intervals, once models are trained and backtested." />
+        <ForecastSummary iso3={iso3} />
         <Pending title="Anomalies" milestone="M6" text="Weeks above the seasonal baseline (EWMA on a same-week-of-season expectation)." />
         <Pending title="Hotspot status" milestone="M6" text="Getis-Ord Gi* classification relative to neighbouring countries." />
       </div>

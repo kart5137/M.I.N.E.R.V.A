@@ -166,10 +166,11 @@ erDiagram
 
 | Table | Key columns |
 |---|---|
-| `model_versions` | `id` PK, `disease_id`, `model_type` (`seasonal_naive`,`rf`,`xgboost`,…), `target` (`positivity`,`positives`), `version`, `train_start`, `train_end`, `features JSONB`, `hyperparams JSONB`, `artefact_uri`, `git_sha`, `trained_at`, `is_active` |
-| `model_evaluations` | `id` PK, `model_version_id` FK, `horizon_weeks`, `iso3` (NULL = pooled), `metric` (`mae`,`rmse`,`mase`,`skill_vs_snaive`,`coverage_80`,`coverage_95`), `value`, `n_origins`, `eval_start`, `eval_end` |
-| `forecasts` | `id` PK, `model_version_id` FK, `disease_id`, `iso3`, `origin_week`, `target_week`, `horizon_weeks`, `target`, `point`, `lo80`, `hi80`, `lo95`, `hi95`, `created_at` · UNIQUE(`model_version_id`,`iso3`,`origin_week`,`horizon_weeks`,`target`) |
-| `forecast_explanations` | (`forecast_id`,`feature`) PK, `shap_value`, `feature_value` — top-k contributors |
+| `model_versions` | `id` PK, `disease_id`, `run_key` (one training run), `model_type` (`seasonal_naive`,`last_value`,`moving_average_4`,`random_forest`,`xgboost`), `kind` (`baseline`/`ml`), `target`, `horizon_weeks`, `train_start`, `train_end`, `features JSONB`, `hyperparams JSONB`, `global_importance JSONB`, `artefact_uri`, `git_sha`, `trained_at`, `is_active` (one per horizon), `selection_note` · UNIQUE(`run_key`,`model_type`,`target`,`horizon_weeks`) — *M5: one version per model × horizon* |
+| `model_evaluations` | `id` PK, `model_version_id` FK, `iso3` (NULL = pooled), `metric` (`mae`,`rmse`,`mase`,`skill_vs_snaive`,`coverage_80`,`coverage_95`), `value`, `n_obs`, `n_origins`, `eval_start`, `eval_end` |
+| `forecasts` | `id` PK, `model_version_id` FK, `disease_id`, `iso3`, `origin_week`, `target_week`, `horizon_weeks`, `target`, `point`, `lo80`, `hi80`, `lo95`, `hi95`, `explanation_base` (SHAP expected value), `created_at` · UNIQUE(`model_version_id`,`iso3`,`origin_week`) |
+| `forecast_explanations` | (`forecast_id`,`feature`) PK, `shap_value`, `feature_value`, `rank` — top-k contributors |
+| `backtest_predictions` | `id` PK, `model_version_id` FK, `iso3`, `origin_week`, `target_week`, `point`, `lo80`…`hi95`, `actual` — out-of-sample backtest detail, kept for the current run only (M5) |
 | `seasonal_thresholds` | `id` PK, `disease_id`, `iso3`, `season`, `method`, `epidemic_threshold`, `medium`, `high`, `very_high`, `n_seasons_used` |
 | `risk_assessments` | `id` PK, `disease_id`, `iso3`, `assessed_week`, `target_week`, `risk_level` (`low`,`moderate`,`high`), `rule`, `forecast_id` FK, `threshold_id` FK |
 | `anomalies` | `id` PK, `disease_id`, `iso3`, `week_start`, `metric`, `observed`, `expected`, `upper_band`, `score`, `method`, `severity`, `detected_at` |
@@ -262,9 +263,10 @@ Monday; default = reference week) and `weeks` (1–52). The comparison window is
 | `GET /geo/countries` | Simplified country geometries (GeoJSON, cached) |
 | `GET /analytics/trends` | Weekly/monthly/yearly buckets per series (ISO3, `region:<code>`, `world`; max 6): positivity, detections, specimens, A/B mix, change vs previous bucket, `partial` flag (M4) |
 | `GET /analytics/heatmap` | Pooled positivity by ISO week × ISO year for one series (M4) |
-| `GET /forecasts` | Stored forecasts (by country, horizon, model) |
+| `GET /forecasts?iso3=` | Stored forecasts for one country from the current run, all models; reason when none (M5) |
 | `GET /forecasts/{id}/explanation` | SHAP contributors |
-| `GET /models` · `GET /models/{id}` | Model registry + evaluations |
+| `GET /models` · `GET /models/{id}` | Current run with pooled metrics · one version: metrics vs seasonal naive, error by origin, per-country metrics, global importance (M5) |
+| `GET /backtest?iso3=&model_version_id=` | Out-of-sample backtest predictions vs actuals for one country (M5) |
 | `GET /anomalies` · `GET /hotspots` · `GET /risk` | Detection outputs |
 | `GET /alerts` · `GET /reports` · `GET /reports/{id}` | Alerts and reports |
 | `POST /reports/generate` | Build a template report from stored data |
@@ -297,7 +299,7 @@ which only reads stored results (rate-limited).
 | Seasonal memory | positivity at same ISO week last year (±1 week mean), last season's peak |
 | Calendar | ISO week sin/cos, weeks since hemisphere season start |
 | Testing | log specimens tested lag 1, testing trend |
-| Spatial | lagged mean positivity of neighbours (same spatial weights as hotspots) and of transmission zone |
+| Spatial | mean positivity of the other countries in the transmission zone (M5); neighbours via the hotspot spatial weights are added in M6 |
 | Static | hemisphere, transmission zone, latitude of centroid |
 
 - **Models:** seasonal-naive, last-value, 4-week moving average (baselines) → Random
@@ -307,10 +309,23 @@ which only reads stored results (rate-limited).
   window at each origin ends at the origin; no future data, no random splits.
 - **Metrics:** MAE, RMSE, MASE (scaled by in-sample seasonal-naive), skill vs.
   seasonal-naive, interval coverage at 80% and 95%. Reported pooled and per country.
-- **Intervals:** split conformal prediction from backtest residuals, per horizon,
-  scaled by recent volatility.
+- **Intervals:** split conformal prediction from backtest residuals, per model and
+  horizon, normalised by 8-week volatility (floor 0.3 logit). Score =
+  |logit(observed) − logit(forecast)| with observed positivity clipped to [0.1%, 99.9%];
+  a bound that reaches the clip becomes 0% / 100%. *M5 finding:* scoring against the
+  smoothed target left every 0%-positivity week (12% of cases) outside the interval and
+  gave 72% / 84% coverage; the consistent score gives ~79% / 94%. Backtest coverage
+  is sequential (calibrated on earlier origins only); the first 6 origins have none.
+  **Mondrian by testing volume** (4-week mean specimens/week at the origin: < 50,
+  50–200, 200–1000, ≥ 1000; pooled fallback below 30 scores): pooled quantiles let
+  sampling noise from low-volume countries widen every interval (US 1-week 95%: 0–66%);
+  per-group calibration keeps coverage in every group and gives ~2–15% for the US.
+- **Backtest cadence (M5):** ML models are refitted every 8 weeks of origins (expanding
+  window) rather than at every origin, to keep a run under ~15 minutes.
 - **Selection:** per horizon, the active model is the best on backtest MASE **and** must
-  beat seasonal-naive; otherwise the baseline stays active and the UI says so.
+  beat seasonal-naive; otherwise the baseline stays active and the UI says so. The
+  selection note also reports the margin over the strongest baseline (often
+  last-value), which is the more demanding comparison.
 - **Explainability:** SHAP TreeExplainer for RF/XGBoost — global importance per model
   version; top-8 contributors stored per forecast.
 - **Registry:** each training run writes a `model_versions` row, `model_evaluations`
@@ -450,7 +465,7 @@ Each ends with: what was built, files changed, how to run, how to test.
 | M2 ✅ | Data ingestion | Natural Earth, World Bank population, FluNet ingestion into DB with code aliases, quality report, revisions, provisional flags, coverage tiers; `ei ingest …` CLI | DB holds ~146k country-weeks; re-running is idempotent; quality report stored |
 | M3 ✅ | Surveillance core | API: countries, timeseries, overview, surveillance/global, geo · Web: Overview + Global Surveillance wired to real data (choropleth, columns, time slider, country panel) | Every number on both pages traces to DB rows; filters work end-to-end |
 | M4 ✅ | Country + Analytics | Country Intelligence (history, seasons, context) and Analytics pages; health indicators ingestion | Drill-down from globe to country works for all 189 areas, "Not available" where missing |
-| M5 | Forecasting | Feature builder, baselines, RF, XGBoost, rolling-origin backtest, conformal intervals, registry, SHAP; Prediction Center + model detail pages | Backtest report generated; active model beats seasonal-naive or baseline is shown as active |
+| M5 ✅ | Forecasting | Feature builder, baselines, RF, XGBoost, rolling-origin backtest, conformal intervals, registry, SHAP; Prediction Center + model detail pages | Backtest report generated; active model beats seasonal-naive or baseline is shown as active |
 | M6 | Detection | Seasonal thresholds, risk, anomalies, Gi\*/Local Moran hotspots; Hotspots & Anomalies page; globe layers | Outputs stored per weekly run; layers toggle on globe |
 | M7 | Intelligence | Alerts, template reports, Reports & Alerts page, About the Data, model cards | Report regenerates identically from stored inputs |
 | M8 | Hardening + deploy | Test coverage, accessibility/responsive pass, Docker images, weekly GitHub Actions pipeline, deployment (Vercel + Render/Fly + Supabase/Neon) | Public URL with live data; weekly job green |
