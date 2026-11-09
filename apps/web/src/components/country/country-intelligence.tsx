@@ -17,6 +17,9 @@ import { MIN_SPECIMENS } from "@/lib/positivity-scale";
 import type { CountryProfile, HealthValue, ThresholdLevels } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+import { AlertListCard } from "@/components/intelligence/alert-list-card";
+import { GenerateReportForm } from "@/components/intelligence/reports-view";
+
 import { AnomalyTimeline, HotspotCard, RiskCard } from "./detection-cards";
 import { ForecastSummary } from "./forecast-summary";
 import { SeasonChart, SeasonTable } from "./season-chart";
@@ -111,6 +114,12 @@ export function CountryIntelligence() {
         <HotspotCard iso3={iso3} />
       </div>
       {p && p.surveillance.weeks_reported > 0 && <AnomalyTimeline iso3={iso3} />}
+      {p && p.surveillance.weeks_reported > 0 && (
+        <AlertListCard iso3={iso3} limit={5}>
+          <h3 className="mb-2 text-xs font-medium">Country report</h3>
+          <GenerateReportForm fixedIso3={iso3} />
+        </AlertListCard>
+      )}
       {p && (
         <div className="grid gap-4 lg:grid-cols-2">
           <Context p={p} />

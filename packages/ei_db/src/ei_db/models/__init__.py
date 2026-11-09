@@ -8,6 +8,7 @@ from ei_db.models.detection import (
     RiskAssessment,
     SeasonalThreshold,
 )
+from ei_db.models.intelligence import Alert, IntelligenceReport, ReportAlert
 from ei_db.models.ml import (
     BacktestPrediction,
     Forecast,
@@ -31,6 +32,9 @@ from ei_db.models.reference import (
 )
 
 __all__ = [
+    "Alert",
+    "IntelligenceReport",
+    "ReportAlert",
     "Anomaly",
     "DetectionRun",
     "HotspotResult",

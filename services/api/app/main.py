@@ -6,7 +6,16 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
-from app.routers import analytics, countries, detection, geo, meta, models, surveillance
+from app.routers import (
+    analytics,
+    countries,
+    detection,
+    geo,
+    intelligence,
+    meta,
+    models,
+    surveillance,
+)
 
 API_PREFIX = "/api/v1"
 
@@ -38,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(analytics.router, prefix=API_PREFIX)
     app.include_router(models.router, prefix=API_PREFIX)
     app.include_router(detection.router, prefix=API_PREFIX)
+    app.include_router(intelligence.router, prefix=API_PREFIX)
     return app
 
 

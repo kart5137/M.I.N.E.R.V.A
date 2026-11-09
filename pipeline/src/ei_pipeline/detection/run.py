@@ -1,8 +1,11 @@
 """`ei detect run`: thresholds → risk → anomalies → hotspots, stored per run.
 
-Outputs are fully recomputable, so each run replaces the previous outputs for the
-disease in one transaction and records a `detection_runs` row (settings + counts).
-Run after `ei forecast run` so risk uses the latest active forecasts.
+Outputs are fully recomputable, so each run replaces the previous thresholds, anomalies
+and hotspots for the disease in one transaction and records a `detection_runs` row
+(settings + counts). Risk rows are kept across runs (one per country and assessed week;
+a rerun replaces the same week) because their history drives the risk-escalation alert.
+Alerts (M7) are then derived from the stored outputs. Run after `ei forecast run` so risk
+uses the latest active forecasts.
 """
 
 from __future__ import annotations
@@ -31,6 +34,7 @@ from ei_pipeline.detection.risk import assess, load_forecasts
 from ei_pipeline.detection.thresholds import compute_thresholds
 from ei_pipeline.detection.weights import load_geography
 from ei_pipeline.forecasting.run import _git_sha
+from ei_pipeline.intelligence.alerts import generate_alerts
 
 log = logging.getLogger(__name__)
 CHUNK = 5000
@@ -85,8 +89,13 @@ def run_detection(engine: Engine) -> dict:
             disease_id=data.disease_id, run_key=run_key, reference_week=data.reference_week,
             latest_week=data.latest_week, git_sha=_git_sha(),
         )).scalar_one()
-        for model in (RiskAssessment, Anomaly, HotspotResult, SeasonalThreshold):
+        for model in (Anomaly, HotspotResult, SeasonalThreshold):
             s.execute(delete(model).where(model.disease_id == data.disease_id))
+        assessed = {r.assessed_week for r in risk}
+        if assessed:
+            s.execute(delete(RiskAssessment).where(
+                RiskAssessment.disease_id == data.disease_id,
+                RiskAssessment.assessed_week.in_(assessed)))
 
         base = {"run_id": run_id, "disease_id": data.disease_id}
         th_ids = {}
@@ -123,6 +132,12 @@ def run_detection(engine: Engine) -> dict:
                          "windows": len({h.window_end for h in hotspots})},
             "seconds": {k: round(v, 1) for k, v in timings.items()},
         }
+
+    # Alerts read the committed outputs (and the full risk history).
+    t = time.perf_counter()
+    summary["alerts"] = generate_alerts(engine, data.disease_id, run_id)
+    summary["seconds"]["alerts"] = round(time.perf_counter() - t, 1)
+    with session_scope(engine) as s:
         s.execute(update(DetectionRun).where(DetectionRun.id == run_id)
                   .values(finished_at=datetime.now(UTC), summary=summary))
 
@@ -130,4 +145,5 @@ def run_detection(engine: Engine) -> dict:
             "thresholds": summary["thresholds"]["rows"],
             "thresholds_current_usable": summary["thresholds"]["countries_current_usable"],
             "risk": summary["risk"], "anomalies": summary["anomalies"],
-            "hotspots": summary["hotspots"], "seconds": summary["seconds"]}
+            "hotspots": summary["hotspots"], "alerts": summary["alerts"],
+            "seconds": summary["seconds"]}

@@ -10,6 +10,7 @@ import { Provenance } from "@/components/common/provenance";
 import { WeeklyChart, type WeeklyPoint } from "@/components/charts/weekly-chart";
 import { Globe } from "@/components/globe";
 import { PageHeader } from "@/components/layout/page-header";
+import { AlertListCard } from "@/components/intelligence/alert-list-card";
 import { PlatformStatusPanel } from "@/components/overview/platform-status-panel";
 import { PositivityLegend } from "@/components/surveillance/positivity-legend";
 import { usePlatformStatus } from "@/hooks/use-platform-status";
@@ -68,7 +69,10 @@ export function OverviewDashboard() {
         <OverviewGlobe filters={filters} />
         <TopMovers data={data} />
       </div>
-      <TrendCard data={data} />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <TrendCard data={data} />
+        <AlertListCard region={filters.region} to={data?.window.end ?? null} limit={5} />
+      </div>
       {data && <Provenance meta={data.meta} />}
     </Page>
   );

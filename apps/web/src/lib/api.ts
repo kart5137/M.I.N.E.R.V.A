@@ -38,3 +38,11 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return response.json() as Promise<T>;
 }
+
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  return apiGet<T>(path, {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+  });
+}

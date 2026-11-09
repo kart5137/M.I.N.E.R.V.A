@@ -6,7 +6,7 @@ dashboard, built on public WHO FluNet data.
 > Analytical and educational tool. Not a diagnostic tool and not a substitute for
 > official public-health guidance.
 
-**Status:** M6 (detection: MEM thresholds, risk, anomalies, Gi*/Local Moran hotspots, Hotspots & Anomalies page, globe layers) complete; next is M7 (alerts, reports, About the Data). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
+**Status:** M7 (rule-based alerts, reproducible template reports, Reports & Alerts, About the Data) complete; next is M8 (hardening, Docker images, weekly pipeline, deployment). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
 
 | Doc | |
 |---|---|
@@ -63,7 +63,9 @@ cd ../..
 #    models/ artefacts and docs/models/influenza-positivity.md)
 .venv\Scripts\ei forecast run
 
-# 4b. Detection: MEM thresholds, risk, anomalies, hotspots (~1 min; run after 4)
+# 4b. Detection + alerts: MEM thresholds, risk, anomalies, hotspots, alerts
+#     (~1 min; run after 4). Reports are generated on demand in the web app
+#     (Reports & Alerts) or with POST /api/v1/reports/generate.
 .venv\Scripts\ei detect run
 
 # 5. API → http://localhost:8000/docs

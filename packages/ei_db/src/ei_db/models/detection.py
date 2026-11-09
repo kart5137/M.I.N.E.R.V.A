@@ -82,7 +82,10 @@ class SeasonalThreshold(Base):
 
 class RiskAssessment(Base):
     """Risk level of a 2-week-ahead forecast against the season's MEM thresholds.
-    Forecast values are copied in so the row stays meaningful after a forecast rerun."""
+    Forecast values and the thresholds used are copied in, so the row stays meaningful
+    after forecast or detection reruns. Unlike the other outputs, risk rows are kept
+    across runs (one per country and assessed week): the history drives the
+    risk-escalation alert (M7)."""
 
     __tablename__ = "risk_assessments"
     __table_args__ = (UniqueConstraint("disease_id", "iso3", "assessed_week"),)
@@ -104,9 +107,12 @@ class RiskAssessment(Base):
     forecast_id: Mapped[int | None] = mapped_column(
         ForeignKey("forecasts.id", ondelete="SET NULL")
     )
-    threshold_id: Mapped[int] = mapped_column(
-        ForeignKey("seasonal_thresholds.id", ondelete="CASCADE"), nullable=False
+    threshold_id: Mapped[int | None] = mapped_column(
+        ForeignKey("seasonal_thresholds.id", ondelete="SET NULL")
     )
+    season: Mapped[str | None] = mapped_column(String(8))
+    epidemic_threshold: Mapped[float | None] = mapped_column(Double)
+    high_threshold: Mapped[float | None] = mapped_column(Double)
 
 
 class Anomaly(Base):

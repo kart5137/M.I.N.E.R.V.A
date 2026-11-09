@@ -211,7 +211,9 @@ def test_end_to_end_detection_run(db, monkeypatch):
     monkeypatch.setattr(cfg, "HOTSPOTS_FROM", date(2025, 2, 3))
     _seed(db)
     summary = run_mod.run_detection(db)
-    q = lambda sql: db.connect().execute(text(sql)).scalar()  # noqa: E731
+    def q(sql):
+        with db.connect() as c:
+            return c.execute(text(sql)).scalar()
     assert q("SELECT count(*) FROM detection_runs WHERE finished_at IS NOT NULL") == 1
     assert summary["thresholds_current_usable"] == 12
     # 4-neighbour grid: queen contiguity only, so no kNN fallback; Gi* + Moran per window.

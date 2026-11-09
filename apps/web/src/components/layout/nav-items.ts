@@ -25,6 +25,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Hotspots & Anomalies", href: "/hotspots", icon: Radar, plannedFor: null },
   { label: "Prediction Center", href: "/predictions", icon: TrendingUp, plannedFor: null },
   { label: "Analytics", href: "/analytics", icon: BarChart3, plannedFor: null },
-  { label: "Reports & Alerts", href: "/reports", icon: Activity, plannedFor: "M7" },
-  { label: "About the Data", href: "/about", icon: BookOpen, plannedFor: "M7" },
+  { label: "Reports & Alerts", href: "/reports", icon: Activity, plannedFor: null },
+  { label: "About the Data", href: "/about", icon: BookOpen, plannedFor: null },
 ];

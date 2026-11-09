@@ -97,7 +97,13 @@ export function WeeklyChart({
           fontSize: 10,
           hideOverlap: true,
           formatter: (v: string) =>
-            new Date(`${v}T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", year: "2-digit", timeZone: "UTC" }),
+            new Date(`${v}T00:00:00Z`).toLocaleDateString(
+              "en-GB",
+              // Short series: day + month, otherwise month labels repeat.
+              points.length <= 30
+                ? { day: "numeric", month: "short", timeZone: "UTC" }
+                : { month: "short", year: "2-digit", timeZone: "UTC" },
+            ),
         },
       },
       yAxis: {

@@ -30,6 +30,9 @@ class RiskRow:
     forecast_hi80: float | None
     model_type: str
     forecast_id: int
+    season: str
+    epidemic_threshold: float
+    high_threshold: float
     season_start: date
 
 
@@ -70,6 +73,8 @@ def assess(forecasts: pd.DataFrame, thresholds: dict[tuple[str, date], object],
             risk_level=level, rule=rule, forecast_point=float(f.point),
             forecast_lo80=None if pd.isna(f.lo80) else float(f.lo80),
             forecast_hi80=None if pd.isna(f.hi80) else float(f.hi80),
-            model_type=f.model_type, forecast_id=int(f.id), season_start=start,
+            model_type=f.model_type, forecast_id=int(f.id), season=t.season,
+            epidemic_threshold=t.epidemic_threshold, high_threshold=t.high,
+            season_start=start,
         ))
     return out

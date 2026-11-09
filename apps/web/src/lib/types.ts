@@ -585,3 +585,134 @@ export interface GlobalForecasts {
   model_label: string | null;
   items: GlobalForecastItem[];
 }
+
+/* ---------- Alerts, reports, about (M7) ---------- */
+
+export type AlertType = "new_anomaly" | "new_hotspot" | "risk_escalation" | "sustained_growth";
+export type AlertSeverity = "low" | "medium" | "high";
+
+export interface AlertItem {
+  id: number;
+  iso3: string;
+  name: string;
+  who_region: string | null;
+  alert_type: AlertType;
+  severity: AlertSeverity;
+  week_start: string;
+  title: string;
+  details: Record<string, unknown>;
+  status: "active" | "retracted";
+  created_at: string;
+  retracted_at: string | null;
+}
+
+export interface AlertList {
+  meta: ResponseMeta;
+  rules: Record<AlertType, string>;
+  total: number;
+  page: number;
+  page_size: number;
+  by_type: Partial<Record<AlertType, number>>;
+  by_severity: Partial<Record<AlertSeverity, number>>;
+  items: AlertItem[];
+}
+
+export interface ReportSummary {
+  id: number;
+  title: string;
+  scope: "global" | "country";
+  iso3: string | null;
+  region: string | null;
+  period_start: string;
+  period_end: string;
+  weeks: number;
+  generator: string;
+  template_version: string;
+  inputs_sha256: string;
+  created_at: string;
+  alerts: number;
+}
+
+export interface ReportList {
+  total: number;
+  page: number;
+  page_size: number;
+  items: ReportSummary[];
+}
+
+export interface ReportContentWeek {
+  week_start: string;
+  positivity: number | null;
+  positives: number | null;
+  specimens_tested: number | null;
+  provisional: boolean;
+}
+
+export interface ReportDetail extends ReportSummary {
+  content: {
+    period: { start: string; end: string; previous_start: string; previous_end: string; weeks: number; includes_provisional: boolean };
+    weekly: ReportContentWeek[];
+    [key: string]: unknown;
+  };
+  rendered_md: string;
+}
+
+export interface GenerateReportRequest {
+  scope: "global" | "country";
+  iso3?: string | null;
+  region?: string | null;
+  to?: string | null;
+  weeks: number;
+}
+
+export interface GenerateReportResponse {
+  report: ReportDetail;
+  reused: boolean;
+}
+
+export interface Verification {
+  report_id: number;
+  stored_sha256: string;
+  current_sha256: string;
+  inputs_identical: boolean;
+  rendering_identical: boolean;
+  regenerated_identical: boolean;
+  changed_sections: string[];
+}
+
+export interface About {
+  meta: ResponseMeta;
+  sources: {
+    key: string;
+    name: string;
+    url: string | null;
+    licence: string | null;
+    attribution: string | null;
+    notes: string | null;
+    last_ingestion: string | null;
+    last_status: string | null;
+    stored_rows: number;
+  }[];
+  coverage_reference_week: string | null;
+  tiers: { tier: string; countries: number; rule: string }[];
+  forecast_run: {
+    run_key: string;
+    trained_at: string | null;
+    train_end: string | null;
+    eval_start: string | null;
+    eval_end: string | null;
+    models: { id: number; model_type: string; label: string; horizon_weeks: number; selection_note: string | null; metrics: Metrics }[];
+  } | null;
+  detection_run: {
+    run_key: string;
+    finished_at: string | null;
+    reference_week: string;
+    settings: Record<string, unknown>;
+    risk: Record<string, number> | null;
+    alerts: { active: number; by_type: Record<string, number>; retracted_now: number } | null;
+    anomalies: Record<string, number> | null;
+    hotspots: { rows: number; windows: number } | null;
+    thresholds_current_usable: number | null;
+  } | null;
+  limitations: string[];
+}

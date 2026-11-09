@@ -7,7 +7,7 @@
     ei ingest flunet [--refresh]     WHO FluNet → surveillance_weekly
     ei ingest all [--refresh]        all of the above, in order
     ei forecast run [--fast]         backtest, select, train and store forecasts (M5)
-    ei detect run                    thresholds, risk, anomalies, hotspots (M6)
+    ei detect run                    thresholds, risk, anomalies, hotspots (M6), alerts (M7)
 """
 
 from __future__ import annotations

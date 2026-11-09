@@ -176,8 +176,8 @@ erDiagram
 | `risk_assessments` | `id` PK, `run_id`, `disease_id`, `iso3`, `assessed_week`, `target_week`, `risk_level` (`low`,`moderate`,`high`), `rule`, `forecast_point`, `forecast_lo80`, `forecast_hi80`, `model_type` (copied so the row survives a forecast rerun), `forecast_id` FK (SET NULL), `threshold_id` FK |
 | `anomalies` | `id` PK, `run_id`, `disease_id`, `iso3`, `week_start`, `metric`, `method` (`seasonal_ewma`/`isolation_forest`), `observed`, `expected`, `upper_band`, `score`, `ewma`, `ewma_limit`, `specimens_tested`, `severity`, `is_provisional`, `detected_at` |
 | `hotspot_results` | `id` PK, `run_id`, `disease_id`, `iso3`, `window_end`, `window_weeks`, `statistic` (`gi_star`,`local_moran`), `value`, `stat_value`, `z_score`, `p_value`, `p_fdr`, `classification`, `n_neighbours`, `neighbour_source` (`queen`/`knn`), `weights_spec` |
-| `alerts` | `id` PK, `disease_id`, `iso3`, `alert_type`, `severity`, `week_start`, `title`, `details JSONB`, `anomaly_id`/`hotspot_id`/`risk_id` FKs (nullable), `created_at` |
-| `intelligence_reports` | `id` PK, `disease_id`, `iso3` (nullable = global), `period_start`, `period_end`, `content JSONB` (structured facts), `rendered_md`, `generator` (`template`/`llm`), `inputs_sha256`, `created_at` |
+| `alerts` | `id` PK, `disease_id`, `iso3`, `alert_type`, `severity` (`low`/`medium`/`high`), `week_start`, `title`, `details JSONB`, `status` (`active`/`retracted`), `anomaly_id`/`hotspot_id`/`risk_id` FKs (SET NULL), `first_run_id`, `last_run_id`, `created_at`, `updated_at`, `retracted_at` · UNIQUE(`disease_id`,`iso3`,`alert_type`,`week_start`) — *M7: upserted each run; never deleted* |
+| `intelligence_reports` | `id` PK, `disease_id`, `scope` (`global`/`country`), `iso3`, `region`, `period_start`, `period_end`, `weeks`, `title`, `content JSONB` (canonical facts), `rendered_md`, `generator` (`template`), `template_version`, `inputs_sha256`, `created_at` |
 | `report_alerts` | (`report_id`,`alert_id`) PK |
 
 Migrations: Alembic in `packages/ei_db/migrations/`, one revision per milestone.
@@ -274,8 +274,11 @@ Monday; default = reference week) and `weeks` (1–52). The comparison window is
 | `GET /risk?region` | Risk per country + not-assessed countries with reasons (M6) |
 | `GET /countries/{iso3}/detection` | Thresholds, risk, last-52-week anomalies, hotspot status (M6) |
 | `GET /forecasts/global?horizon` | Active model's latest forecasts for every country (forecast-change layer, M6) |
-| `GET /alerts` · `GET /reports` · `GET /reports/{id}` | Alerts and reports |
-| `POST /reports/generate` | Build a template report from stored data |
+| `GET /alerts?region&iso3&type&severity&status&from&to` | Alerts with facet counts and rule texts (M7) |
+| `GET /reports` · `GET /reports/{id}` | Stored reports (M7) |
+| `POST /reports/generate` | Build a template report from stored data; reuses an identical one (M7) |
+| `GET /reports/{id}/verify` | Regenerate and compare hash and Markdown (M7) |
+| `GET /about` | Sources with licences and stored rows, coverage tiers, current forecast and detection runs, limitations (M7) |
 
 No auth in MVP: everything is read-only public data except `POST /reports/generate`,
 which only reads stored results (rate-limited).
@@ -404,6 +407,30 @@ Rules generate alerts from stored outputs (new anomaly, new hotspot, risk escala
 sustained growth > documented rate). Reports are deterministic templates over stored
 facts; each report stores its input hash so it can be reproduced.
 
+*M7 implementation* (`pipeline/src/ei_pipeline/intelligence/alerts.py`, run at the end of
+`ei detect run`; alerts from 2025-01-06):
+- **new_anomaly**: first week of a seasonal-EWMA anomaly episode; severity moderate/high/
+  severe → low/medium/high.
+- **new_hotspot**: enters a Gi* hot spot (FDR < 0.05) this week, not last week; medium.
+- **risk_escalation**: risk moderate or high, first assessment or up from the previous one.
+  Risk rows are therefore kept across runs (one per country and assessed week; thresholds
+  copied in) — the only detection output with history.
+- **sustained_growth**: positivity up 3 consecutive weeks, ≥ 5 pp in total, ≥ 50 specimens
+  each week; medium when ≥ 10 pp.
+- Alerts are upserted on (country, type, week); an alert a rerun no longer produces is
+  marked `retracted`, never deleted, so report links stay valid. First run: 630 active
+  alerts (339 anomaly, 252 growth, 37 hotspot, 2 risk).
+
+Reports (`services/api/app/reports/`): `facts.gather()` collects summary, weekly values,
+movers, forecasts, MEM levels, risk, anomalies, clusters and alerts for a scope (global,
+WHO region or country) and period, in canonical JSON (floats to 6 decimals, fixed order,
+no timestamps); `render.render_markdown()` is a pure function of those facts (fixed month
+names, no locale). `inputs_sha256` = SHA-256 of the canonical facts. Generating with
+identical inputs reuses the existing report. `GET /reports/{id}/verify` checks that the
+stored facts re-render to the stored Markdown and that gathering again gives the same hash
+and Markdown; when data has changed since (new ingestion, forecast or detection run) it
+lists the changed sections. `POST /reports/generate` is rate-limited (10/min per client).
+
 ---
 
 ## 7. Data flow
@@ -507,7 +534,7 @@ Each ends with: what was built, files changed, how to run, how to test.
 | M4 ✅ | Country + Analytics | Country Intelligence (history, seasons, context) and Analytics pages; health indicators ingestion | Drill-down from globe to country works for all 189 areas, "Not available" where missing |
 | M5 ✅ | Forecasting | Feature builder, baselines, RF, XGBoost, rolling-origin backtest, conformal intervals, registry, SHAP; Prediction Center + model detail pages | Backtest report generated; active model beats seasonal-naive or baseline is shown as active |
 | M6 ✅ | Detection | Seasonal thresholds, risk, anomalies, Gi\*/Local Moran hotspots; Hotspots & Anomalies page; globe layers | Outputs stored per weekly run; layers toggle on globe |
-| M7 | Intelligence | Alerts, template reports, Reports & Alerts page, About the Data, model cards | Report regenerates identically from stored inputs |
+| M7 ✅ | Intelligence | Alerts, template reports, Reports & Alerts page, About the Data, model cards | Report regenerates identically from stored inputs |
 | M8 | Hardening + deploy | Test coverage, accessibility/responsive pass, Docker images, weekly GitHub Actions pipeline, deployment (Vercel + Render/Fly + Supabase/Neon) | Public URL with live data; weekly job green |
 | Post-MVP | Expansion | Dengue + Open-Meteo weather, positives target, LSTM evaluation, optional LLM summaries, auth | — |
 
