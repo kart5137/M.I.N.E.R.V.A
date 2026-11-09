@@ -22,6 +22,10 @@ from app.schemas.common import ResponseMeta, SourceRef, WindowInfo
 
 WEEK = timedelta(weeks=1)
 WHO_REGIONS = ("AFR", "AMR", "EMR", "EUR", "SEAR", "WPR")
+#: Below this many specimens a weekly or window positivity is too noisy to rank or peak on.
+MIN_SPECIMENS_FOR_RATE = 10
+#: COVID-19 disruption of influenza circulation and testing (DESIGN.md §2).
+COVID_START, COVID_END = date(2020, 3, 1), date(2022, 6, 30)
 
 
 @dataclass(frozen=True)

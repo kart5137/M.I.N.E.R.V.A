@@ -89,3 +89,44 @@ def test_boundaries_merge_features_and_alias_kosovo(db, tmp_path):
     assert _q(db, "SELECT ST_NumGeometries(geom) FROM countries WHERE iso3 = 'AUS'") == 2
     assert _q(db, "SELECT iso3 FROM country_code_aliases WHERE alias = 'KOS'") == "XKX"
     assert ingest_boundaries(db, path=path)["unchanged"] == 2
+
+
+def _wb(path, code, rows):
+    meta = {"page": 1, "pages": 1, "lastupdated": "2026-10-08"}
+    data = [{"indicator": {"id": code}, "countryiso3code": iso, "date": str(y), "value": v}
+            for iso, y, v in rows]
+    path.write_text(json.dumps([meta, data]), encoding="utf-8")
+
+
+def test_flunet_season_type_is_stored(db, tmp_path):
+    _seed(db)
+    path = tmp_path / "flunet.csv"
+    make_raw(weeks=5, countries=("ARG",)).to_csv(path, index=False)
+    ingest_flunet(db, path=path, today=TODAY)
+    assert _q(db, "SELECT flu_season FROM countries WHERE iso3 = 'ARG'") == "SH"
+
+
+def test_health_indicators_keep_known_countries_and_are_idempotent(db, tmp_path):
+    from ei_db.catalog import HEALTH_INDICATORS
+    from ei_pipeline.ingest.health import ingest_health
+
+    _seed(db)
+    path = tmp_path / "flunet.csv"
+    make_raw(weeks=3, countries=("ARG",)).to_csv(path, index=False)
+    ingest_flunet(db, path=path, today=TODAY)  # creates country ARG
+
+    for spec in HEALTH_INDICATORS:
+        _wb(tmp_path / f"{spec.code}.json", spec.code, [
+            ("ARG", 2022, 3.1), ("ARG", 2009, 9.9),   # 2009: before the window, dropped
+            ("ARG", 2023, None),                       # missing value: not stored
+            ("WLD", 2022, 2.0),                        # aggregate: not a country
+        ])
+    first = ingest_health(db, raw_dir=tmp_path)
+    assert first["inserted"] == len(HEALTH_INDICATORS)
+    assert _q(db, "SELECT count(*) FROM health_indicators WHERE iso3 <> 'ARG'") == 0
+    assert _q(db, "SELECT min(year) FROM health_indicators") == 2022
+    beds = _q(db, "SELECT unit FROM health_indicators WHERE indicator_code = 'SH.MED.BEDS.ZS'")
+    assert beds == "per 1,000 people"
+
+    second = ingest_health(db, raw_dir=tmp_path)
+    assert (second["inserted"], second["updated"]) == (0, 0)

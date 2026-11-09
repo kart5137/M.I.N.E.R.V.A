@@ -8,10 +8,14 @@ Weeks W0..W7 start on Mondays from 2024-01-01; W7 is provisional.
 | BBB     | EUR    | yes      | tests 50, positives 5; W3 has 60 positives (> tests)     |
 | CCC     | AFR    | no       | tests 20, positives 2; W5 tests 0; W6 positives 4 with no |
 |         |        |          | test count; no row for W7                                |
+
+Season types: AAA NH, BBB SH, CCC YR. AAA rows carry an A/B breakdown (A = 6·(w+1),
+B = 4·(w+1)). Health: AAA hospital beds 2.5 (2020) and 3.0 (2022); nothing else.
 """
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import date, timedelta
 from pathlib import Path
@@ -54,12 +58,15 @@ def _seed(conn) -> None:
           VALUES (1, 'influenza', 'Influenza', 'weekly', 'positivity', 'Test positivity'),
                  (2, 'dengue', 'Dengue', 'weekly', 'cases', 'Cases');
         INSERT INTO ingestion_runs (id, source_id, status) VALUES (1, 1, 'success');
-        INSERT INTO countries (iso3, iso2, name, who_region, geom) VALUES
-          ('AAA', 'AA', 'Alpha', 'EUR',
+        INSERT INTO countries (iso3, iso2, name, who_region, flu_season, geom) VALUES
+          ('AAA', 'AA', 'Alpha', 'EUR', 'NH',
            ST_Multi(ST_GeomFromText('POLYGON((0 0,1 0,1 1,0 1,0 0))', 4326))),
-          ('BBB', 'BB', 'Bravo', 'EUR',
+          ('BBB', 'BB', 'Bravo', 'EUR', 'SH',
            ST_Multi(ST_GeomFromText('POLYGON((1 0,2 0,2 1,1 1,1 0))', 4326))),
-          ('CCC', NULL, 'Charlie', 'AFR', NULL);
+          ('CCC', NULL, 'Charlie', 'AFR', 'YR', NULL);
+        INSERT INTO health_indicators (iso3, indicator_code, year, value, unit, source_id)
+          VALUES ('AAA', 'SH.MED.BEDS.ZS', 2020, 2.5, 'per 1,000 people', 2),
+                 ('AAA', 'SH.MED.BEDS.ZS', 2022, 3.0, 'per 1,000 people', 2);
         INSERT INTO population_annual (iso3, year, population, source_id)
           VALUES ('AAA', 2022, 900, 2), ('AAA', 2023, 1000, 2);
         INSERT INTO coverage_profiles
@@ -69,13 +76,17 @@ def _seed(conn) -> None:
     for iso3, wk, tests, pos, prov in _rows():
         valid = tests is not None and tests > 0 and pos is not None and pos <= tests
         y, n, _ = wk.isocalendar()
+        k = W.index(wk) + 1
+        breakdown = json.dumps({"inf_a": 6.0 * k, "inf_b": 4.0 * k}) if iso3 == "AAA" else None
         conn.execute(text("""
             INSERT INTO surveillance_weekly (disease_id, iso3, week_start, iso_year, iso_week,
-              specimens_tested, positives, positivity, is_provisional, source_id,
+              specimens_tested, positives, positivity, breakdown, is_provisional, source_id,
               ingestion_run_id)
-            VALUES (1, :iso3, :wk, :y, :n, :tests, :pos, :positivity, :prov, 1, 1)
+            VALUES (1, :iso3, :wk, :y, :n, :tests, :pos, :positivity, CAST(:bd AS jsonb),
+                    :prov, 1, 1)
         """), {"iso3": iso3, "wk": wk, "y": y, "n": n, "tests": tests, "pos": pos,
-               "positivity": pos / tests if valid else None, "prov": prov})
+               "positivity": pos / tests if valid else None, "bd": breakdown,
+               "prov": prov})
 
 
 @pytest.fixture(scope="session")

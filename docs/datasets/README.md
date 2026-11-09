@@ -7,7 +7,7 @@ licence, limits). Status as of 2026-11-09.
 |---|---|---|---|
 | WHO FluNet | Influenza (MVP) | **Ingested** — `surveillance_weekly`, 146,533 country-weeks | [flunet.md](flunet.md), [profile](flunet_profile.md) |
 | Natural Earth 1:50m | Country boundaries | **Ingested** — `countries`, 240 areas with geometry | [natural_earth.md](natural_earth.md) |
-| World Bank WDI | Population | **Ingested** — `population_annual`, 1995–2025 | [worldbank.md](worldbank.md) |
+| World Bank WDI | Population; health-system context | **Ingested** — `population_annual` 1995–2025; `health_indicators` (5 indicators, 2010+) | [worldbank.md](worldbank.md) |
 | OpenDengue | Dengue (2nd) | Partly verified — repo active, release V1.3.1; **data licence not stated in repo** | — |
 | WHO COVID-19 | COVID-19 (3rd) | Partly verified — daily until 25 Aug 2023, weekly after | — |
 | Open-Meteo | Weather features | Partly verified — CC BY 4.0 data, free non-commercial tier (<10k calls/day); **historical-API plan requirement unconfirmed** | — |
@@ -15,7 +15,7 @@ licence, limits). Status as of 2026-11-09.
 ## Loading
 
 ```powershell
-.venv\Scripts\ei ingest all            # reference → boundaries → population → flunet
+.venv\Scripts\ei ingest all            # reference → boundaries → population → health → flunet
 .venv\Scripts\ei ingest flunet --refresh   # re-download and re-load one source
 ```
 

@@ -1,11 +1,13 @@
 "use client";
 
-import { BarChart, LineChart } from "echarts/charts";
+import { BarChart, HeatmapChart, LineChart } from "echarts/charts";
 import {
   GridComponent,
+  LegendComponent,
   MarkAreaComponent,
   MarkLineComponent,
   TooltipComponent,
+  VisualMapComponent,
 } from "echarts/components";
 import * as echarts from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
@@ -16,7 +18,10 @@ import { cn } from "@/lib/utils";
 echarts.use([
   LineChart,
   BarChart,
+  HeatmapChart,
   GridComponent,
+  LegendComponent,
+  VisualMapComponent,
   TooltipComponent,
   MarkAreaComponent,
   MarkLineComponent,
@@ -33,6 +38,9 @@ export const CHART = {
   axis: "#2b3a5a",
   series: "#3987e5",
   provisional: "rgba(131,145,167,0.10)",
+  /** Categorical series slots (validated, dark surface). Assign by entity, never by rank. */
+  categorical: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#9085e9"],
+  muted2: "#4a5568",
   selection: "rgba(34,211,238,0.08)",
   tooltip: {
     backgroundColor: "#0f1729",

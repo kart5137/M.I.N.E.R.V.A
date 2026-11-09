@@ -20,6 +20,8 @@ class Country(TimestampMixin, Base):
     who_region: Mapped[str | None] = mapped_column(String(8))
     hemisphere: Mapped[str | None] = mapped_column(String(4))
     transmission_zone: Mapped[str | None] = mapped_column(String(32))
+    # FluNet season type: NH (season W40–W39), SH or YR (year-round; calendar year).
+    flu_season: Mapped[str | None] = mapped_column(String(2))
     continent: Mapped[str | None] = mapped_column(String(32))
     # NULL for reporting areas without a boundary in the boundary dataset.
     geom: Mapped[Any | None] = mapped_column(

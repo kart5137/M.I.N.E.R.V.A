@@ -49,6 +49,7 @@ _COUNTRY_WINDOW = text(f"""
     JOIN countries c ON c.iso3 = s.iso3
     LEFT JOIN latest_profile lp ON lp.iso3 = s.iso3
     WHERE s.disease_id = :d AND s.week_start BETWEEN :start AND :end AND {_REGION}
+      AND (CAST(:iso3 AS text) IS NULL OR s.iso3 = :iso3)
     GROUP BY c.iso3, c.name, c.who_region, c.geom IS NOT NULL, lp.tier
     HAVING count(*) FILTER (WHERE s.specimens_tested > 0) > 0 OR sum(s.positives) IS NOT NULL
     ORDER BY c.iso3
@@ -56,9 +57,10 @@ _COUNTRY_WINDOW = text(f"""
 
 
 def country_window(session: Session, ctx: DiseaseContext, w: Window,
-                   region: str | None) -> list[CountryWindowValue]:
+                   region: str | None, iso3: str | None = None) -> list[CountryWindowValue]:
     rows = session.execute(
-        _COUNTRY_WINDOW, {"d": ctx.id, "start": w.start, "end": w.end, "region": region}
+        _COUNTRY_WINDOW,
+        {"d": ctx.id, "start": w.start, "end": w.end, "region": region, "iso3": iso3},
     ).mappings()
     return [CountryWindowValue(**r) for r in rows]
 

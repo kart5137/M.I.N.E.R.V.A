@@ -89,14 +89,17 @@ WHERE t.disease_id = :disease_id
 
 ENSURE_COUNTRIES = """
 WITH upserted AS (
-    INSERT INTO countries (iso3, name, who_region, hemisphere, transmission_zone)
-    VALUES (:iso3, :name, :who_region, :hemisphere, :transmission_zone)
+    INSERT INTO countries (iso3, name, who_region, hemisphere, transmission_zone, flu_season)
+    VALUES (:iso3, :name, :who_region, :hemisphere, :transmission_zone, :flu_season)
     ON CONFLICT (iso3) DO UPDATE SET
         who_region = EXCLUDED.who_region, hemisphere = EXCLUDED.hemisphere,
-        transmission_zone = EXCLUDED.transmission_zone, updated_at = now()
-    WHERE (countries.who_region, countries.hemisphere, countries.transmission_zone)
+        transmission_zone = EXCLUDED.transmission_zone, flu_season = EXCLUDED.flu_season,
+        updated_at = now()
+    WHERE (countries.who_region, countries.hemisphere, countries.transmission_zone,
+           countries.flu_season)
           IS DISTINCT FROM
-          (EXCLUDED.who_region, EXCLUDED.hemisphere, EXCLUDED.transmission_zone)
+          (EXCLUDED.who_region, EXCLUDED.hemisphere, EXCLUDED.transmission_zone,
+           EXCLUDED.flu_season)
     RETURNING (xmax = 0) AS inserted
 )
 SELECT count(*) FILTER (WHERE inserted) FROM upserted
@@ -110,8 +113,8 @@ ON CONFLICT (alias, source_id) DO UPDATE SET iso3 = EXCLUDED.iso3, note = EXCLUD
 
 
 def _area_metadata(weekly: pd.DataFrame) -> list[dict]:
-    """Latest non-null name/region/hemisphere/zone per area."""
-    cols = ["country_name", "who_region", "hemisphere", "transmission_zone"]
+    """Latest non-null name/region/hemisphere/zone/season type per area."""
+    cols = ["country_name", "who_region", "hemisphere", "transmission_zone", "flu_season"]
     latest = (
         weekly.sort_values("week_start")
         .groupby("country_code")[cols]
@@ -121,7 +124,7 @@ def _area_metadata(weekly: pd.DataFrame) -> list[dict]:
     return [
         {"iso3": r.country_code, "name": r.country_name or r.country_code,
          "who_region": r.who_region, "hemisphere": r.hemisphere,
-         "transmission_zone": r.transmission_zone}
+         "transmission_zone": r.transmission_zone, "flu_season": r.flu_season}
         for r in latest.itertuples(index=False)
     ]
 
@@ -194,7 +197,9 @@ def ingest_flunet(engine: Engine, *, refresh: bool = False, path: Path | None = 
             new_areas = sum(
                 s.execute(text(ENSURE_COUNTRIES), m).scalar() for m in _area_metadata(weekly)
             )
-            for code, nation in flunet.UK_NATION_CODES.items():
+            # Aliases only when GBR exists (a FluNet extract without UK rows has no GBR).
+            has_gbr = (weekly["country_code"] == "GBR").any()
+            for code, nation in flunet.UK_NATION_CODES.items() if has_gbr else ():
                 s.execute(text(ALIAS_UPSERT), {
                     "alias": code, "source_id": run.source_id,
                     "note": f"United Kingdom, {nation}: summed into GBR"})

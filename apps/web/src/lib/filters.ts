@@ -43,17 +43,23 @@ export function useFilters(): [Filters, (patch: Partial<Filters>) => void] {
   }, [params]);
 
   const update = useCallback((patch: Partial<Filters>) => {
-    const next = new URLSearchParams(window.location.search);
-    for (const [k, v] of Object.entries(patch)) {
-      if (v == null || (k === "weeks" && v === DEFAULT_WEEKS)) next.delete(k);
-      else next.set(k, String(v));
-    }
-    const qs = next.toString();
-    // Next.js syncs native history updates with useSearchParams (no navigation).
-    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+    const weeks = patch.weeks === DEFAULT_WEEKS ? null : patch.weeks;
+    updateSearchParams({ ...patch, ...("weeks" in patch ? { weeks } : {}) });
   }, []);
 
   return [filters, update];
+}
+
+/** Patch the query string in place; null/undefined/"" removes a key. */
+export function updateSearchParams(patch: Record<string, string | number | null | undefined>) {
+  const next = new URLSearchParams(window.location.search);
+  for (const [k, v] of Object.entries(patch)) {
+    if (v == null || v === "") next.delete(k);
+    else next.set(k, String(v));
+  }
+  const qs = next.toString();
+  // Next.js syncs native history updates with useSearchParams (no navigation).
+  window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
 }
 
 export function filterQuery(f: Filters): string {

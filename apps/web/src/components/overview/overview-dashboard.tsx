@@ -66,7 +66,7 @@ export function OverviewDashboard() {
       <KpiStrip data={data} weeks={filters.weeks} />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <OverviewGlobe filters={filters} />
-        <TopMovers data={data} filters={filters} />
+        <TopMovers data={data} />
       </div>
       <TrendCard data={data} />
       {data && <Provenance meta={data.meta} />}
@@ -224,7 +224,7 @@ function OverviewGlobe({ filters }: { filters: Filters }) {
 
 /* ---------- Top movers ---------- */
 
-function TopMovers({ data, filters }: { data: Overview | undefined; filters: Filters }) {
+function TopMovers({ data }: { data: Overview | undefined }) {
   return (
     <section className="flex flex-col rounded-lg border border-border bg-card">
       <header className="border-b border-border p-4 pb-3">
@@ -253,7 +253,7 @@ function TopMovers({ data, filters }: { data: Overview | undefined; filters: Fil
               <tr key={m.iso3} className="border-t border-border/60 hover:bg-accent/40">
                 <td className="px-4 py-2">
                   <Link
-                    href={`/surveillance?${filterQuery(filters)}&country=${m.iso3}`}
+                    href={`/countries/${m.iso3}`}
                     className="hover:text-primary"
                   >
                     {m.name}

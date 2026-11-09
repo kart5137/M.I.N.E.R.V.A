@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError
 
@@ -22,6 +23,14 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api_error(_: Request, exc: ApiError):
         return JSONResponse(status_code=exc.status_code, content=_body(exc.code, exc.message))
+
+    @app.exception_handler(RequestValidationError)
+    async def _invalid(_: Request, exc: RequestValidationError):
+        problems = "; ".join(
+            f"{'.'.join(str(p) for p in e['loc'][1:]) or 'request'}: {e['msg']}"
+            for e in exc.errors()
+        )
+        return JSONResponse(status_code=422, content=_body("invalid_parameter", problems))
 
     @app.exception_handler(OperationalError)
     async def _db_down(_: Request, exc: OperationalError):

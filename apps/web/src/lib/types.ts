@@ -139,6 +139,139 @@ export interface CountryProfile {
     last_reported_week: string | null;
     weeks_reported: number;
   };
+  flu_season: SeasonType | null;
+  health: HealthValue[];
+  recent_window: WindowInfo;
+  recent: CountryWindowValue | null;
+}
+
+export type SeasonType = "NH" | "SH" | "YR";
+
+export interface HealthValue {
+  code: string;
+  label: string;
+  unit: string;
+  group: "health_system" | "population";
+  value: number | null;
+  year: number | null;
+  source: string | null;
+}
+
+export interface CountryListItem {
+  iso3: string;
+  name: string;
+  who_region: string | null;
+  flu_season: SeasonType | null;
+  has_geometry: boolean;
+  tier: string | null;
+  last_reported_week: string | null;
+  weeks_reported: number;
+  positivity: number | null;
+  positives: number | null;
+  specimens_tested: number | null;
+}
+
+export type CountrySort =
+  | "name"
+  | "tier"
+  | "positivity"
+  | "specimens_tested"
+  | "positives"
+  | "last_reported_week";
+
+export interface CountryList {
+  meta: ResponseMeta;
+  window: WindowInfo;
+  sort: CountrySort;
+  order: "asc" | "desc";
+  total: number;
+  page: number;
+  page_size: number;
+  items: CountryListItem[];
+}
+
+export interface SeasonPoint {
+  index: number;
+  week_start: string;
+  iso_week: number;
+  reported: boolean;
+  specimens_tested: number | null;
+  positives: number | null;
+  positivity: number | null;
+  is_provisional: boolean;
+}
+
+export interface Season {
+  label: string;
+  start: string;
+  end: string;
+  is_current: boolean;
+  covid_disrupted: boolean;
+  weeks_reported: number;
+  positives: number | null;
+  specimens_tested: number | null;
+  peak_positivity: number | null;
+  peak_week: string | null;
+  points: SeasonPoint[];
+}
+
+export interface CountrySeasons {
+  meta: ResponseMeta;
+  iso3: string;
+  season_type: SeasonType | null;
+  season_rule: string;
+  min_specimens_for_peak: number;
+  seasons: Season[];
+}
+
+export type Granularity = "week" | "month" | "year";
+
+export interface TrendBucket {
+  period_start: string;
+  label: string;
+  weeks: number;
+  countries_reporting: number;
+  specimens_tested: number | null;
+  positives: number | null;
+  positivity: number | null;
+  share_a: number | null;
+  inf_a: number | null;
+  inf_b: number | null;
+  positivity_change_pp: number | null;
+  positives_change_pct: number | null;
+  partial: boolean;
+}
+
+export interface TrendSeries {
+  key: string;
+  label: string;
+  kind: "country" | "region" | "world";
+  buckets: TrendBucket[];
+}
+
+export interface Trends {
+  meta: ResponseMeta;
+  granularity: Granularity;
+  start: string;
+  end: string;
+  series: TrendSeries[];
+}
+
+export interface HeatmapCell {
+  iso_year: number;
+  iso_week: number;
+  positivity: number | null;
+  specimens_tested: number | null;
+  is_provisional: boolean;
+}
+
+export interface Heatmap {
+  meta: ResponseMeta;
+  key: string;
+  label: string;
+  years: number[];
+  min_specimens: number;
+  cells: HeatmapCell[];
 }
 
 export interface SeriesPoint {

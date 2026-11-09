@@ -1,4 +1,4 @@
-# World Bank — Population, total (SP.POP.TOTL)
+# World Bank — Population and health-system context
 
 **Status:** verified and ingested 2026-11-09 · **Role:** denominators for per-capita rates
 
@@ -26,3 +26,25 @@
   Saint Barthélemy). Per-capita figures for these are shown as **not available**; no
   substitute source is mixed in.
 - The latest year is an estimate and can be revised in later releases.
+
+## Health-system context (M4)
+
+Loaded by `ei ingest health` → `pipeline/src/ei_pipeline/ingest/health.py` into
+`health_indicators (iso3, indicator_code, year, value, unit)`, 2010 onwards. The
+indicator list lives in `packages/ei_db/src/ei_db/catalog.py` (shared with the API).
+
+| Code | Indicator | Unit | Countries with a value | Latest year |
+|---|---|---|---|---|
+| `SH.MED.BEDS.ZS` | Hospital beds | per 1,000 people | 177 | 2023 |
+| `SH.MED.PHYS.ZS` | Physicians | per 1,000 people | 194 | 2023 |
+| `SH.MED.NUMW.P3` | Nurses and midwives | per 1,000 people | 198 | 2023 |
+| `SH.XPD.CHEX.GD.ZS` | Current health expenditure | % of GDP | 193 | 2024 |
+| `SP.POP.65UP.TO.ZS` | Population aged 65+ | % of population | 215 | 2025 |
+
+(Counts as loaded on 2026-11-09, API last updated 2026-10-08.)
+
+- The Country Intelligence page shows the **latest available year** for each indicator,
+  with the year. Values more than 5 years older than the reference week are marked.
+- Missing indicators show **Not available**. No imputation, no substitute source.
+- Health-system indicators are reported irregularly (beds and physicians often lag
+  several years), so they are context, not inputs to models.

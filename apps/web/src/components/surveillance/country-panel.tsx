@@ -1,6 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
+import Link from "next/link";
 import { useMemo } from "react";
 
 import { QueryError } from "@/components/common/query-state";
@@ -154,6 +155,13 @@ export function CountryPanel({
             This area has no separate boundary in Natural Earth, so it is not drawn on the map.
           </p>
         )}
+        <Link
+          href={`/countries/${iso3}`}
+          className="mt-3 flex items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs text-foreground hover:bg-accent"
+        >
+          Open country intelligence
+          <ArrowRight className="size-3.5" aria-hidden />
+        </Link>
       </section>
     </aside>
   );

@@ -28,7 +28,7 @@ time (testing rose sharply after 2020). For that reason the project uses two tar
 | History | 1995 → present (meaningful global coverage from ~2010) |
 | Geography | Country / area; ISO3 in `COUNTRY_CODE` |
 | Time | `ISO_YEAR`, `ISO_WEEK`, `ISO_WEEKSTARTDATE` (Monday); MMWR weeks also given |
-| Grouping | `WHOREGION`, `HEMISPHERE`, `ITZ` (influenza transmission zone) |
+| Grouping | `WHOREGION`, `HEMISPHERE`, `ITZ` (influenza transmission zone), `FLUSEASON` (`NH`, `SH`, `YR`; one value per country) |
 | Licence | WHO data policy — free reuse with attribution to WHO FluNet. Confirm wording on the [WHO FluNet page](https://www.who.int/tools/flunet) before public deployment. |
 
 Companion dataset **FluID** (ILI/SARI case counts) is not available through the same
@@ -86,7 +86,11 @@ Implemented in `pipeline/src/ei_pipeline/ingest/flunet.py`.
 - Coverage tiers (A–D, see [profile](flunet_profile.md)) are stored in
   `coverage_profiles` for the reference week.
 - Areas FluNet reports that are not yet in `countries` are added without geometry;
-  WHO region, hemisphere and transmission zone are taken from FluNet.
+  WHO region, hemisphere, transmission zone and season type (`countries.flu_season`)
+  are taken from FluNet for every reporting area.
+- **Season alignment** (API, M4): `NH` seasons run ISO week 40 → week 39 ("2025/26");
+  `SH` and `YR` (year-round, mostly tropical) use the calendar ISO year. Seasons
+  overlapping 2020-03 → 2022-06 are flagged COVID-disrupted.
 - Rows present in the database but no longer in the source are **not deleted**; their
   count is reported (`rows_missing_from_source`).
 

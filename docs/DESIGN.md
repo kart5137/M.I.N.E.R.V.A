@@ -90,7 +90,7 @@ weekly, 189 countries/areas, 1995–2026; **88 countries forecast-ready (Tier A)
 | WHO FluNet | Positives, specimens, positivity | M2 | Ingested |
 | Natural Earth 1:50m Admin-0 | Globe polygons, centroids, spatial weights | M1–M2 | Ingested |
 | World Bank WDI `SP.POP.TOTL` | Population, per-capita normalisation | M2 | Ingested |
-| World Bank / WHO GHO: hospital beds, physicians per 1,000 | Country health-system context | M4 | To verify |
+| World Bank WDI: hospital beds, physicians, nurses per 1,000; health expenditure % GDP; population 65+ | Country health-system context | M4 | Ingested |
 | Open-Meteo | Weather features (dengue phase) | Post-MVP | Partly verified |
 | OpenDengue | Dengue | Post-MVP | Licence open |
 
@@ -243,19 +243,25 @@ Monday; default = reference week) and `weeks` (1–52). The comparison window is
   countries with ≥ 50 valid specimens in both windows (`movers_min_specimens`).
 - Indicators from later milestones (anomalies, hotspots, threshold exceedances) are
   returned as `pending` with the milestone that adds them, never as numbers.
+- *Rates from few specimens* (< 10 in the window or week) are not ranked, not used
+  for season peaks and not plotted as positivity; they are shown muted or grey.
+- *Monthly / yearly buckets* (M4): a week belongs to the month of its Thursday and to
+  its ISO year. A bucket that extends past the reference week is `partial`.
+- Validation errors use the same envelope: `{"error": {"code": "invalid_parameter", ...}}`.
 
 | Endpoint | Serves |
 |---|---|
 | `GET /meta/status` | Reference week, provisional weeks, last ingestion/training runs |
 | `GET /diseases` | Diseases + capability flags (M3) |
-| `GET /countries` | Country list with tier, latest positivity (paginated) |
-| `GET /countries/{iso3}` | Profile: metadata, population, health indicators, tier |
+| `GET /countries` | Country list with tier and 4-week values to the reference week; `q`, `region`, `sort`, `order`, paginated (M4) |
+| `GET /countries/{iso3}` | Profile: metadata, season type, population, health indicators (latest year each, null = not available), coverage, recent 4-week values |
 | `GET /countries/{iso3}/timeseries` | Weekly series (+ provisional flags) |
-| `GET /countries/{iso3}/seasons` | Season-aligned curves + thresholds |
+| `GET /countries/{iso3}/seasons` | Season-aligned curves (NH: W40–W39; SH/YR: ISO year), peaks, COVID flag; thresholds added in M6 |
 | `GET /overview` | KPIs, global trend, top movers |
 | `GET /surveillance/global` | Per-country values for one week/window (map layers) |
 | `GET /geo/countries` | Simplified country geometries (GeoJSON, cached) |
-| `GET /analytics/trends` | Aggregated comparisons |
+| `GET /analytics/trends` | Weekly/monthly/yearly buckets per series (ISO3, `region:<code>`, `world`; max 6): positivity, detections, specimens, A/B mix, change vs previous bucket, `partial` flag (M4) |
+| `GET /analytics/heatmap` | Pooled positivity by ISO week × ISO year for one series (M4) |
 | `GET /forecasts` | Stored forecasts (by country, horizon, model) |
 | `GET /forecasts/{id}/explanation` | SHAP contributors |
 | `GET /models` · `GET /models/{id}` | Model registry + evaluations |
@@ -443,7 +449,7 @@ Each ends with: what was built, files changed, how to run, how to test.
 | M1 ✅ | Foundation | Monorepo skeleton, Postgres+PostGIS running, `ei_db` with core tables (reference + observations) and first migration, FastAPI `/health` + `/meta/status`, Next.js shell with design tokens, sidebar/topbar, **globe spike** rendering Natural Earth countries, CI (lint + tests) | `docker compose up` (or local equivalent) → web shows shell + rotating globe; API tests pass |
 | M2 ✅ | Data ingestion | Natural Earth, World Bank population, FluNet ingestion into DB with code aliases, quality report, revisions, provisional flags, coverage tiers; `ei ingest …` CLI | DB holds ~146k country-weeks; re-running is idempotent; quality report stored |
 | M3 ✅ | Surveillance core | API: countries, timeseries, overview, surveillance/global, geo · Web: Overview + Global Surveillance wired to real data (choropleth, columns, time slider, country panel) | Every number on both pages traces to DB rows; filters work end-to-end |
-| M4 | Country + Analytics | Country Intelligence (history, seasons, context) and Analytics pages; health indicators ingestion | Drill-down from globe to country works for all 189 areas, "Not available" where missing |
+| M4 ✅ | Country + Analytics | Country Intelligence (history, seasons, context) and Analytics pages; health indicators ingestion | Drill-down from globe to country works for all 189 areas, "Not available" where missing |
 | M5 | Forecasting | Feature builder, baselines, RF, XGBoost, rolling-origin backtest, conformal intervals, registry, SHAP; Prediction Center + model detail pages | Backtest report generated; active model beats seasonal-naive or baseline is shown as active |
 | M6 | Detection | Seasonal thresholds, risk, anomalies, Gi\*/Local Moran hotspots; Hotspots & Anomalies page; globe layers | Outputs stored per weekly run; layers toggle on globe |
 | M7 | Intelligence | Alerts, template reports, Reports & Alerts page, About the Data, model cards | Report regenerates identically from stored inputs |

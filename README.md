@@ -6,7 +6,7 @@ dashboard, built on public WHO FluNet data.
 > Analytical and educational tool. Not a diagnostic tool and not a substitute for
 > official public-health guidance.
 
-**Status:** M3 (surveillance core: Overview + Global Surveillance on real data) complete; next is M4 (Country Intelligence + Analytics). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
+**Status:** M4 (Country Intelligence, Countries index, Analytics, health-system context) complete; next is M5 (forecasting). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
 
 | Doc | |
 |---|---|

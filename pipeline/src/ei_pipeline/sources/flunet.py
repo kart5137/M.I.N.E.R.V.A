@@ -29,6 +29,7 @@ _RENAME = {
     "COUNTRY_AREA_TERRITORY": "country_name",
     "WHOREGION": "who_region",
     "HEMISPHERE": "hemisphere",
+    "FLUSEASON": "flu_season",
     "ITZ": "transmission_zone",
     "ISO_YEAR": "iso_year",
     "ISO_WEEK": "iso_week",
@@ -108,6 +109,7 @@ def clean(raw: pd.DataFrame) -> tuple[pd.DataFrame, CleaningReport]:
             country_name=("country_name", "first"),
             who_region=("who_region", "first"),
             hemisphere=("hemisphere", "first"),
+            flu_season=("flu_season", "first"),
             transmission_zone=("transmission_zone", "first"),
             week_start=("week_start", "first"),
             **{c: (c, lambda s: s.sum(min_count=1)) for c in _COUNTS},
@@ -146,6 +148,7 @@ def _aggregate_uk(weekly: pd.DataFrame) -> tuple[pd.DataFrame, int]:
         .agg(
             who_region=("who_region", "first"),
             hemisphere=("hemisphere", "first"),
+            flu_season=("flu_season", "first"),
             transmission_zone=("transmission_zone", "first"),
             week_start=("week_start", "first"),
             **{c: (c, lambda s: s.sum(min_count=1)) for c in _COUNTS},
