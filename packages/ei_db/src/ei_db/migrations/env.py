@@ -22,6 +22,15 @@ POSTGIS_TABLES = {"spatial_ref_sys", "topology", "layer"}
 def include_object(obj, name, type_, reflected, compare_to):
     if type_ == "table" and name in POSTGIS_TABLES:
         return False
+    # Only compare what our models define. Extensions add their own tables (newer
+    # postgis images install the tiger geocoder: tabblock20, zip_lookup, ...), and
+    # autogenerate must never propose dropping them. Dropping one of our own tables
+    # therefore needs a hand-written op.drop_table().
+    if type_ == "table" and reflected and compare_to is None:
+        return False
+    table = getattr(obj, "table", None)
+    if reflected and table is not None and table.name not in target_metadata.tables:
+        return False
     return alembic_helpers.include_object(obj, name, type_, reflected, compare_to)
 
 
