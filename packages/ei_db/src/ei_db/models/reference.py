@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 
 from geoalchemy2 import Geometry
-from sqlalchemy import CHAR, Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import CHAR, Boolean, DateTime, ForeignKey, Integer, String, Text, false, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,8 +21,13 @@ class Country(TimestampMixin, Base):
     hemisphere: Mapped[str | None] = mapped_column(String(4))
     transmission_zone: Mapped[str | None] = mapped_column(String(32))
     continent: Mapped[str | None] = mapped_column(String(32))
-    geom: Mapped[Any] = mapped_column(Geometry("MULTIPOLYGON", srid=4326, spatial_index=True))
-    centroid: Mapped[Any] = mapped_column(Geometry("POINT", srid=4326, spatial_index=False))
+    # NULL for reporting areas without a boundary in the boundary dataset.
+    geom: Mapped[Any | None] = mapped_column(
+        Geometry("MULTIPOLYGON", srid=4326, spatial_index=True), nullable=True
+    )
+    centroid: Mapped[Any | None] = mapped_column(
+        Geometry("POINT", srid=4326, spatial_index=False), nullable=True
+    )
 
 
 class DataSource(TimestampMixin, Base):
@@ -57,9 +62,15 @@ class Disease(TimestampMixin, Base):
     native_granularity: Mapped[str] = mapped_column(String(16), nullable=False)
     primary_metric: Mapped[str] = mapped_column(String(32), nullable=False)
     metric_label: Mapped[str] = mapped_column(String(100), nullable=False)
-    supports_forecast: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    supports_anomaly: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    supports_hotspots: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    supports_forecast: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    supports_anomaly: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    supports_hotspots: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
 
 
 class IngestionRun(Base):
@@ -71,7 +82,9 @@ class IngestionRun(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    status: Mapped[str] = mapped_column(String(16), default="running", nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(16), default="running", server_default="running", nullable=False
+    )
     raw_rows: Mapped[int | None] = mapped_column(Integer)
     loaded_rows: Mapped[int | None] = mapped_column(Integer)
     raw_sha256: Mapped[str | None] = mapped_column(CHAR(64))

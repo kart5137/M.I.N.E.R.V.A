@@ -15,6 +15,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -47,7 +48,9 @@ class SurveillanceWeekly(Base):
     cases: Mapped[float | None] = mapped_column(Double)
     positivity: Mapped[float | None] = mapped_column(Double)
     breakdown: Mapped[dict | None] = mapped_column(JSONB)
-    is_provisional: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_provisional: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
     source_id: Mapped[int] = mapped_column(ForeignKey("data_sources.id"), nullable=False)
     ingestion_run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

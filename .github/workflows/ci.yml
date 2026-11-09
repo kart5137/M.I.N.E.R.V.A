@@ -8,6 +8,19 @@ on:
 jobs:
   python:
     runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: ei
+          POSTGRES_PASSWORD: ei
+          POSTGRES_DB: epidemic_intelligence
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ei -d epidemic_intelligence"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://ei:ei@localhost:5432/epidemic_intelligence
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -19,9 +32,16 @@ jobs:
           pip install -e packages/ei_db -e "services/api[dev]" -r pipeline/requirements.txt
       - name: Lint
         run: ruff check packages services pipeline
-      - name: API tests
+      - name: Migrations (upgrade, downgrade, upgrade, drift check)
+        working-directory: packages/ei_db
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+          alembic check
+      - name: API tests (unit + database integration)
         working-directory: services/api
-        run: pytest -q
+        run: pytest -q -rs
 
   web:
     runs-on: ubuntu-latest

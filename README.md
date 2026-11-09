@@ -6,7 +6,7 @@ dashboard, built on public WHO FluNet data.
 > Analytical and educational tool. Not a diagnostic tool and not a substitute for
 > official public-health guidance.
 
-**Status:** Milestone M1 (foundation). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
+**Status:** M1 (foundation) complete; next is M2 (data ingestion). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
 
 | Doc | |
 |---|---|
@@ -51,7 +51,7 @@ npm ci
 # 1. Database
 docker compose -f infra/docker-compose.yml up -d
 
-# 2. Schema (once the first migration exists — see M1 status below)
+# 2. Schema
 cd packages/ei_db
 ..\..\.venv\Scripts\alembic upgrade head
 
