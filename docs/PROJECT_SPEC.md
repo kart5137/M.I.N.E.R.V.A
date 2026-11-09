@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-M.I.N.E.R.V.A. is a global disease-surveillance and outbreak-forecasting platform.
+M.I.N.E.R.V.A. (Monitoring & Intelligence Network for Epidemic Risk, Visualisation and Alerts) is a global disease-surveillance and outbreak-forecasting platform.
 It combines real public-health datasets, a 3D geographic interface, and validated
 machine-learning models to let a user:
 

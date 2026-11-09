@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: { default: "M.I.N.E.R.V.A.", template: "%s · M.I.N.E.R.V.A." },
   description:
-    "Global influenza surveillance, forecasting and outbreak intelligence from public WHO data.",
+    "M.I.N.E.R.V.A. (Monitoring & Intelligence Network for Epidemic Risk, Visualisation and Alerts): global influenza surveillance, forecasting and outbreak intelligence from public WHO data.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

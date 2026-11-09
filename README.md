@@ -1,5 +1,7 @@
 # M.I.N.E.R.V.A.
 
+**Monitoring & Intelligence Network for Epidemic Risk, Visualisation and Alerts**
+
 Global influenza surveillance and outbreak-forecasting platform with a 3D geographic
 dashboard, built on public WHO FluNet data.
 
