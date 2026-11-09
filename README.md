@@ -8,7 +8,9 @@ dashboard, built on public WHO FluNet data.
 > Analytical and educational tool. Not a diagnostic tool and not a substitute for
 > official public-health guidance.
 
-**Status:** M8 (hardening, Docker images, weekly GitHub Actions pipeline, deployment setup) built; the public deployment needs the hosting accounts described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
+**Live:** https://m-i-n-e-r-v-a.vercel.app · API https://minerva-api-0d86.onrender.com/docs (free tier: the first request after an idle spell can take up to a minute).
+
+**Status:** MVP complete (M0–M8). Data refreshes every Wednesday via [the weekly workflow](.github/workflows/weekly.yml); hosting is described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
 
 | Doc | |
 |---|---|
