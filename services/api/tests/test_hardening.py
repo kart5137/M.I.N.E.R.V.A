@@ -83,3 +83,25 @@ def test_report_cli_matches_api(api: TestClient, seeded_engine, capsys):
         with seeded_engine.begin() as c:
             c.execute(text("DELETE FROM report_alerts"))
             c.execute(text("DELETE FROM intelligence_reports"))
+
+
+def test_missing_schema_is_a_clear_503(monkeypatch):
+    """An empty database (no migrations) answers 503 schema_missing, not a bare 500."""
+    from psycopg.errors import UndefinedTable
+    from sqlalchemy.exc import ProgrammingError
+
+    from app.core.db import get_session
+    from app.main import create_app
+
+    class Empty:
+        def execute(self, *a, **k):
+            missing = UndefinedTable('relation "diseases" does not exist')
+            raise ProgrammingError("SELECT", {}, missing)
+
+        def close(self):
+            pass
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: Empty()
+    r = TestClient(app, raise_server_exceptions=False).get(f"{V1}/countries")
+    assert r.status_code == 503 and r.json()["error"]["code"] == "schema_missing"

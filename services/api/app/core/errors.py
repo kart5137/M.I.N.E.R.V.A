@@ -5,7 +5,8 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy.exc import OperationalError
+from psycopg.errors import UndefinedTable
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +32,18 @@ def register_error_handlers(app: FastAPI) -> None:
             for e in exc.errors()
         )
         return JSONResponse(status_code=422, content=_body("invalid_parameter", problems))
+
+    @app.exception_handler(ProgrammingError)
+    async def _schema_missing(_: Request, exc: ProgrammingError):
+        # A database without our tables (migrations not run, or the API pointed at the
+        # wrong database) is a deployment state, not a bug: say so instead of a bare 500.
+        if isinstance(exc.orig, UndefinedTable):
+            log.warning("Schema missing: %s", exc.orig)
+            return JSONResponse(status_code=503, content=_body(
+                "schema_missing",
+                "The database has no data tables yet. Run the migrations / weekly job, "
+                "and check that the API's DATABASE_URL points at the loaded database."))
+        raise exc
 
     @app.exception_handler(OperationalError)
     async def _db_down(_: Request, exc: OperationalError):
