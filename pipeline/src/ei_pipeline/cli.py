@@ -80,7 +80,7 @@ def _weekly(engine, *, fast: bool, keep: int) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="ei", description="Epidemic Intelligence pipeline")
+    parser = argparse.ArgumentParser(prog="ei", description="M.I.N.E.R.V.A. pipeline")
     sub = parser.add_subparsers(dest="command", required=True)
     ingest = sub.add_parser("ingest", help="load source data into the database")
     ingest.add_argument("step", choices=(*STEPS, "all"))

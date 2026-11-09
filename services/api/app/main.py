@@ -24,7 +24,7 @@ API_PREFIX = "/api/v1"
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title="Epidemic Intelligence API",
+        title="M.I.N.E.R.V.A. API",
         version=settings.version,
         description=(
             "Read-mostly API over stored surveillance data and model outputs. "

@@ -1,4 +1,4 @@
-# Epidemic Intelligence web app (Next.js standalone server). Build from apps/web:
+# M.I.N.E.R.V.A. web app (Next.js standalone server). Build from apps/web:
 #   docker build --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.example.org/api/v1 -t ei-web .
 # NEXT_PUBLIC_* values are compiled into the browser bundle, so the API URL is a build
 # argument, not a runtime setting.

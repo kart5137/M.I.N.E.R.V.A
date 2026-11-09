@@ -10,7 +10,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: { default: "Epidemic Intelligence", template: "%s · Epidemic Intelligence" },
+  title: { default: "M.I.N.E.R.V.A.", template: "%s · M.I.N.E.R.V.A." },
   description:
     "Global influenza surveillance, forecasting and outbreak intelligence from public WHO data.",
 };

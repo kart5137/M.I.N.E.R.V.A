@@ -1,4 +1,4 @@
-# Epidemic Intelligence pipeline (ingestion, forecasting, detection, weekly report).
+# M.I.N.E.R.V.A. pipeline (ingestion, forecasting, detection, weekly report).
 #   docker build -f pipeline/Dockerfile --build-arg GIT_SHA=$(git rev-parse HEAD) -t ei-pipeline .
 #   docker run --rm -e DATABASE_URL=... ei-pipeline            # the full weekly job
 #   docker run --rm -e DATABASE_URL=... ei-pipeline ei detect run

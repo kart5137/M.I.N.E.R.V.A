@@ -1,4 +1,4 @@
-# Epidemic Intelligence — Design Package
+# M.I.N.E.R.V.A. — Design Package
 
 **Status:** draft for approval · 2026-11-09
 Builds on [PROJECT_SPEC.md](PROJECT_SPEC.md) (scope) and [datasets/](datasets/README.md)

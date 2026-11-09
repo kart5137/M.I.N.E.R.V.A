@@ -8,4 +8,4 @@ ROOT = Path(os.environ.get("EI_ROOT", Path(__file__).resolve().parents[3]))
 RAW_DIR = ROOT / "data" / "raw"
 PROFILE_DIR = ROOT / "data" / "profiles"
 
-USER_AGENT = "epidemic-intelligence-pipeline/0.1 (public-health research project)"
+USER_AGENT = "minerva-pipeline/0.1 (public-health research project)"

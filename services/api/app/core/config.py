@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     database_url: str = Field(default=DEFAULT_URL, alias="DATABASE_URL")
     api_cors_origins: str = Field(default="http://localhost:3000", alias="API_CORS_ORIGINS")
     #: Optional regex for extra origins, e.g. Vercel preview deployments:
-    #: ^https://epidemic-intelligence-[a-z0-9-]+\.vercel\.app$
+    #: ^https://minerva-[a-z0-9-]+\.vercel\.app$
     api_cors_origin_regex: str | None = Field(default=None, alias="API_CORS_ORIGIN_REGEX")
     #: Seconds browsers/CDNs may cache successful GETs; 0 disables caching.
     cache_max_age: int = Field(default=300, alias="API_CACHE_MAX_AGE")

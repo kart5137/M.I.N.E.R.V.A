@@ -2,7 +2,7 @@
 # dashboard when the blueprint is applied; nothing sensitive is stored here.
 services:
   - type: web
-    name: epidemic-intelligence-api
+    name: minerva-api
     runtime: docker
     dockerfilePath: services/api/Dockerfile
     dockerContext: .
@@ -16,7 +16,7 @@ services:
     envVars:
       - key: DATABASE_URL          # Neon/Supabase connection string (pooled is fine)
         sync: false
-      - key: API_CORS_ORIGINS      # e.g. https://epidemic-intelligence.vercel.app
+      - key: API_CORS_ORIGINS      # e.g. https://minerva.vercel.app
         sync: false
-      - key: API_CORS_ORIGIN_REGEX # optional, e.g. ^https://epidemic-intelligence-[a-z0-9-]+\.vercel\.app$
+      - key: API_CORS_ORIGIN_REGEX # optional, e.g. ^https://minerva-[a-z0-9-]+\.vercel\.app$
         sync: false

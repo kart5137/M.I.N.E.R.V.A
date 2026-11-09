@@ -39,7 +39,7 @@ export function AboutView() {
       {d && (
         <>
           <p className="rounded-md border border-status-warn/40 bg-status-warn/10 px-3 py-2 text-xs">
-            Epidemic Intelligence is an analytical tool built on public surveillance data. It is not medical advice or
+            M.I.N.E.R.V.A. is an analytical tool built on public surveillance data. It is not medical advice or
             public-health guidance, and it does not replace national or WHO assessments.
           </p>
           <Sources d={d} />

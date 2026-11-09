@@ -1,4 +1,4 @@
-# Epidemic Intelligence
+# M.I.N.E.R.V.A.
 
 Global influenza surveillance and outbreak-forecasting platform with a 3D geographic
 dashboard, built on public WHO FluNet data.

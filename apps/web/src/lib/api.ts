@@ -1,5 +1,5 @@
 /**
- * Typed client for the Epidemic Intelligence API.
+ * Typed client for the M.I.N.E.R.V.A. API.
  * All dashboard data comes through here; nothing is computed or invented client-side.
  */
 

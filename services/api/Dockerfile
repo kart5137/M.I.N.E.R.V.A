@@ -1,4 +1,4 @@
-# Epidemic Intelligence API. Build from the repo root:
+# M.I.N.E.R.V.A. API. Build from the repo root:
 #   docker build -f services/api/Dockerfile -t ei-api .
 FROM python:3.13-slim
 

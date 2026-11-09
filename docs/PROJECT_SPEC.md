@@ -1,4 +1,4 @@
-# Epidemic Intelligence — Project Specification (v2)
+# M.I.N.E.R.V.A. — Project Specification (v2)
 
 > Revised version of the original master prompt. Changes from v1 are listed in
 > [§14 Revision log](#14-revision-log). This document is the source of truth for scope;
@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-Epidemic Intelligence is a global disease-surveillance and outbreak-forecasting platform.
+M.I.N.E.R.V.A. is a global disease-surveillance and outbreak-forecasting platform.
 It combines real public-health datasets, a 3D geographic interface, and validated
 machine-learning models to let a user:
 

@@ -8,8 +8,8 @@ export function Brand() {
         <circle cx="15.5" cy="8.5" r="2" fill="currentColor" />
       </svg>
       <div className="leading-tight">
-        <div className="text-[13px] font-semibold tracking-tight text-foreground">
-          Epidemic Intelligence
+        <div className="text-[13px] font-semibold tracking-[0.08em] text-foreground">
+          M.I.N.E.R.V.A.
         </div>
         <div className="text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
           Global surveillance

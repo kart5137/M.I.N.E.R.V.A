@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ei-db"
 version = "0.1.0"
-description = "Epidemic Intelligence shared database models and migrations"
+description = "M.I.N.E.R.V.A. shared database models and migrations"
 requires-python = ">=3.12"
 dependencies = [
     "sqlalchemy==2.0.36",
