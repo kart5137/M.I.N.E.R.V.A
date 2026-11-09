@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -42,6 +43,9 @@ log = logging.getLogger(__name__)
 
 
 def _git_sha() -> str | None:
+    # Containers and CI have no .git: the image / workflow passes the commit instead.
+    if sha := os.environ.get("EI_GIT_SHA") or os.environ.get("GITHUB_SHA"):
+        return sha
     try:
         return subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
                               text=True, check=True, timeout=10).stdout.strip() or None

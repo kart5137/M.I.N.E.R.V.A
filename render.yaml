@@ -1,0 +1,22 @@
+# Render blueprint for the API (docs/DEPLOYMENT.md). Secrets are entered in the Render
+# dashboard when the blueprint is applied; nothing sensitive is stored here.
+services:
+  - type: web
+    name: epidemic-intelligence-api
+    runtime: docker
+    dockerfilePath: services/api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - services/api/**
+        - packages/ei_db/**
+    envVars:
+      - key: DATABASE_URL          # Neon/Supabase connection string (pooled is fine)
+        sync: false
+      - key: API_CORS_ORIGINS      # e.g. https://epidemic-intelligence.vercel.app
+        sync: false
+      - key: API_CORS_ORIGIN_REGEX # optional, e.g. ^https://epidemic-intelligence-[a-z0-9-]+\.vercel\.app$
+        sync: false

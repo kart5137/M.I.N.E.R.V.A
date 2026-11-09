@@ -30,6 +30,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
@@ -76,6 +77,9 @@
   --secondary-foreground: #dce3ee;
   --muted: #111a2c;
   --muted-foreground: #8391a7;
+  /* Secondary small print: the dimmest text that still meets 4.5:1 on every surface
+     (background, sidebar, card, muted). Use instead of lowering muted-foreground opacity. */
+  --subtle-foreground: #76839a;
   --accent: #16213a;
   --accent-foreground: #e2e8f0;
   --destructive: #ef4444;
@@ -123,6 +127,17 @@
   }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+  /* Keyboard focus on scrollable regions and other non-control focus targets. */
+  [tabindex="0"]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
   }
   html {
     @apply font-sans;

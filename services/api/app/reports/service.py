@@ -27,9 +27,16 @@ _hits: dict[str, deque] = {}
 _lock = threading.Lock()
 
 
+#: Forget clients idle for a minute once this many are tracked (bounds memory).
+_MAX_CLIENTS = 5000
+
+
 def check_rate(client: str) -> None:
     now = time.monotonic()
     with _lock:
+        if len(_hits) >= _MAX_CLIENTS:
+            for key in [k for k, q in _hits.items() if not q or now - q[-1] > 60]:
+                del _hits[key]
         q = _hits.setdefault(client, deque())
         while q and now - q[0] > 60:
             q.popleft()

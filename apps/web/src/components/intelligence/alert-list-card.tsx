@@ -61,7 +61,7 @@ export function AlertListCard({
                 alertText(a.title, a.name)
               ) : (
                 <>
-                  <Link href={`/countries/${a.iso3}`} className="text-foreground hover:underline">{a.name}</Link>
+                  <Link href={`/countries/${a.iso3}`} className="text-foreground underline decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground">{a.name}</Link>
                   {": "}
                   {alertText(a.title, a.name)}
                 </>

@@ -296,7 +296,7 @@ export function ClassLegend({
           {noData}
         </li>
       </ul>
-      {footnote && <p className="text-[10.5px] leading-snug text-muted-foreground/80">{footnote}</p>}
+      {footnote && <p className="text-[10.5px] leading-snug text-subtle-foreground">{footnote}</p>}
     </figure>
   );
 }
@@ -319,7 +319,7 @@ function AnomalyLegend({ weeks, count }: { weeks: number; count: number }) {
           </span>
         ))}
       </div>
-      <p className="text-[10.5px] leading-snug text-muted-foreground/80">
+      <p className="text-[10.5px] leading-snug text-subtle-foreground">
         Ring size = highest severity: positivity above the seasonal upper band with an EWMA signal.
       </p>
     </figure>

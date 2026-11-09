@@ -309,7 +309,7 @@ function GrowthTable({
 }) {
   return (
     <Card title="Growth" subtitle={`Latest complete ${granularity} vs. the previous ${granularity}. Partial periods are excluded.`}>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Growth table">
         <table className="w-full min-w-[640px] text-xs">
           <thead className="text-[11px] text-muted-foreground">
             <tr className="border-b border-border">

@@ -159,7 +159,9 @@ export function Globe({
   }, [onCountryClick]);
 
   useEffect(() => {
-    rotatingRef.current = autoRotate;
+    // Respect the system "reduce motion" setting: no idle rotation.
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    rotatingRef.current = autoRotate && !reduce;
   }, [autoRotate]);
 
   // Boundaries
@@ -399,7 +401,7 @@ export function Globe({
           {hoverDetail?.(hover.iso3)}
         </div>
       )}
-      <div className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-muted-foreground/60">
+      <div className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-subtle-foreground">
         Boundaries: Natural Earth
       </div>
     </div>

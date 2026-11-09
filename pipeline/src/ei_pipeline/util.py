@@ -20,14 +20,16 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def download(url: str, dest: Path, *, timeout: int = 600, retries: int = 3) -> Path:
+def download(url: str, dest: Path, *, timeout: int = 600, retries: int = 3,
+             headers: dict[str, str] | None = None) -> Path:
     """Stream `url` to `dest` atomically (temp file + rename), retrying transient errors."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_suffix(dest.suffix + ".part")
     for attempt in range(1, retries + 1):
         try:
             with requests.get(
-                url, stream=True, timeout=timeout, headers={"User-Agent": USER_AGENT}
+                url, stream=True, timeout=timeout,
+                headers={"User-Agent": USER_AGENT, **(headers or {})}
             ) as resp:
                 resp.raise_for_status()
                 with tmp.open("wb") as fh:

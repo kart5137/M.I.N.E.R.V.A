@@ -8,6 +8,9 @@
     ei ingest all [--refresh]        all of the above, in order
     ei forecast run [--fast]         backtest, select, train and store forecasts (M5)
     ei detect run                    thresholds, risk, anomalies, hotspots (M6), alerts (M7)
+    ei prune [--keep N]              drop per-country detail of old forecast runs (M8)
+    ei weekly [--fast]               the scheduled job: ingest (FluNet refreshed),
+                                     forecast, detect, prune (M8)
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ from ei_pipeline.ingest.boundaries import ingest_boundaries
 from ei_pipeline.ingest.flunet import ingest_flunet
 from ei_pipeline.ingest.health import ingest_health
 from ei_pipeline.ingest.population import ingest_population
+from ei_pipeline.maintenance import DEFAULT_KEEP, prune_runs
 
 STEPS = ("reference", "boundaries", "population", "health", "flunet")
 SUMMARY_KEYS = ("inserted", "updated", "unchanged", "revisions_recorded", "rows_excluded",
@@ -52,6 +56,29 @@ def _summary(report: dict) -> dict:
     return out or report
 
 
+def _timed(label: str, fn) -> dict:
+    t0 = time.perf_counter()
+    out = fn()
+    print(f"[{label}] {time.perf_counter() - t0:.1f}s {json.dumps(out, default=str)}",
+          flush=True)
+    return out
+
+
+def _weekly(engine, *, fast: bool, keep: int) -> int:
+    """The scheduled job. Reference files (boundaries, World Bank) are downloaded only when
+    missing; FluNet is always re-downloaded. Any failure stops the job (non-zero exit)."""
+    from ei_pipeline.detection.run import run_detection
+    from ei_pipeline.forecasting.run import run_forecast
+
+    for step in STEPS:
+        _timed(step, lambda s=step: _summary(_run_step(engine, s, refresh=s == "flunet")))
+    _timed("forecast", lambda: {k: v for k, v in run_forecast(engine, fast=fast).items()
+                                if k in ("run_key", "reference_week", "forecasts", "active")})
+    _timed("detect", lambda: run_detection(engine))
+    _timed("prune", lambda: prune_runs(engine, keep))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="ei", description="Epidemic Intelligence pipeline")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -64,12 +91,23 @@ def main(argv: list[str] | None = None) -> int:
                           help="small models for a quick check (not for real use)")
     detect = sub.add_parser("detect", help="thresholds, risk, anomalies and hotspots")
     detect.add_argument("step", choices=("run",))
+    prune = sub.add_parser("prune", help="drop per-country detail of old forecast runs")
+    prune.add_argument("--keep", type=int, default=DEFAULT_KEEP,
+                       help=f"forecast runs to keep in full (default {DEFAULT_KEEP})")
+    weekly = sub.add_parser("weekly", help="ingest, forecast, detect and prune in order")
+    weekly.add_argument("--fast", action="store_true", help="small forecast models (CI checks)")
+    weekly.add_argument("--keep", type=int, default=DEFAULT_KEEP)
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     engine = make_engine()
+    if args.command == "weekly":
+        return _weekly(engine, fast=args.fast, keep=args.keep)
+    if args.command == "prune":
+        print(f"[prune] {json.dumps(prune_runs(engine, args.keep))}")
+        return 0
     if args.command == "forecast":
         from ei_pipeline.forecasting.run import run_forecast  # heavy imports: only when used
 

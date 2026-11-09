@@ -332,7 +332,7 @@ function MetricsTable({
       title={`Backtest metrics · ${horizon}-week horizon`}
       subtitle="All models are scored on the same country-weeks. MAE in percentage points of positivity; MASE < 1 beats each country's in-sample seasonal-naive error."
     >
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Backtest metrics table">
         <table className="w-full min-w-[760px] text-xs">
           <thead className="text-[11px] text-muted-foreground">
             <tr className="border-b border-border">

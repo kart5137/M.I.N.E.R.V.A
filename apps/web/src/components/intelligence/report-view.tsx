@@ -26,7 +26,8 @@ export function ReportView() {
     return (
       <div className="p-6">
         <Back />
-        {missing ? <p className="mt-4 text-sm text-muted-foreground">No report with id {raw}.</p> : <QueryError error={q.error} />}
+        <h1 className="mt-4 text-lg font-semibold tracking-tight">{missing ? "Report not found" : "Report"}</h1>
+        {missing ? <p className="mt-1 text-sm text-muted-foreground">No report with id {raw}.</p> : <QueryError error={q.error} />}
       </div>
     );
   }

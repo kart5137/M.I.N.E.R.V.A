@@ -62,7 +62,7 @@ export function RiskCard({ iso3 }: { iso3: string }) {
       {q.error && <QueryError error={q.error} />}
       {d && !d.run && <p className="text-xs text-muted-foreground">No detection run yet.</p>}
       {d?.run && (
-        <dl className="space-y-1.5 text-xs">
+        <div className="space-y-1.5 text-xs">
           {r ? (
             <>
               <div className="flex items-center gap-2">
@@ -74,10 +74,12 @@ export function RiskCard({ iso3 }: { iso3: string }) {
                 <span className="text-sm font-semibold">{RISK_SCALE.labels[RISK_INDEX[r.risk_level]]}</span>
                 <span className="text-[11px] text-muted-foreground">for {formatWeek(r.target_week)}</span>
               </div>
-              <Row
-                k="Forecast (80%)"
-                v={`${formatPct(r.forecast_point)} (${formatPct(r.forecast_lo80, 0)}–${formatPct(r.forecast_hi80, 0)})`}
-              />
+              <dl>
+                <Row
+                  k="Forecast (80%)"
+                  v={`${formatPct(r.forecast_point)} (${formatPct(r.forecast_lo80, 0)}–${formatPct(r.forecast_hi80, 0)})`}
+                />
+              </dl>
             </>
           ) : (
             <p className="text-muted-foreground">
@@ -86,14 +88,16 @@ export function RiskCard({ iso3 }: { iso3: string }) {
           )}
           {t && !t.quality_note && (
             <div className="space-y-1 border-t border-border pt-1.5">
-              <Row k={`Epidemic threshold (${t.season})`} v={formatPct(t.epidemic_threshold)} />
-              <Row k="Medium / high / very high" v={`${formatPct(t.medium, 0)} / ${formatPct(t.high, 0)} / ${formatPct(t.very_high, 0)}`} />
+              <dl className="space-y-1">
+                <Row k={`Epidemic threshold (${t.season})`} v={formatPct(t.epidemic_threshold)} />
+                <Row k="Medium / high / very high" v={`${formatPct(t.medium, 0)} / ${formatPct(t.high, 0)} / ${formatPct(t.very_high, 0)}`} />
+              </dl>
               <p className="text-[10.5px] text-muted-foreground">
                 From {t.n_seasons_used} past seasons ({t.seasons_used[0]} – {t.seasons_used[t.seasons_used.length - 1]}), COVID seasons excluded.
               </p>
             </div>
           )}
-        </dl>
+        </div>
       )}
     </Shell>
   );

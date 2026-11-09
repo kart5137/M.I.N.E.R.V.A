@@ -105,8 +105,8 @@ export function TimeSlider({ meta, week, onChange, onPrefetch, className }: Time
 
         <div className="ml-1 min-w-0">
           <div className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold">{formatWeek(shown)}</span>
-            <span className="font-mono text-[11px] text-muted-foreground">{isoWeekLabel(shown)}</span>
+            <span className="whitespace-nowrap text-sm font-semibold">{formatWeek(shown)}</span>
+            <span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{isoWeekLabel(shown)}</span>
             {provisional && (
               <span className="rounded bg-status-warn/15 px-1.5 text-[10.5px] text-status-warn">Provisional</span>
             )}
@@ -121,9 +121,11 @@ export function TimeSlider({ meta, week, onChange, onPrefetch, className }: Time
             onChange(meta.reference_week);
           }}
           disabled={shown === meta.reference_week}
+          aria-label="Latest settled week"
           className="ml-auto shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-40"
         >
-          Latest settled week
+          <span className="sm:hidden">Latest</span>
+          <span className="hidden sm:inline">Latest settled week</span>
         </button>
       </div>
 

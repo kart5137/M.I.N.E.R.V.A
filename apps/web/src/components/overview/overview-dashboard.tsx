@@ -145,7 +145,7 @@ function StatTile({
           <span>No comparison available</span>
         )}
       </div>
-      {previous && <div className="mt-0.5 text-[11px] text-muted-foreground/70">Previous: {previous}</div>}
+      {previous && <div className="mt-0.5 text-[11px] text-subtle-foreground">Previous: {previous}</div>}
     </section>
   );
 }
@@ -232,7 +232,7 @@ function Signals({ kpis: k, weeks }: { kpis: Overview["kpis"]; weeks: number }) 
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-[10.5px] text-muted-foreground/80">
+      <p className="mt-2 text-[10.5px] text-subtle-foreground">
         Hot spots use the 4 weeks to the window end; the threshold count uses the latest forecast.
       </p>
     </section>

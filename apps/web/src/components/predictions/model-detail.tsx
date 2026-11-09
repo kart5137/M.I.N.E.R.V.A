@@ -45,7 +45,8 @@ export function ModelDetailView() {
     return (
       <div className="p-6">
         <Back />
-        {missing ? <p className="mt-4 text-sm text-muted-foreground">No model version {id}.</p> : <QueryError error={detail.error} />}
+        <h1 className="mt-4 text-lg font-semibold tracking-tight">{missing ? "Model not found" : "Model"}</h1>
+        {missing ? <p className="mt-1 text-sm text-muted-foreground">No model version {id}.</p> : <QueryError error={detail.error} />}
       </div>
     );
   }

@@ -39,12 +39,12 @@ jobs:
           alembic downgrade base
           alembic upgrade head
           alembic check
-      - name: API tests (unit + database integration)
+      - name: API tests (unit + database integration), coverage >= 90%
         working-directory: services/api
-        run: pytest -q -rs
-      - name: Pipeline tests (unit + ingestion into a test database)
+        run: pytest -q -rs --cov=app --cov-report=term:skip-covered --cov-fail-under=90
+      - name: Pipeline tests (unit + ingestion into a test database), coverage >= 90%
         working-directory: pipeline
-        run: pytest -q -rs
+        run: pytest -q -rs --cov=ei_pipeline --cov-report=term:skip-covered --cov-fail-under=90
 
   web:
     runs-on: ubuntu-latest
@@ -61,6 +61,30 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm test
       - run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+
+  docker:
+    # Builds the three images and smoke-tests the API and pipeline images against PostGIS.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: |
+          docker build -f services/api/Dockerfile -t ei-api .
+          docker build -f pipeline/Dockerfile --build-arg GIT_SHA=${{ github.sha }} -t ei-pipeline .
+          docker build -t ei-web apps/web
+      - name: Smoke test (migrate, seed, serve, query)
+        run: |
+          docker network create ei
+          docker run -d --name db --network ei -e POSTGRES_USER=ei -e POSTGRES_PASSWORD=ei             -e POSTGRES_DB=epidemic_intelligence postgis/postgis:16-3.4
+          until docker exec db pg_isready -U ei -d epidemic_intelligence; do sleep 2; done
+          URL=postgresql://ei:ei@db:5432/epidemic_intelligence  # plain URL, as hosts give it
+          docker run --rm --network ei -e DATABASE_URL=$URL ei-api             alembic -c packages/ei_db/alembic.ini upgrade head
+          docker run --rm --network ei -e DATABASE_URL=$URL ei-pipeline ei ingest reference
+          docker run -d --name api --network ei -p 8000:8000 -e DATABASE_URL=$URL ei-api
+          for i in $(seq 30); do curl -fs localhost:8000/api/v1/health && break; sleep 1; done
+          curl -fsS localhost:8000/api/v1/meta/status
+          curl -fsS localhost:8000/api/v1/diseases | grep -q influenza

@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==8.3.4"]
+dev = ["pytest==8.3.4", "pytest-cov==6.0.0"]
 
 [project.scripts]
 ei = "ei_pipeline.cli:main"

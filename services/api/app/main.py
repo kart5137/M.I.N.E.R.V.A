@@ -6,6 +6,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
+from app.core.middleware import ResponseHeadersMiddleware
 from app.routers import (
     analytics,
     countries,
@@ -35,10 +36,12 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
+        allow_origin_regex=settings.api_cors_origin_regex or None,
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
     app.add_middleware(GZipMiddleware, minimum_size=1024)
+    app.add_middleware(ResponseHeadersMiddleware, max_age=settings.cache_max_age)
     register_error_handlers(app)
     app.include_router(meta.router, prefix=API_PREFIX)
     app.include_router(geo.router, prefix=API_PREFIX)

@@ -2,6 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { QueryError } from "@/components/common/query-state";
@@ -60,6 +61,8 @@ export function SurveillanceView() {
   }, []);
 
   const [projection, setProjection] = useState<"globe" | "mercator">("globe");
+  // Small screens: the controls cover the globe, so they start closed behind a button.
+  const [controlsOpen, setControlsOpen] = useState(false);
   const [autoRotate, setAutoRotate] = useState(!selected);
   const [detections, setDetections] = useState(true);
   const [showAnomalies, setShowAnomalies] = useState(params.get("anomalies") === "1");
@@ -110,7 +113,25 @@ export function SurveillanceView() {
         }}
       />
 
-      <aside className="absolute left-3 top-3 w-64 space-y-4 rounded-lg border border-border bg-card/90 p-3 backdrop-blur">
+      <h1 className="sr-only">Global surveillance</h1>
+      <button
+        type="button"
+        onClick={() => setControlsOpen((o) => !o)}
+        aria-expanded={controlsOpen}
+        aria-controls="map-controls"
+        className="absolute left-3 top-3 z-10 flex h-8 items-center gap-1.5 rounded-md border border-border bg-card/90 px-2.5 text-xs font-medium backdrop-blur lg:hidden"
+      >
+        {controlsOpen ? <X className="size-4" aria-hidden /> : <SlidersHorizontal className="size-4" aria-hidden />}
+        {controlsOpen ? "Close" : "Layers"}
+      </button>
+      <aside
+        id="map-controls"
+        aria-label="Map controls"
+        className={cn(
+          "absolute left-3 top-14 max-h-[calc(100%-13rem)] w-64 space-y-4 overflow-y-auto rounded-lg border border-border bg-card/90 p-3 backdrop-blur lg:top-3 lg:block lg:max-h-none lg:overflow-visible",
+          controlsOpen ? "block" : "hidden",
+        )}
+      >
         <section className="space-y-2.5">
           <SectionTitle>View</SectionTitle>
           <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-0.5 text-xs" role="radiogroup" aria-label="Projection">

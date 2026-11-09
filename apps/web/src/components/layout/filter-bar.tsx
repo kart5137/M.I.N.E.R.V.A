@@ -19,7 +19,8 @@ function Select({
 }) {
   return (
     <label htmlFor={id} className="flex items-center gap-2 text-xs">
-      <span className="hidden text-muted-foreground sm:inline">{label}</span>
+      {/* Visible from sm up; always present for screen readers. */}
+      <span className="sr-only text-muted-foreground sm:not-sr-only">{label}</span>
       <span className="relative">
         <select
           id={id}
@@ -39,7 +40,7 @@ function Select({
 export function FilterBar() {
   const [filters, setFilters] = useFilters();
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 sm:gap-3">
       <Select
         id="filter-region"
         label="Region"

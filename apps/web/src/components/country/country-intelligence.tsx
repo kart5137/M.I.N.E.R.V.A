@@ -82,8 +82,9 @@ export function CountryIntelligence() {
     return (
       <div className="p-6">
         <BackLink />
+        <h1 className="mt-4 text-lg font-semibold tracking-tight">{notFound ? "Country not found" : iso3}</h1>
         {notFound ? (
-          <p className="mt-4 text-sm text-muted-foreground">No country or area with code “{iso3}”.</p>
+          <p className="mt-1 text-sm text-muted-foreground">No country or area with code “{iso3}”.</p>
         ) : (
           <QueryError error={profile.error} />
         )}
@@ -361,7 +362,7 @@ function Context({ p }: { p: CountryProfile }) {
           <div key={r.label} className="flex items-baseline justify-between gap-3 border-b border-border/60 py-1.5 last:border-0">
             <dt className="text-muted-foreground">
               {r.label}
-              {r.unit && <span className="ml-1 text-[10.5px] text-muted-foreground/70">({r.unit})</span>}
+              {r.unit && <span className="ml-1 text-[10.5px] text-subtle-foreground">({r.unit})</span>}
             </dt>
             <dd className="metric text-right">
               {r.value == null ? (

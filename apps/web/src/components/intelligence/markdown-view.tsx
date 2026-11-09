@@ -10,6 +10,8 @@ export function MarkdownView({ md, skipTitle = true }: { md: string; skipTitle?:
   const blocks: React.ReactNode[] = [];
   let i = 0;
   let key = 0;
+  let section = "Report";
+  let tables = 0;
   while (i < lines.length) {
     const line = lines[i];
     if (line.trim() === "") {
@@ -22,6 +24,7 @@ export function MarkdownView({ md, skipTitle = true }: { md: string; skipTitle?:
       continue;
     }
     if (line.startsWith("## ")) {
+      section = line.slice(3).replaceAll("**", "");
       blocks.push(
         <h2 key={key++} className="mt-6 border-b border-border pb-1 text-sm font-semibold text-foreground first:mt-0">
           {inline(line.slice(3))}
@@ -59,7 +62,13 @@ export function MarkdownView({ md, skipTitle = true }: { md: string; skipTitle?:
       const [head, sep, ...body] = rows;
       const right = (sep ?? []).map((s) => s.endsWith(":"));
       blocks.push(
-        <div key={key++} className="overflow-x-auto">
+        <div
+          key={key++}
+          className="overflow-x-auto"
+          tabIndex={0}
+          role="region"
+          aria-label={`${section} table ${++tables}`}
+        >
           <table className="w-full text-xs">
             <thead className="text-[11px] text-muted-foreground">
               <tr className="border-b border-border">

@@ -143,7 +143,7 @@ function AlertsPanel() {
       {q.error && <QueryError error={q.error} className="p-4" />}
       {d && d.items.length === 0 && <p className="p-4 text-xs text-muted-foreground">No alerts match these filters.</p>}
       {d && d.items.length > 0 && (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Alerts table">
           <table className="w-full text-xs">
             <thead className="text-[11px] text-muted-foreground">
               <tr className="border-b border-border">

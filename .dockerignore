@@ -1,0 +1,18 @@
+# Build contexts are the repo root; send only what the images need.
+**/.git
+**/.venv
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+**/.pytest_cache
+**/.ruff_cache
+**/tsconfig.tsbuildinfo
+.env
+.env.*
+!.env.example
+data/
+models/
+docs/
+ANN/

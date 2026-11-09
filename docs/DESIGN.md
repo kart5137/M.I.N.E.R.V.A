@@ -435,7 +435,9 @@ lists the changed sections. `POST /reports/generate` is rate-limited (10/min per
 
 ## 7. Data flow
 
-Weekly run (`ei run-weekly`), each step idempotent and recorded:
+Weekly run (`pipeline/scripts/weekly.sh`: migrations → `ei weekly` → `python -m app.cli report`;
+scheduled by `.github/workflows/weekly.yml`, Wednesdays 06:00 UTC), each step idempotent
+and recorded; the first failing step stops the run:
 
 ```mermaid
 sequenceDiagram
@@ -461,8 +463,11 @@ sequenceDiagram
     A-->>W: JSON + meta (reference week, sources)
 ```
 
-Retraining cadence: full retrain + backtest monthly; weekly runs reuse the active model
-version to produce new forecasts.
+Retraining cadence: *as built (M8)*, every weekly run does the full backtest, selection
+and retrain, which fits comfortably in the CI time budget; the planned monthly retrain
+with weekly re-forecasting remains an option if runtime grows. `ei prune` keeps
+per-country metrics and SHAP detail for the latest 8 forecast runs only (older runs keep
+pooled metrics and forecasts). Deployment: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
@@ -544,11 +549,12 @@ Each ends with: what was built, files changed, how to run, how to test.
 
 | Item | Notes |
 |---|---|
-| **Local database setup (decision needed)** | Docker and PostgreSQL are not installed on this machine. Options: (a) install Docker Desktop and run `postgis/postgis` via Compose — recommended, matches deployment; (b) install PostgreSQL + PostGIS natively via the EDB installer/StackBuilder; (c) use a free hosted Postgres with PostGIS (Supabase/Neon) for development. |
+| Local database setup | **Resolved in M1.** Docker Desktop (WSL2) with `postgis/postgis:16-3.4` via Compose, matching deployment. |
 | MapLibre globe + deck.gl interop | **Resolved in M1 spike.** deck.gl 9.4 *interleaved* mode renders nothing on MapLibre 6 (no error); *overlaid* mode works on globe and flat projections. Consequence: deck layers always draw above map layers. MapLibre 6 also needs its worker served explicitly (`setWorkerUrl`, copied by `apps/web/scripts/copy-maplibre-worker.mjs`). |
 | Node.js version | Tailwind 4.3 needs `require(esm)` → Node ≥ 20.19. Project standard: Node 26 LTS (`.nvmrc`). Node 20 is end-of-life. |
 | Boundary resolution | **Resolved in M2.** 1:50m boundaries in PostGIS, served by `GET /api/v1/geo/countries` (simplified, gzip ~0.5 MB, ETag). Overseas departments (GLP, GUF, MTQ) have no own geometry — see [natural_earth.md](datasets/natural_earth.md). |
 | MEM thresholds in Python | **Resolved in M6.** Python port validated against R `mem` 2.19 (exact match). MEM applies to temperate (NH/SH) countries only; year-round countries have no thresholds or risk level. A documented alternative for tropical countries (e.g. percentile thresholds) is an open option. |
 | Data revisions | FluNet back-fills; ingestion keeps revision history and forecasts record which data snapshot they used. |
-| Hosting cost | All target hosts have free tiers; PostGIS on Supabase/Neon free tier has storage limits (~0.5 GB) — enough for MVP (~146k rows). |
+| Hosting cost | All target hosts have free tiers. The database is ~110 MB; each forecast run adds ~10 MB before `ei prune` trims runs beyond the latest 8 (M8), keeping within ~0.5 GB free-tier storage. Free Render instances sleep when idle (cold start up to a minute). |
+| FluNet export integrity | **Found in M8.** WHO's CDN cached a stale, truncated copy of the export for the default `Accept-Encoding` variant. Downloads are now checked record by record; other request variants are tried; a malformed export fails the run and keeps the previous file. |
 | Licences | Confirm FluNet attribution wording before public deployment. |

@@ -6,13 +6,14 @@ dashboard, built on public WHO FluNet data.
 > Analytical and educational tool. Not a diagnostic tool and not a substitute for
 > official public-health guidance.
 
-**Status:** M7 (rule-based alerts, reproducible template reports, Reports & Alerts, About the Data) complete; next is M8 (hardening, Docker images, weekly pipeline, deployment). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
+**Status:** M8 (hardening, Docker images, weekly GitHub Actions pipeline, deployment setup) built; the public deployment needs the hosting accounts described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
 
 | Doc | |
 |---|---|
 | [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md) | Scope and requirements |
 | [docs/DESIGN.md](docs/DESIGN.md) | Architecture, schema, ML pipeline, milestones |
 | [docs/datasets/](docs/datasets/README.md) | Verified data sources and coverage profile |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Hosting, weekly job, images, configuration |
 
 ## Layout
 
@@ -68,6 +69,11 @@ cd ../..
 #     (Reports & Alerts) or with POST /api/v1/reports/generate.
 .venv\Scripts\ei detect run
 
+# Or 3-4b plus pruning in one go, as the scheduled job does (re-downloads
+# FluNet), followed by the weekly report:
+.venv\Scripts\ei weekly
+cd services/api; ..\..\.venv\Scripts\python -m app.cli report --weeks 4
+
 # 5. API → http://localhost:8000/docs
 cd services/api
 ..\..\.venv\Scripts\uvicorn app.main:app --reload --port 8000
@@ -77,6 +83,13 @@ cd apps/web
 npm run dev
 ```
 
+Everything in containers instead (database, API, web; then load data):
+
+```powershell
+docker compose -f infra/docker-compose.yml --profile app up -d --build
+docker compose -f infra/docker-compose.yml --profile jobs run --rm pipeline
+```
+
 The dashboard shows live platform readiness (API → database → schema → data) in the
 top-right status pill and on the Overview page.
 
@@ -84,12 +97,14 @@ top-right status pill and on the Overview page.
 
 ```powershell
 .venv\Scripts\ruff check packages services pipeline
-cd services/api; ..\..\.venv\Scripts\pytest -q
-cd pipeline; ..\.venv\Scripts\pytest -q      # uses a separate test database
-cd apps/web; npm run lint; npm run typecheck; npm run build
+cd services/api; ..\..\.venv\Scripts\pytest -q --cov=app       # CI gate: 90% coverage
+cd pipeline; ..\.venv\Scripts\pytest -q --cov=ei_pipeline     # separate test database
+cd apps/web; npm run lint; npm run typecheck; npm test; npm run build
 ```
 
-CI runs the same checks: [.github/workflows/ci.yml](.github/workflows/ci.yml).
+CI runs the same checks plus a Docker build and smoke test
+([.github/workflows/ci.yml](.github/workflows/ci.yml)); the scheduled weekly job is
+[.github/workflows/weekly.yml](.github/workflows/weekly.yml).
 
 ## Data profiling
 
