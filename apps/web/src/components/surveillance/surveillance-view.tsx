@@ -1,12 +1,12 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Clock } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
 import { QueryError } from "@/components/common/query-state";
 import { Provenance } from "@/components/common/provenance";
+import { FILL_MODES, type FillMode, useDetectionLayers } from "@/components/detection/globe-layers";
 import { Globe, type GlobeLayers } from "@/components/globe";
 import { Switch } from "@/components/ui/switch";
 import { globalQueryOptions, useGlobalSurveillance } from "@/hooks/use-surveillance";
@@ -18,13 +18,7 @@ import { CountryPanel } from "./country-panel";
 import { PositivityLegend } from "./positivity-legend";
 import { TimeSlider } from "./time-slider";
 
-/** Layers produced by later milestones; listed (disabled) so users know they are coming. */
-const PLANNED_LAYERS = [
-  { label: "Anomalies", milestone: "M6" },
-  { label: "Hotspots (Gi*)", milestone: "M6" },
-  { label: "Forecast change", milestone: "M5" },
-  { label: "Risk level", milestone: "M5" },
-];
+const FILL_PARAM = "fill";
 
 function Toggle({
   id,
@@ -67,7 +61,24 @@ export function SurveillanceView() {
 
   const [projection, setProjection] = useState<"globe" | "mercator">("globe");
   const [autoRotate, setAutoRotate] = useState(!selected);
-  const [layers, setLayers] = useState<GlobeLayers>({ positivity: true, detections: true });
+  const [detections, setDetections] = useState(true);
+  const [showAnomalies, setShowAnomalies] = useState(params.get("anomalies") === "1");
+  const fillParam = params.get(FILL_PARAM);
+  const [fillMode, setFillModeState] = useState<FillMode | "none">(
+    FILL_MODES.some((m) => m.key === fillParam) || fillParam === "none" ? (fillParam as FillMode | "none") : "positivity",
+  );
+  const setParam = useCallback((key: string, value: string | null) => {
+    const next = new URLSearchParams(window.location.search);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    window.history.replaceState(null, "", `?${next.toString()}`);
+  }, []);
+  const setFillMode = (m: FillMode | "none") => {
+    setFillModeState(m);
+    setParam(FILL_PARAM, m === "positivity" ? null : m);
+  };
+  const layers: GlobeLayers = { positivity: fillMode === "positivity", detections };
+  const detection = useDetectionLayers(fillMode === "none" ? "positivity" : fillMode, showAnomalies, filters);
 
   const queryClient = useQueryClient();
   const global = useGlobalSurveillance(filters);
@@ -89,6 +100,9 @@ export function SurveillanceView() {
         values={data?.countries}
         windowWeeks={data?.window.weeks}
         layers={layers}
+        fill={detection.fill}
+        rings={detection.rings}
+        hoverDetail={detection.hoverDetail}
         selectedIso3={selected}
         onCountryClick={(c) => {
           setAutoRotate(false);
@@ -119,39 +133,63 @@ export function SurveillanceView() {
           <Toggle id="rotate" label="Auto-rotate" checked={autoRotate} onChange={setAutoRotate} />
         </section>
 
-        <section className="space-y-2.5 border-t border-border pt-3">
-          <SectionTitle>Layers</SectionTitle>
-          <Toggle
-            id="layer-positivity"
-            label="Test positivity"
-            checked={layers.positivity}
-            onChange={(v) => setLayers((l) => ({ ...l, positivity: v }))}
-            swatch={<span className="size-2.5 rounded-[2px] bg-[#3987e5]" />}
-          />
+        <section className="space-y-2 border-t border-border pt-3">
+          <SectionTitle>Country fill</SectionTitle>
+          <div className="space-y-0.5" role="radiogroup" aria-label="Country fill">
+            {[...FILL_MODES, { key: "none" as const, label: "None" }].map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                role="radio"
+                aria-checked={fillMode === m.key}
+                onClick={() => setFillMode(m.key)}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors",
+                  fillMode === m.key ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <span
+                  className={cn(
+                    "grid size-3 place-items-center rounded-full border",
+                    fillMode === m.key ? "border-primary" : "border-muted-foreground/50",
+                  )}
+                  aria-hidden
+                >
+                  {fillMode === m.key && <span className="size-1.5 rounded-full bg-primary" />}
+                </span>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="pt-1">
+            <SectionTitle>Overlays</SectionTitle>
+          </div>
           <Toggle
             id="layer-detections"
             label="Detections (3D columns)"
-            checked={layers.detections}
-            onChange={(v) => setLayers((l) => ({ ...l, detections: v }))}
+            checked={detections}
+            onChange={setDetections}
             swatch={<span className="h-3 w-1.5 rounded-t-[2px] bg-[#d95926]" />}
           />
-          <ul className="space-y-1.5 pt-1">
-            {PLANNED_LAYERS.map((l) => (
-              <li key={l.label} className="flex items-center justify-between text-xs text-muted-foreground/70">
-                <span>{l.label}</span>
-                <span className="flex items-center gap-1 rounded bg-muted px-1.5 text-[10.5px]">
-                  <Clock className="size-3" aria-hidden />
-                  {l.milestone}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <Toggle
+            id="layer-anomalies"
+            label="Anomalies (rings)"
+            checked={showAnomalies}
+            onChange={(v) => {
+              setShowAnomalies(v);
+              setParam("anomalies", v ? "1" : null);
+            }}
+            swatch={<span className="size-2.5 rounded-full border-2 border-slate-100" />}
+          />
         </section>
 
-        <section className="border-t border-border pt-3">
-          {layers.positivity || layers.detections ? (
-            <PositivityLegend showDetections={layers.detections} />
-          ) : (
+        <section className="max-h-[34vh] overflow-y-auto border-t border-border pt-3">
+          {fillMode === "positivity" && <PositivityLegend showDetections={detections} />}
+          {fillMode !== "positivity" && detections && <PositivityLegend showDetections hideScale className="mb-2" />}
+          {detection.legend}
+          {detection.note && <p className="mt-2 text-[10.5px] leading-snug text-muted-foreground">{detection.note}</p>}
+          {detection.error && <QueryError error={detection.error} className="mt-2 text-[11px] text-status-error" />}
+          {fillMode === "none" && !detections && !showAnomalies && (
             <p className="text-[11px] text-muted-foreground">All data layers are hidden.</p>
           )}
         </section>

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 
 import { CHART, EChart, type EChartsOption } from "@/components/charts/echart";
 import { formatInt, formatPct, formatWeek } from "@/lib/format";
-import type { Season } from "@/lib/types";
+import type { Season, ThresholdLevels } from "@/lib/types";
 
 const PAST = "#64748b";
 
@@ -12,7 +12,16 @@ const PAST = "#64748b";
  * Season-aligned positivity: the current season in the accent hue, earlier seasons as
  * recessive grey lines (COVID-disrupted seasons dashed). One y-axis.
  */
-export function SeasonChart({ seasons, minSpecimens }: { seasons: Season[]; minSpecimens: number }) {
+export function SeasonChart({
+  seasons,
+  minSpecimens,
+  thresholds = null,
+}: {
+  seasons: Season[];
+  minSpecimens: number;
+  /** MEM levels of the current season, drawn as dashed reference lines. */
+  thresholds?: ThresholdLevels | null;
+}) {
   const option = useMemo<EChartsOption>(() => {
     const length = Math.max(...seasons.map((s) => s.points.length), 52);
     const byLabel = new Map(seasons.map((s) => [s.label, s]));
@@ -56,6 +65,10 @@ export function SeasonChart({ seasons, minSpecimens }: { seasons: Season[]; minS
       yAxis: {
         type: "value",
         min: 0,
+        // Keep the MEM levels in view (markLines do not extend the axis).
+        max: thresholds
+          ? (v: { max: number }) => Math.min(1, Math.ceil(Math.max(v.max, thresholds.very_high) * 20) / 20)
+          : undefined,
         splitLine: { lineStyle: { color: CHART.grid } },
         axisLabel: { color: CHART.muted, fontSize: 10, formatter: (v: number) => `${Math.round(v * 100)}%` },
       },
@@ -80,10 +93,25 @@ export function SeasonChart({ seasons, minSpecimens }: { seasons: Season[]; minS
           emphasis: { focus: "series", lineStyle: { width: current ? 3 : 2, opacity: 1 } },
           // Only the current season is labelled; the table and tooltip name the rest.
           endLabel: { show: current, formatter: s.label, color: CHART.ink, fontSize: 10 },
+          markLine:
+            current && thresholds
+              ? {
+                  silent: true,
+                  symbol: "none",
+                  lineStyle: { color: CHART.muted, type: [5, 4], width: 1, opacity: 0.8 },
+                  label: { position: "insideStartTop", color: CHART.muted, fontSize: 10 },
+                  data: [
+                    { yAxis: thresholds.epidemic_threshold, name: "Epidemic" },
+                    { yAxis: thresholds.medium, name: "Medium" },
+                    { yAxis: thresholds.high, name: "High" },
+                    { yAxis: thresholds.very_high, name: "Very high" },
+                  ].map((m) => ({ ...m, label: { formatter: `${m.name} ${formatPct(m.yAxis)}` } })),
+                }
+              : undefined,
         };
       }),
     };
-  }, [seasons, minSpecimens]);
+  }, [seasons, minSpecimens, thresholds]);
 
   return <EChart option={option} ariaLabel="Weekly test positivity aligned by season" />;
 }

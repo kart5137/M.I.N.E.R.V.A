@@ -22,6 +22,7 @@ from app.queries.common import (
     WEEK,
     DiseaseContext,
 )
+from app.queries.detection import thresholds_by_season
 from app.schemas.countries import Season, SeasonPoint
 
 NH_START_WEEK = 40
@@ -94,5 +95,9 @@ def country_seasons(session: Session, ctx: DiseaseContext, iso3: str, season_typ
         FROM surveillance_weekly WHERE disease_id = :d AND iso3 = :iso3
         ORDER BY week_start
     """), {"d": ctx.id, "iso3": iso3}).all()
-    return build_seasons(rows, season_type, ctx, n)
+    seasons = build_seasons(rows, season_type, ctx, n)
+    levels = thresholds_by_season(session, ctx, iso3)
+    for s in seasons:
+        s.thresholds = levels.get(s.start)
+    return seasons
 

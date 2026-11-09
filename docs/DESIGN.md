@@ -171,10 +171,11 @@ erDiagram
 | `forecasts` | `id` PK, `model_version_id` FK, `disease_id`, `iso3`, `origin_week`, `target_week`, `horizon_weeks`, `target`, `point`, `lo80`, `hi80`, `lo95`, `hi95`, `explanation_base` (SHAP expected value), `created_at` · UNIQUE(`model_version_id`,`iso3`,`origin_week`) |
 | `forecast_explanations` | (`forecast_id`,`feature`) PK, `shap_value`, `feature_value`, `rank` — top-k contributors |
 | `backtest_predictions` | `id` PK, `model_version_id` FK, `iso3`, `origin_week`, `target_week`, `point`, `lo80`…`hi95`, `actual` — out-of-sample backtest detail, kept for the current run only (M5) |
-| `seasonal_thresholds` | `id` PK, `disease_id`, `iso3`, `season`, `method`, `epidemic_threshold`, `medium`, `high`, `very_high`, `n_seasons_used` |
-| `risk_assessments` | `id` PK, `disease_id`, `iso3`, `assessed_week`, `target_week`, `risk_level` (`low`,`moderate`,`high`), `rule`, `forecast_id` FK, `threshold_id` FK |
-| `anomalies` | `id` PK, `disease_id`, `iso3`, `week_start`, `metric`, `observed`, `expected`, `upper_band`, `score`, `method`, `severity`, `detected_at` |
-| `hotspot_results` | `id` PK, `disease_id`, `iso3`, `window_end`, `window_weeks`, `statistic` (`gi_star`,`local_moran`), `z_score`, `p_value`, `p_fdr`, `classification`, `weights_spec` |
+| `detection_runs` | `id` PK, `disease_id`, `run_key`, `reference_week`, `latest_week`, `started_at`, `finished_at`, `git_sha`, `summary JSONB` (settings, counts, not-assessed reasons) — *M6: each run replaces the outputs below* |
+| `seasonal_thresholds` | `id` PK, `run_id`, `disease_id`, `iso3`, `season`, `season_start`, `method` (`mem`), `epidemic_threshold`, `post_threshold`, `medium`, `high`, `very_high`, `n_seasons_used`, `seasons_used JSONB`, `mean_epidemic_weeks`, `quality_note` (NULL = usable) |
+| `risk_assessments` | `id` PK, `run_id`, `disease_id`, `iso3`, `assessed_week`, `target_week`, `risk_level` (`low`,`moderate`,`high`), `rule`, `forecast_point`, `forecast_lo80`, `forecast_hi80`, `model_type` (copied so the row survives a forecast rerun), `forecast_id` FK (SET NULL), `threshold_id` FK |
+| `anomalies` | `id` PK, `run_id`, `disease_id`, `iso3`, `week_start`, `metric`, `method` (`seasonal_ewma`/`isolation_forest`), `observed`, `expected`, `upper_band`, `score`, `ewma`, `ewma_limit`, `specimens_tested`, `severity`, `is_provisional`, `detected_at` |
+| `hotspot_results` | `id` PK, `run_id`, `disease_id`, `iso3`, `window_end`, `window_weeks`, `statistic` (`gi_star`,`local_moran`), `value`, `stat_value`, `z_score`, `p_value`, `p_fdr`, `classification`, `n_neighbours`, `neighbour_source` (`queen`/`knn`), `weights_spec` |
 | `alerts` | `id` PK, `disease_id`, `iso3`, `alert_type`, `severity`, `week_start`, `title`, `details JSONB`, `anomaly_id`/`hotspot_id`/`risk_id` FKs (nullable), `created_at` |
 | `intelligence_reports` | `id` PK, `disease_id`, `iso3` (nullable = global), `period_start`, `period_end`, `content JSONB` (structured facts), `rendered_md`, `generator` (`template`/`llm`), `inputs_sha256`, `created_at` |
 | `report_alerts` | (`report_id`,`alert_id`) PK |
@@ -257,7 +258,7 @@ Monday; default = reference week) and `weeks` (1–52). The comparison window is
 | `GET /countries` | Country list with tier and 4-week values to the reference week; `q`, `region`, `sort`, `order`, paginated (M4) |
 | `GET /countries/{iso3}` | Profile: metadata, season type, population, health indicators (latest year each, null = not available), coverage, recent 4-week values |
 | `GET /countries/{iso3}/timeseries` | Weekly series (+ provisional flags) |
-| `GET /countries/{iso3}/seasons` | Season-aligned curves (NH: W40–W39; SH/YR: ISO year), peaks, COVID flag; thresholds added in M6 |
+| `GET /countries/{iso3}/seasons` | Season-aligned curves (NH: W40–W39; SH/YR: ISO year), peaks, COVID flag, MEM thresholds per season (M6) |
 | `GET /overview` | KPIs, global trend, top movers |
 | `GET /surveillance/global` | Per-country values for one week/window (map layers) |
 | `GET /geo/countries` | Simplified country geometries (GeoJSON, cached) |
@@ -267,7 +268,12 @@ Monday; default = reference week) and `weeks` (1–52). The comparison window is
 | `GET /forecasts/{id}/explanation` | SHAP contributors |
 | `GET /models` · `GET /models/{id}` | Current run with pooled metrics · one version: metrics vs seasonal naive, error by origin, per-country metrics, global importance (M5) |
 | `GET /backtest?iso3=&model_version_id=` | Out-of-sample backtest predictions vs actuals for one country (M5) |
-| `GET /anomalies` · `GET /hotspots` · `GET /risk` | Detection outputs |
+| `GET /anomalies?to&weeks&region&iso3&method` | Anomalous country-weeks in a window + per-country summary (M6) |
+| `GET /hotspots?to&region` | Gi* and Local Moran per country for the 4-week window ending at `to` (M6) |
+| `GET /detection/history` | Weekly counts of hot/cold-spot and anomaly countries (M6) |
+| `GET /risk?region` | Risk per country + not-assessed countries with reasons (M6) |
+| `GET /countries/{iso3}/detection` | Thresholds, risk, last-52-week anomalies, hotspot status (M6) |
+| `GET /forecasts/global?horizon` | Active model's latest forecasts for every country (forecast-change layer, M6) |
 | `GET /alerts` · `GET /reports` · `GET /reports/{id}` | Alerts and reports |
 | `POST /reports/generate` | Build a template report from stored data |
 
@@ -299,7 +305,7 @@ which only reads stored results (rate-limited).
 | Seasonal memory | positivity at same ISO week last year (±1 week mean), last season's peak |
 | Calendar | ISO week sin/cos, weeks since hemisphere season start |
 | Testing | log specimens tested lag 1, testing trend |
-| Spatial | mean positivity of the other countries in the transmission zone (M5); neighbours via the hotspot spatial weights are added in M6 |
+| Spatial | mean positivity of the other countries in the transmission zone (M5); mean of spatial neighbours (queen, else 4 nearest) at the origin and its 2-week change (M6 — backtest MASE 0.378/0.451/0.578 vs 0.378/0.452/0.580 without: a negligible gain, kept) |
 | Static | hemisphere, transmission zone, latitude of centroid |
 
 - **Models:** seasonal-naive, last-value, 4-week moving average (baselines) → Random
@@ -338,6 +344,23 @@ which only reads stored results (rate-limited).
   Epidemic Method approach used in WHO's PISA guidance. Implemented in Python and
   checked against the reference R `mem` package on a few countries.
 - Countries with < 3 usable past seasons get no thresholds → risk "Not assessed".
+- *M6 implementation:* `pipeline/src/ei_pipeline/detection/mem.py` ports `memmodel()` (R
+  `mem` 2.19, default settings: slope criterion 2.8 on the smoothed MAP curve; epidemic
+  threshold = one-sided 95% point limit of the arithmetic mean of the n highest pre-epidemic
+  values, n = round(30/seasons); intensity = one-sided 40/90/97.5% limits of the geometric
+  mean of the n highest epidemic values). **Validated:** identical to R to 1e-8 on mem's
+  `flucyl` data, a synthetic set with zeros and a 53-week season, and 12 FluNet countries
+  (`scripts/validate_mem.R`, R run in Docker). One difference: gaps inside a season are
+  linearly interpolated (R uses a cross-validated kernel smoother); usable seasons are
+  ≥ 75% complete, non-COVID and finished.
+- *M6 finding — scope:* MEM assumes one epidemic per season. For year-round (FluNet `YR`)
+  countries the calendar-year season cuts through several waves; 49 of 70 gave an
+  epidemic threshold above medium intensity. MEM is therefore applied to NH/SH countries
+  only; YR countries are "not assessed" with that reason. A quality gate (levels ordered,
+  epidemic > 0, very high < 100%) flags MEM output that is unusable (e.g. JPN, POL, GBR,
+  where some weeks report > 90% positivity); flagged levels are stored with the note and
+  never drive risk. Result at reference week 2026-10-12: 32 countries with usable
+  current-season levels, 28 with a risk level.
 - **Risk rule** (shown in UI): forecast at horizon 2 below epidemic threshold = Low;
   between epidemic threshold and high intensity = Moderate; at or above high intensity =
   High. The interval is shown alongside the level.
@@ -349,6 +372,13 @@ which only reads stored results (rate-limited).
   the residual signals; severity from the standardised residual.
 - Isolation Forest (positivity, tests, growth) as a secondary signal, reported
   separately, never alone as an alert trigger.
+- *M6 implementation:* baseline = same ISO week ±1 in the latest 5 years with data,
+  outside the COVID window (needs ≥ 3 years); residual standardised by
+  (p90 − median)/1.2816, floored at 2 pp; EWMA λ 0.3, L 3 over consecutive valid weeks
+  after the COVID window. Severity: r < 3 moderate, 3–5 high, ≥ 5 severe. Stored for
+  weeks from 2023 (history for timelines). 7.9% of checked country-weeks since 2023 are
+  flagged; flags cluster in seasons that started early or late relative to the 5-year
+  baseline (e.g. the early 2026/27 rise in USA, CAN, GBR, DNK).
 
 ### 6.5 Hotspot detection
 - Input: 4-week mean positivity per country ending at the reference week.
@@ -358,6 +388,16 @@ which only reads stored results (rate-limited).
   type), 999 permutations, Benjamini–Hochberg FDR at 0.05.
 - Only countries with data in the window participate; the UI marks the rest as "no
   data", not "cold".
+- *M6 implementation:* participants need ≥ 10 specimens in the window and a polygon;
+  kNN fallback applies to countries with no participating land neighbour. Inference is
+  conditional permutation as in PySAL `esda`, with one change: ties count against
+  significance on both sides (with many countries at 0% positivity, esda's `>=` folding
+  calls a tie at the minimum "extreme", p = 0.001). Computed for every week from
+  2025-01-06 (history and the time slider). Finding: after FDR only ~1 hot and ~1 cold
+  spot per week pass (≈ 18% of countries have uncorrected p < 0.05); the map shows
+  uncorrected p < 0.05 in a lighter tone, labelled as suggestive. Gi* describes the
+  neighbourhood, so a high-positivity country among low neighbours can be a "cold spot"
+  (Local Moran calls it an HL outlier); the UI explains both.
 
 ### 6.6 Alerts and reports
 Rules generate alerts from stored outputs (new anomaly, new hotspot, risk escalation,
@@ -466,7 +506,7 @@ Each ends with: what was built, files changed, how to run, how to test.
 | M3 ✅ | Surveillance core | API: countries, timeseries, overview, surveillance/global, geo · Web: Overview + Global Surveillance wired to real data (choropleth, columns, time slider, country panel) | Every number on both pages traces to DB rows; filters work end-to-end |
 | M4 ✅ | Country + Analytics | Country Intelligence (history, seasons, context) and Analytics pages; health indicators ingestion | Drill-down from globe to country works for all 189 areas, "Not available" where missing |
 | M5 ✅ | Forecasting | Feature builder, baselines, RF, XGBoost, rolling-origin backtest, conformal intervals, registry, SHAP; Prediction Center + model detail pages | Backtest report generated; active model beats seasonal-naive or baseline is shown as active |
-| M6 | Detection | Seasonal thresholds, risk, anomalies, Gi\*/Local Moran hotspots; Hotspots & Anomalies page; globe layers | Outputs stored per weekly run; layers toggle on globe |
+| M6 ✅ | Detection | Seasonal thresholds, risk, anomalies, Gi\*/Local Moran hotspots; Hotspots & Anomalies page; globe layers | Outputs stored per weekly run; layers toggle on globe |
 | M7 | Intelligence | Alerts, template reports, Reports & Alerts page, About the Data, model cards | Report regenerates identically from stored inputs |
 | M8 | Hardening + deploy | Test coverage, accessibility/responsive pass, Docker images, weekly GitHub Actions pipeline, deployment (Vercel + Render/Fly + Supabase/Neon) | Public URL with live data; weekly job green |
 | Post-MVP | Expansion | Dengue + Open-Meteo weather, positives target, LSTM evaluation, optional LLM summaries, auth | — |
@@ -481,7 +521,7 @@ Each ends with: what was built, files changed, how to run, how to test.
 | MapLibre globe + deck.gl interop | **Resolved in M1 spike.** deck.gl 9.4 *interleaved* mode renders nothing on MapLibre 6 (no error); *overlaid* mode works on globe and flat projections. Consequence: deck layers always draw above map layers. MapLibre 6 also needs its worker served explicitly (`setWorkerUrl`, copied by `apps/web/scripts/copy-maplibre-worker.mjs`). |
 | Node.js version | Tailwind 4.3 needs `require(esm)` → Node ≥ 20.19. Project standard: Node 26 LTS (`.nvmrc`). Node 20 is end-of-life. |
 | Boundary resolution | **Resolved in M2.** 1:50m boundaries in PostGIS, served by `GET /api/v1/geo/countries` (simplified, gzip ~0.5 MB, ETag). Overseas departments (GLP, GUF, MTQ) have no own geometry — see [natural_earth.md](datasets/natural_earth.md). |
-| MEM thresholds in Python | No standard Python package; implement and validate against R `mem`. If validation fails, fall back to documented percentile thresholds and label them as such. |
+| MEM thresholds in Python | **Resolved in M6.** Python port validated against R `mem` 2.19 (exact match). MEM applies to temperate (NH/SH) countries only; year-round countries have no thresholds or risk level. A documented alternative for tropical countries (e.g. percentile thresholds) is an open option. |
 | Data revisions | FluNet back-fills; ingestion keeps revision history and forecasts record which data snapshot they used. |
 | Hosting cost | All target hosts have free tiers; PostGIS on Supabase/Neon free tier has storage limits (~0.5 GB) — enough for MVP (~146k rows). |
 | Licences | Confirm FluNet attribution wording before public deployment. |

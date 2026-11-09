@@ -41,7 +41,10 @@ class Kpi(BaseModel):
     value: float | None
     previous: float | None
     change: float | None
-    change_unit: str  # "percent" (relative) or "pp" (percentage points)
+    change_unit: str  # "percent" (relative), "pp" (percentage points) or "count"
+    #: Countries the count is out of (detection KPIs), and how it is defined.
+    denominator: int | None = None
+    note: str | None = None
 
 
 class PendingKpi(BaseModel):
@@ -54,6 +57,10 @@ class Kpis(BaseModel):
     detections: Kpi
     positivity: Kpi
     countries_reporting: Kpi
+    #: M6 detection KPIs (null when `ei detect run` has not produced outputs yet).
+    anomalies: Kpi | None
+    hotspots: Kpi | None
+    above_threshold: Kpi | None
     pending: list[PendingKpi]
 
 

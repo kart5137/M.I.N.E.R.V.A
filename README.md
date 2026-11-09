@@ -6,7 +6,7 @@ dashboard, built on public WHO FluNet data.
 > Analytical and educational tool. Not a diagnostic tool and not a substitute for
 > official public-health guidance.
 
-**Status:** M4 (Country Intelligence, Countries index, Analytics, health-system context) complete; next is M5 (forecasting). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
+**Status:** M6 (detection: MEM thresholds, risk, anomalies, Gi*/Local Moran hotspots, Hotspots & Anomalies page, globe layers) complete; next is M7 (alerts, reports, About the Data). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
 
 | Doc | |
 |---|---|
@@ -62,6 +62,9 @@ cd ../..
 # 4. Forecasts: backtest, model selection, training, SHAP (~15-20 min; writes
 #    models/ artefacts and docs/models/influenza-positivity.md)
 .venv\Scripts\ei forecast run
+
+# 4b. Detection: MEM thresholds, risk, anomalies, hotspots (~1 min; run after 4)
+.venv\Scripts\ei detect run
 
 # 5. API → http://localhost:8000/docs
 cd services/api

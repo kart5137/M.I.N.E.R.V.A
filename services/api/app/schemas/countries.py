@@ -5,6 +5,7 @@ from datetime import date
 from pydantic import BaseModel
 
 from app.schemas.common import ResponseMeta, WindowInfo
+from app.schemas.detection import ThresholdLevels
 from app.schemas.surveillance import CountryWindowValue
 
 
@@ -121,6 +122,8 @@ class Season(BaseModel):
     specimens_tested: float | None
     peak_positivity: float | None
     peak_week: date | None
+    #: MEM levels for this season from earlier seasons (M6); null when not computed.
+    thresholds: ThresholdLevels | None = None
     points: list[SeasonPoint]
 
 

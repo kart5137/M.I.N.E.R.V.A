@@ -7,6 +7,7 @@
     ei ingest flunet [--refresh]     WHO FluNet → surveillance_weekly
     ei ingest all [--refresh]        all of the above, in order
     ei forecast run [--fast]         backtest, select, train and store forecasts (M5)
+    ei detect run                    thresholds, risk, anomalies, hotspots (M6)
 """
 
 from __future__ import annotations
@@ -61,6 +62,8 @@ def main(argv: list[str] | None = None) -> int:
     forecast.add_argument("step", choices=("run",))
     forecast.add_argument("--fast", action="store_true",
                           help="small models for a quick check (not for real use)")
+    detect = sub.add_parser("detect", help="thresholds, risk, anomalies and hotspots")
+    detect.add_argument("step", choices=("run",))
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
 
@@ -73,6 +76,13 @@ def main(argv: list[str] | None = None) -> int:
         t0 = time.perf_counter()
         summary = run_forecast(engine, fast=args.fast)
         print(f"[forecast] {time.perf_counter() - t0:.1f}s {json.dumps(summary, default=str)}")
+        return 0
+    if args.command == "detect":
+        from ei_pipeline.detection.run import run_detection
+
+        t0 = time.perf_counter()
+        summary = run_detection(engine)
+        print(f"[detect] {time.perf_counter() - t0:.1f}s {json.dumps(summary, default=str)}")
         return 0
     steps = STEPS if args.step == "all" else (args.step,)
     for step in steps:

@@ -1,7 +1,7 @@
 "use client";
 
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { ColumnLayer } from "@deck.gl/layers";
+import { ColumnLayer, ScatterplotLayer } from "@deck.gl/layers";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import {
   type ExpressionSpecification,
@@ -37,6 +37,20 @@ export interface GlobeLayers {
   detections: boolean;
 }
 
+/** A categorical fill that replaces the positivity choropleth (detection layers). */
+export interface GlobeFill {
+  /** Class index per country; countries without one keep the land colour ("no data"). */
+  byIso3: Map<string, number>;
+  colors: string[];
+}
+
+/** Outline ring drawn at a country's label point (e.g. anomalies). */
+export interface GlobeRing {
+  iso3: string;
+  /** Radius in metres. */
+  radius: number;
+}
+
 export interface GlobeProps {
   projection?: "globe" | "mercator";
   /** Initial camera tilt in degrees (makes 3D columns readable). */
@@ -51,6 +65,12 @@ export interface GlobeProps {
   layers?: GlobeLayers;
   selectedIso3?: string | null;
   onCountryClick?: (country: CountryProps) => void;
+  /** When set, replaces the positivity fill. */
+  fill?: GlobeFill | null;
+  rings?: GlobeRing[];
+  ringColor?: [number, number, number];
+  /** Extra lines for the hover card (layer-specific values). */
+  hoverDetail?: (iso3: string) => React.ReactNode;
 }
 
 /** Country boundaries: Natural Earth 1:50m (public domain), served from PostGIS. */
@@ -59,6 +79,7 @@ const ROTATE_DEG_PER_SEC = 4;
 /** Column height (m) per √(weekly average detections). Fixed, so heights compare over time. */
 const METRES_PER_SQRT_DETECTION = 12_000;
 const DEFAULT_LAYERS: GlobeLayers = { positivity: true, detections: false };
+const DEFAULT_RING: [number, number, number] = [241, 245, 249];
 
 // Served by scripts/copy-maplibre-worker.mjs (runs before dev/build).
 setWorkerUrl("/vendor/maplibre-gl-worker.mjs");
@@ -75,6 +96,16 @@ function buildStyle(projection: "globe" | "mercator"): StyleSpecification {
     sources: {},
     layers: [{ id: "ocean", type: "background", paint: { "background-color": "#0a1120" } }],
   };
+}
+
+function classColor(colors: string[]): ExpressionSpecification {
+  const land = token("--globe-land", "#15203a");
+  return [
+    "match",
+    ["coalesce", ["feature-state", "cls"], -1],
+    ...colors.flatMap((c, i) => [i, c]),
+    land,
+  ] as unknown as ExpressionSpecification;
 }
 
 function fillColor(showPositivity: boolean): ExpressionSpecification | string {
@@ -102,6 +133,10 @@ export function Globe({
   layers = DEFAULT_LAYERS,
   selectedIso3 = null,
   onCountryClick,
+  fill = null,
+  rings,
+  ringColor = DEFAULT_RING,
+  hoverDetail,
 }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -258,16 +293,22 @@ export function Globe({
     map.setProjection({ type: projection });
   }, [projection, styleReady]);
 
-  // Positivity choropleth: class per country in feature state, colour by expression.
+  // Choropleth: class per country in feature state, colour by expression. A detection
+  // fill (`fill`) replaces the positivity classes while it is set.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !styleReady || !countries) return;
     for (const f of countries.features) {
       const iso3 = f.properties.iso3;
-      map.setFeatureState({ source: "countries", id: iso3 }, { cls: positivityClass(valueByIso3.get(iso3)) });
+      const cls = fill ? (fill.byIso3.get(iso3) ?? -1) : positivityClass(valueByIso3.get(iso3));
+      map.setFeatureState({ source: "countries", id: iso3 }, { cls });
     }
-    map.setPaintProperty("country-fill", "fill-color", fillColor(layers.positivity));
-  }, [valueByIso3, layers.positivity, styleReady, countries]);
+    map.setPaintProperty(
+      "country-fill",
+      "fill-color",
+      fill ? classColor(fill.colors) : fillColor(layers.positivity),
+    );
+  }, [valueByIso3, layers.positivity, fill, styleReady, countries]);
 
   // Selection outline
   useEffect(() => {
@@ -291,8 +332,24 @@ export function Globe({
           return c && v.positives ? [{ position: c.label, weekly: v.positives / windowWeeks }] : [];
         })
       : [];
+    const ringData = (rings ?? []).flatMap((r) => {
+      const c = byIso3.get(r.iso3);
+      return c ? [{ position: c.label, radius: r.radius }] : [];
+    });
     overlay.setProps({
       layers: [
+        new ScatterplotLayer<{ position: [number, number]; radius: number }>({
+          id: "rings",
+          data: ringData,
+          stroked: true,
+          filled: false,
+          getPosition: (d) => d.position,
+          getRadius: (d) => d.radius,
+          getLineColor: [...ringColor, 235],
+          lineWidthUnits: "pixels",
+          getLineWidth: 2,
+          radiusUnits: "meters",
+        }),
         new ColumnLayer<{ position: [number, number]; weekly: number }>({
           id: "detections",
           data,
@@ -306,7 +363,7 @@ export function Globe({
         }),
       ],
     });
-  }, [layers.detections, values, windowWeeks, byIso3, styleReady]);
+  }, [layers.detections, values, windowWeeks, byIso3, styleReady, rings, ringColor]);
 
   const hovered = hover ? byIso3.get(hover.iso3) : undefined;
   const hoveredValue = hover ? valueByIso3.get(hover.iso3) : undefined;
@@ -338,7 +395,8 @@ export function Globe({
             <span className="font-medium text-foreground">{hovered.name}</span>
             <span className="font-mono text-[10.5px] text-muted-foreground">{hovered.iso3}</span>
           </div>
-          {values && <HoverValues v={hoveredValue} />}
+          {values && !fill && <HoverValues v={hoveredValue} />}
+          {hoverDetail?.(hover.iso3)}
         </div>
       )}
       <div className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-muted-foreground/60">

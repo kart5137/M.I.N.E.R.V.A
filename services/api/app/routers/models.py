@@ -9,12 +9,13 @@ from sqlalchemy.orm import Session
 from app.core.db import get_session
 from app.core.errors import ApiError
 from app.queries import models as q
-from app.queries.common import load_disease
+from app.queries.common import check_region, load_disease
 from app.queries.countries import country_row
 from app.schemas.models import (
     CountryBacktest,
     CountryForecasts,
     Explanation,
+    GlobalForecasts,
     ModelDetail,
     ModelRun,
 )
@@ -71,6 +72,25 @@ def forecasts(iso3: str, session: Session = Depends(get_session),
         reason=None if fc else q.no_forecast_reason(session, ctx, c["iso3"]),
         forecasts=fc, country_metrics=metrics,
     )
+
+
+@router.get("/forecasts/global", response_model=GlobalForecasts,
+            summary="Active model's latest forecasts at one horizon for every country")
+def forecasts_global(session: Session = Depends(get_session), disease: Disease = "influenza",
+                     horizon: Annotated[int, Query(description="1, 2 or 4")] = 2,
+                     region: Annotated[str | None, Query()] = None) -> GlobalForecasts:
+    ctx = load_disease(session, disease)
+    region = check_region(region)
+    if horizon not in (1, 2, 4):
+        raise ApiError(422, "invalid_parameter", "horizon must be 1, 2 or 4.")
+    run_key = q.current_run(session, ctx)
+    if run_key is None:
+        return GlobalForecasts(meta=ctx.meta(), run_key=None, horizon_weeks=horizon,
+                               model_type=None, model_label=None, items=[])
+    model, items = q.global_forecasts(session, ctx, run_key, horizon, region)
+    return GlobalForecasts(meta=ctx.meta(), run_key=run_key, horizon_weeks=horizon,
+                           model_type=model, model_label=q.label(model) if model else None,
+                           items=items)
 
 
 @router.get("/forecasts/{forecast_id}/explanation", response_model=Explanation,

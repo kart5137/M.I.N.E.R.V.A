@@ -44,7 +44,9 @@ FEATURE_LABELS = {
     "y_last_year": "Same week last year", "woy_sin": "Time of year (sin)",
     "woy_cos": "Time of year (cos)", "weeks_into_season": "Weeks into the season",
     "log_tests_lag0": "Specimens tested (log)", "tests_trend": "Testing trend",
-    "zone_mean_lag0": "Transmission-zone positivity", "season_nh": "Northern season",
+    "zone_mean_lag0": "Transmission-zone positivity",
+    "nbr_mean_lag0": "Neighbouring countries' positivity",
+    "nbr_diff2": "Neighbours' 2-week change", "season_nh": "Northern season",
     "season_sh": "Southern season", "season_yr": "Year-round season",
     "lat": "Latitude", "abs_lat": "Distance from equator",
 }

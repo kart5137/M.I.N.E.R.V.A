@@ -67,7 +67,7 @@ def test_overview_kpis_against_previous_window(api: TestClient):
     assert k["positivity"]["previous"] == pytest.approx(99 / 290)
     assert k["positivity"]["change"] == pytest.approx((140 / 300 - 99 / 290) * 100)
     assert k["countries_reporting"]["value"] == 2 and k["countries_reporting"]["previous"] == 3
-    assert {p["key"] for p in k["pending"]} == {"anomalies", "hotspots", "above_threshold"}
+    assert k["pending"] == [] and k["anomalies"] is None  # no detection run seeded
 
 
 def test_overview_trend_is_complete_and_marks_provisional(api: TestClient):

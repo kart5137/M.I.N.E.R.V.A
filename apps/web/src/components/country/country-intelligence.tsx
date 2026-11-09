@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Clock, Globe2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Globe2, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -14,9 +14,10 @@ import { ApiError } from "@/lib/api";
 import { REGIONS } from "@/lib/filters";
 import { addWeeks, formatCompact, formatInt, formatPct, formatWeek, windowLabel } from "@/lib/format";
 import { MIN_SPECIMENS } from "@/lib/positivity-scale";
-import type { CountryProfile, HealthValue } from "@/lib/types";
+import type { CountryProfile, HealthValue, ThresholdLevels } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+import { AnomalyTimeline, HotspotCard, RiskCard } from "./detection-cards";
 import { ForecastSummary } from "./forecast-summary";
 import { SeasonChart, SeasonTable } from "./season-chart";
 
@@ -53,21 +54,6 @@ function Card({ title, subtitle, children, className, actions }: {
         {actions}
       </header>
       <div className="mt-3">{children}</div>
-    </section>
-  );
-}
-
-function Pending({ title, milestone, text }: { title: string; milestone: string; text: string }) {
-  return (
-    <section className="rounded-lg border border-dashed border-border p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
-        <span className="flex items-center gap-1 rounded bg-muted px-1.5 text-[10.5px] text-muted-foreground">
-          <Clock className="size-3" aria-hidden />
-          {milestone}
-        </span>
-      </div>
-      <p className="mt-1.5 text-xs text-muted-foreground">{text}</p>
     </section>
   );
 }
@@ -121,9 +107,10 @@ export function CountryIntelligence() {
       )}
       <div className="grid gap-4 md:grid-cols-3">
         <ForecastSummary iso3={iso3} />
-        <Pending title="Anomalies" milestone="M6" text="Weeks above the seasonal baseline (EWMA on a same-week-of-season expectation)." />
-        <Pending title="Hotspot status" milestone="M6" text="Getis-Ord Gi* classification relative to neighbouring countries." />
+        <RiskCard iso3={iso3} />
+        <HotspotCard iso3={iso3} />
       </div>
+      {p && p.surveillance.weeks_reported > 0 && <AnomalyTimeline iso3={iso3} />}
       {p && (
         <div className="grid gap-4 lg:grid-cols-2">
           <Context p={p} />
@@ -280,29 +267,59 @@ function History({ iso3 }: { iso3: string }) {
   );
 }
 
+function ThresholdNote({ current, seasonType }: { current: ThresholdLevels | null; seasonType: string | null }) {
+  if (seasonType === "YR") {
+    return (
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        No MEM thresholds: influenza circulates year-round here, and the Moving Epidemic Method assumes one epidemic per season.
+      </p>
+    );
+  }
+  if (!current) {
+    return (
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        No MEM thresholds for this season: they need at least 3 complete, non-COVID past seasons.
+      </p>
+    );
+  }
+  if (current.quality_note) {
+    return (
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        MEM thresholds for {current.season} are not shown: {current.quality_note}.
+      </p>
+    );
+  }
+  return (
+    <p className="mt-1 text-[11px] text-muted-foreground">
+      MEM levels for {current.season}: epidemic {formatPct(current.epidemic_threshold)}, medium {formatPct(current.medium)}, high{" "}
+      {formatPct(current.high)}, very high {formatPct(current.very_high)} — from {current.n_seasons_used} past seasons
+      (Moving Epidemic Method, R <span className="font-mono">mem</span> defaults; validated against it).
+    </p>
+  );
+}
+
 function Seasons({ iso3 }: { iso3: string }) {
   const seasons = useCountrySeasons(iso3);
   const d = seasons.data;
+  const current = d?.seasons.find((s) => s.is_current);
+  const usable = current?.thresholds && !current.thresholds.quality_note ? current.thresholds : null;
   return (
     <Card
       title="Seasonal profile"
-      subtitle={d ? `${d.season_rule} Current season highlighted; earlier seasons grey, COVID-disrupted seasons dashed.` : "Loading…"}
+      subtitle={d ? `${d.season_rule} Current season highlighted; earlier seasons grey, COVID-disrupted seasons dashed. Dashed horizontal lines: this season's MEM levels.` : "Loading…"}
     >
       {seasons.error && <QueryError error={seasons.error} />}
       {d && d.seasons.length > 0 && (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="h-72">
-            <SeasonChart seasons={d.seasons} minSpecimens={d.min_specimens_for_peak} />
+            <SeasonChart seasons={d.seasons} minSpecimens={d.min_specimens_for_peak} thresholds={usable} />
           </div>
           <div>
             <SeasonTable seasons={d.seasons} />
             <p className="mt-2 text-[11px] text-muted-foreground">
               Peaks use settled weeks with at least {d.min_specimens_for_peak} specimens.
             </p>
-            <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Clock className="size-3" aria-hidden />
-              Epidemic and intensity thresholds (Moving Epidemic Method) are added in M6.
-            </p>
+            <ThresholdNote current={current?.thresholds ?? null} seasonType={d.season_type} />
           </div>
         </div>
       )}

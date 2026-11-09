@@ -147,3 +147,27 @@ class CountryBacktest(BaseModel):
     model_type: str
     horizon_weeks: int
     points: list[BacktestPoint]
+
+
+class GlobalForecastItem(BaseModel):
+    iso3: str
+    name: str
+    who_region: str | None
+    origin_week: date
+    target_week: date
+    #: Observed positivity in the origin week (what the forecast starts from).
+    origin_value: float | None
+    point: float
+    lo80: float | None
+    hi80: float | None
+    #: point − origin_value, in percentage points.
+    change_pp: float | None
+
+
+class GlobalForecasts(BaseModel):
+    meta: ResponseMeta
+    run_key: str | None
+    horizon_weeks: int
+    model_type: str | None
+    model_label: str | None
+    items: list[GlobalForecastItem]

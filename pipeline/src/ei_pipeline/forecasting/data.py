@@ -9,7 +9,11 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import Engine, text
 
+from ei_pipeline.detection.weights import Neighbours, load_geography, neighbours
 from ei_pipeline.forecasting import config as cfg
+
+#: Same k as the hotspot weights.
+KNN_K = 4
 
 
 @dataclass
@@ -19,6 +23,9 @@ class Panel:
     disease_id: int
     reference_week: date
     latest_week: date
+    #: Spatial neighbours among the modelled countries (None in unit tests without
+    #: geometry).
+    neighbours: Neighbours | None = None
 
 
 def logit(p):
@@ -55,9 +62,10 @@ def load_panel(engine: Engine, disease_key: str = "influenza") -> Panel:
             WHERE disease_id = :d AND iso3 = ANY(:codes) AND week_start >= :start
         """), c, params={"d": disease_id, "codes": countries["iso3"].tolist(),
                          "start": cfg.HISTORY_START})
+    nb = neighbours(load_geography(engine), countries["iso3"].tolist(), KNN_K)
     return Panel(weekly=build_calendar(rows, countries["iso3"], latest),
                  countries=countries, disease_id=disease_id,
-                 reference_week=reference, latest_week=latest)
+                 reference_week=reference, latest_week=latest, neighbours=nb)
 
 
 def build_calendar(rows: pd.DataFrame, codes, latest: date) -> pd.DataFrame:

@@ -74,6 +74,8 @@ export interface Kpi {
   previous: number | null;
   change: number | null;
   change_unit: "percent" | "pp" | "count";
+  denominator?: number | null;
+  note?: string | null;
 }
 
 export interface PendingKpi {
@@ -109,6 +111,9 @@ export interface Overview {
     detections: Kpi;
     positivity: Kpi;
     countries_reporting: Kpi;
+    anomalies: Kpi | null;
+    hotspots: Kpi | null;
+    above_threshold: Kpi | null;
     pending: PendingKpi[];
   };
   trend: TrendPoint[];
@@ -212,6 +217,8 @@ export interface Season {
   specimens_tested: number | null;
   peak_positivity: number | null;
   peak_week: string | null;
+  /** MEM levels for this season (M6); null when not computed. */
+  thresholds: ThresholdLevels | null;
   points: SeasonPoint[];
 }
 
@@ -404,4 +411,177 @@ export interface CountryBacktest {
     hi95: number | null;
     actual: number;
   }[];
+}
+
+/* ---------- Detection (M6) ---------- */
+
+export interface DetectionRunInfo {
+  run_key: string;
+  reference_week: string;
+  finished_at: string | null;
+}
+
+export type Severity = "moderate" | "high" | "severe";
+
+export interface AnomalyItem {
+  iso3: string;
+  name: string;
+  who_region: string | null;
+  week_start: string;
+  method: "seasonal_ewma" | "isolation_forest";
+  observed: number;
+  expected: number | null;
+  upper_band: number | null;
+  score: number;
+  ewma: number | null;
+  ewma_limit: number | null;
+  specimens_tested: number | null;
+  severity: Severity | null;
+  is_provisional: boolean;
+}
+
+export interface AnomalyCountry {
+  iso3: string;
+  weeks_flagged: number;
+  latest_week: string;
+  max_severity: Severity;
+  max_score: number;
+}
+
+export interface Anomalies {
+  meta: ResponseMeta;
+  run: DetectionRunInfo | null;
+  window: WindowInfo;
+  region: string | null;
+  iso3: string | null;
+  method_note: string;
+  items: AnomalyItem[];
+  by_country: AnomalyCountry[];
+}
+
+export interface LocalStat {
+  stat_value: number;
+  z_score: number;
+  p_value: number;
+  p_fdr: number;
+  classification: string;
+}
+
+export interface HotspotItem {
+  iso3: string;
+  name: string;
+  who_region: string | null;
+  value: number;
+  n_neighbours: number;
+  neighbour_source: "queen" | "knn";
+  gi_star: LocalStat;
+  local_moran: LocalStat;
+}
+
+export interface Hotspots {
+  meta: ResponseMeta;
+  run: DetectionRunInfo | null;
+  window: WindowInfo | null;
+  region: string | null;
+  available_from: string | null;
+  available_to: string | null;
+  weights_spec: string | null;
+  permutations: number;
+  fdr_alpha: number;
+  items: HotspotItem[];
+}
+
+export interface DetectionHistory {
+  meta: ResponseMeta;
+  region: string | null;
+  points: {
+    week_start: string;
+    hot: number;
+    cold: number;
+    participants: number;
+    anomalies: number;
+    is_provisional: boolean;
+  }[];
+}
+
+export interface ThresholdLevels {
+  season: string;
+  season_start: string;
+  method: string;
+  epidemic_threshold: number;
+  post_threshold: number | null;
+  medium: number;
+  high: number;
+  very_high: number;
+  n_seasons_used: number;
+  seasons_used: string[];
+  quality_note: string | null;
+}
+
+export type RiskLevel = "low" | "moderate" | "high";
+
+export interface RiskItem {
+  iso3: string;
+  name: string;
+  who_region: string | null;
+  assessed_week: string;
+  target_week: string;
+  risk_level: RiskLevel;
+  rule: string;
+  forecast_point: number;
+  forecast_lo80: number | null;
+  forecast_hi80: number | null;
+  model_type: string;
+  thresholds: ThresholdLevels;
+}
+
+export interface RiskList {
+  meta: ResponseMeta;
+  run: DetectionRunInfo | null;
+  region: string | null;
+  rule: string;
+  items: RiskItem[];
+  not_assessed: { iso3: string; name: string; reason: string }[];
+}
+
+export interface HotspotStatus {
+  window_end: string;
+  value: number;
+  gi_star: LocalStat;
+  local_moran: LocalStat;
+  n_neighbours: number;
+  neighbour_source: "queen" | "knn";
+}
+
+export interface CountryDetection {
+  meta: ResponseMeta;
+  run: DetectionRunInfo | null;
+  iso3: string;
+  thresholds: ThresholdLevels | null;
+  thresholds_reason: string | null;
+  risk: RiskItem | null;
+  anomalies: AnomalyItem[];
+  hotspots: HotspotStatus[];
+}
+
+export interface GlobalForecastItem {
+  iso3: string;
+  name: string;
+  who_region: string | null;
+  origin_week: string;
+  target_week: string;
+  origin_value: number | null;
+  point: number;
+  lo80: number | null;
+  hi80: number | null;
+  change_pp: number | null;
+}
+
+export interface GlobalForecasts {
+  meta: ResponseMeta;
+  run_key: string | null;
+  horizon_weeks: number;
+  model_type: string | null;
+  model_label: string | null;
+  items: GlobalForecastItem[];
 }

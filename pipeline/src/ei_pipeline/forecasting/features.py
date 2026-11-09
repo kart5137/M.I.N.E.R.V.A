@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ei_db.catalog import FEATURE_LABELS  # noqa: F401  (re-exported for reports)
+from ei_pipeline.detection.weights import neighbour_mean
 from ei_pipeline.forecasting.data import Panel
 
 AUTOREGRESSIVE = ["y_lag0", "y_lag1", "y_lag2", "y_lag3", "y_mean4", "y_std4", "y_mean8",
@@ -18,11 +19,9 @@ AUTOREGRESSIVE = ["y_lag0", "y_lag1", "y_lag2", "y_lag3", "y_mean4", "y_std4", "
 SEASONAL = ["y_last_year"]
 CALENDAR = ["woy_sin", "woy_cos", "weeks_into_season"]
 TESTING = ["log_tests_lag0", "tests_trend"]
-SPATIAL = ["zone_mean_lag0"]
+SPATIAL = ["zone_mean_lag0", "nbr_mean_lag0", "nbr_diff2"]
 STATIC = ["season_nh", "season_sh", "season_yr", "lat", "abs_lat"]
 FEATURES = AUTOREGRESSIVE + SEASONAL + CALENDAR + TESTING + SPATIAL + STATIC
-
-
 
 def _base(panel: Panel) -> pd.DataFrame:
     df = panel.weekly.sort_values(["iso3", "week_start"]).reset_index(drop=True)
@@ -59,6 +58,20 @@ def _base(panel: Panel) -> pd.DataFrame:
     loo_sum = joined["sum"] - df["y"].fillna(0)
     loo_n = joined["count"] - own.astype(int)
     df["zone_mean_lag0"] = (loo_sum / loo_n).where(loo_n > 0)
+
+    # Neighbours (M6): mean logit positivity of the country's spatial neighbours among the
+    # modelled countries (queen contiguity, else 4 nearest; detection/weights.py) at the
+    # origin, and its 2-week change.
+    if panel.neighbours is not None:
+        idx = df.set_index(["iso3", "week_start"])
+        nbr = neighbour_mean(idx, panel.neighbours, "y")
+        df["nbr_mean_lag0"] = nbr.reindex(pd.MultiIndex.from_frame(
+            df[["iso3", "week_start"]])).to_numpy()
+        df["nbr_diff2"] = df["nbr_mean_lag0"] - df.groupby("iso3", sort=False)[
+            "nbr_mean_lag0"].shift(2)
+    else:
+        df["nbr_mean_lag0"] = np.nan
+        df["nbr_diff2"] = np.nan
 
     season = df["iso3"].map(meta["flu_season"])
     df["season_type"] = season

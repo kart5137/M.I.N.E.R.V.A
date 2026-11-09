@@ -16,6 +16,7 @@ from app.schemas.models import (
     ErrorPoint,
     Explanation,
     ForecastOut,
+    GlobalForecastItem,
     Importance,
     Metrics,
     ModelSummary,
@@ -192,3 +193,26 @@ def backtest_points(session: Session, version_id: int, iso3: str) -> list[Backte
         ORDER BY origin_week
     """), {"v": version_id, "i": iso3}).mappings()
     return [BacktestPoint(**r) for r in rows]
+
+
+def global_forecasts(session: Session, ctx: DiseaseContext, run_key: str, horizon: int,
+                     region: str | None) -> tuple[str | None, list[GlobalForecastItem]]:
+    """Latest-origin forecasts of the active model at one horizon, every country."""
+    rows = session.execute(text("""
+        SELECT f.iso3, c.name, c.who_region, f.origin_week, f.target_week, f.point, f.lo80,
+               f.hi80, mv.model_type, sw.positivity AS origin_value
+        FROM forecasts f
+        JOIN model_versions mv ON mv.id = f.model_version_id
+        JOIN countries c ON c.iso3 = f.iso3
+        LEFT JOIN surveillance_weekly sw ON sw.disease_id = f.disease_id
+          AND sw.iso3 = f.iso3 AND sw.week_start = f.origin_week
+        WHERE mv.run_key = :run AND mv.is_active AND mv.horizon_weeks = :h
+          AND (CAST(:region AS text) IS NULL OR c.who_region = :region)
+        ORDER BY f.iso3
+    """), {"run": run_key, "h": horizon, "region": region}).mappings().all()
+    model = rows[0]["model_type"] if rows else None
+    return model, [GlobalForecastItem(
+        **{k: r[k] for k in GlobalForecastItem.model_fields if k in r},
+        change_pp=None if r["origin_value"] is None
+        else (r["point"] - r["origin_value"]) * 100,
+    ) for r in rows]

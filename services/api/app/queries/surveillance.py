@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.queries import detection as det
 from app.queries.common import WEEK, DiseaseContext, Window
 from app.schemas.surveillance import (
     CountryWindowValue,
@@ -16,13 +17,8 @@ from app.schemas.surveillance import (
 )
 
 # Indicators produced by later milestones. Listed so the UI can say when they arrive
-# instead of showing a number.
-PENDING_KPIS = [
-    PendingKpi(key="anomalies", label="Countries with an active anomaly", available_in="M6"),
-    PendingKpi(key="hotspots", label="Countries in a significant hotspot", available_in="M6"),
-    PendingKpi(key="above_threshold", label="Countries forecast above epidemic threshold",
-               available_in="M5"),
-]
+# instead of showing a number. (All M6 indicators are now real; kept for future ones.)
+PENDING_KPIS: list[PendingKpi] = []
 
 _REGION = "(CAST(:region AS text) IS NULL OR c.who_region = :region)"
 
@@ -100,8 +96,34 @@ def kpis(session: Session, ctx: DiseaseContext, w: Window, region: str | None) -
             value=cur.countries_reporting, previous=prev.countries_reporting,
             change=cur.countries_reporting - prev.countries_reporting, change_unit="count",
         ),
+        **detection_kpis(session, ctx, w, region),
         pending=PENDING_KPIS,
     )
+
+
+def detection_kpis(session: Session, ctx: DiseaseContext, w: Window, region: str | None
+                   ) -> dict[str, Kpi | None]:
+    if det.run_info(session, ctx)[0] is None:
+        return {"anomalies": None, "hotspots": None, "above_threshold": None}
+    a_cur = det.anomaly_country_count(session, ctx, w, region)
+    a_prev = det.anomaly_country_count(session, ctx, w.previous, region)
+    h_cur = det.hotspot_country_count(session, ctx, w.end, region)
+    h_prev = det.hotspot_country_count(session, ctx, w.previous.end, region)
+    above, assessed = det.above_threshold_count(session, ctx, region)
+    return {
+        "anomalies": Kpi(value=a_cur, previous=a_prev, change=a_cur - a_prev,
+                         change_unit="count",
+                         note="Countries with a seasonal-EWMA anomaly in the window"),
+        "hotspots": None if h_cur is None else Kpi(
+            value=h_cur, previous=h_prev,
+            change=None if h_prev is None else h_cur - h_prev, change_unit="count",
+            note="Countries in a Gi* hot spot (FDR < 0.05), 4 weeks to the window end"),
+        "above_threshold": Kpi(
+            value=above, previous=None, change=None, change_unit="count",
+            denominator=assessed,
+            note="Latest 2-week forecast at or above the MEM epidemic threshold "
+                 "(countries with usable thresholds)"),
+    }
 
 
 _TREND = text(f"""

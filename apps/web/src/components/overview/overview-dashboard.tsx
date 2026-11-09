@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Clock, TriangleAlert } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -177,21 +177,61 @@ function KpiStrip({ data, weeks }: { data: Overview | undefined; weeks: number }
         previous={formatInt(k.countries_reporting.previous)}
         hint="Countries with at least one week of specimens tested in the period."
       />
-      <section className="rounded-lg border border-dashed border-border p-4">
-        <h2 className="text-xs text-muted-foreground">Signals</h2>
-        <ul className="mt-2 space-y-1.5 text-xs">
-          {k.pending.map((p) => (
-            <li key={p.key} className="flex items-start justify-between gap-2 text-muted-foreground">
-              <span>{p.label}</span>
-              <span className="flex shrink-0 items-center gap-1 rounded bg-muted px-1.5 text-[10.5px]">
-                <Clock className="size-3" aria-hidden />
-                {p.available_in}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <Signals kpis={k} weeks={weeks} />
     </div>
+  );
+}
+
+function Signals({ kpis: k, weeks }: { kpis: Overview["kpis"]; weeks: number }) {
+  const rows: { key: string; label: string; kpi: Kpi | null; value: string; href: string }[] = [
+    {
+      key: "anomalies",
+      label: "Countries with an anomaly",
+      kpi: k.anomalies,
+      value: formatInt(k.anomalies?.value),
+      href: "/hotspots",
+    },
+    {
+      key: "hotspots",
+      label: "Countries in a Gi* hot spot",
+      kpi: k.hotspots,
+      value: formatInt(k.hotspots?.value),
+      href: "/hotspots",
+    },
+    {
+      key: "above_threshold",
+      label: "Forecast above epidemic threshold",
+      kpi: k.above_threshold,
+      value: k.above_threshold
+        ? `${formatInt(k.above_threshold.value)} of ${formatInt(k.above_threshold.denominator)}`
+        : "—",
+      href: "/surveillance?fill=risk",
+    },
+  ];
+  return (
+    <section className="rounded-lg border border-border bg-card p-4">
+      <h2 className="text-xs text-muted-foreground">Signals</h2>
+      <ul className="mt-2 space-y-2 text-xs">
+        {rows.map((r) => (
+          <li key={r.key} title={r.kpi?.note ?? undefined}>
+            <Link href={r.href} className="flex items-baseline justify-between gap-2 hover:text-foreground">
+              <span className="text-muted-foreground">{r.label}</span>
+              <span className="metric shrink-0 font-semibold text-foreground">
+                {r.kpi ? r.value : <span className="font-normal text-muted-foreground">No detection run</span>}
+              </span>
+            </Link>
+            {r.kpi && r.kpi.change != null && (
+              <div className="text-right text-[10.5px] text-muted-foreground">
+                {formatSigned(r.kpi.change, 0)} vs previous {weeks === 1 ? "week" : `${weeks} weeks`}
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[10.5px] text-muted-foreground/80">
+        Hot spots use the 4 weeks to the window end; the threshold count uses the latest forecast.
+      </p>
+    </section>
   );
 }
 

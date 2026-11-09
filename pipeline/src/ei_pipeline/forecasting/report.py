@@ -100,8 +100,9 @@ def write_model_card(path: Path, summary: dict, evals: pd.DataFrame, selection, 
         "- The backtest uses today's (revised) data, not data as first published, so real-time "
         "accuracy can be lower, especially at the 1-week horizon.",
         "- Positivity depends on who is tested; changes in testing practice shift it.",
-        "- Neighbour-based spatial features need the spatial weights built in M6; only the "
-        "transmission-zone average is used now.",
+        "- Spatial features: transmission-zone average and the mean of spatial neighbours "
+        "among modelled countries (queen contiguity, else 4 nearest). Countries without a "
+        "boundary polygon (GLP, GUF, MTQ) have no neighbour features.",
         "- Forecasts are produced only for countries with a valid positivity in the reference "
         "week.",
         "",
