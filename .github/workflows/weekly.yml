@@ -45,7 +45,7 @@ jobs:
       PYTHONIOENCODING: utf-8
       EI_ROOT: ${{ github.workspace }}  # packages are installed, not editable
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Target
         env:
@@ -58,7 +58,7 @@ jobs:
             echo "Target: throwaway database (dry run)" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
           cache: pip
@@ -75,7 +75,7 @@ jobs:
       # Boundaries and World Bank files change rarely: reuse them for a month.
       # FluNet is always downloaded fresh by `ei weekly`.
       - name: Cache reference downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             data/raw/natural_earth
@@ -98,7 +98,7 @@ jobs:
 
       - name: Keep model artefacts and card
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: models-${{ github.run_number }}
           path: |
