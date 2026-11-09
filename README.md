@@ -27,8 +27,8 @@ infra             Docker Compose (PostgreSQL 16 + PostGIS 3.4)
 ## Prerequisites
 
 - **Python 3.12+** (3.13 used in development)
-- **Node.js 24 LTS** (see `.nvmrc`; ≥ 20.19 required by Tailwind 4.3)
-- **Docker Desktop** (for the PostGIS database)
+- **Node.js 26 LTS** (see `.nvmrc`; ≥ 20.19 required by Tailwind 4.3)
+- **Docker Desktop** with **WSL2** (for the PostGIS database; on Windows Home run `wsl --install` as administrator first)
 
 ## Setup
 

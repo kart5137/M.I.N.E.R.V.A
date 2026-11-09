@@ -441,7 +441,7 @@ Each ends with: what was built, files changed, how to run, how to test.
 |---|---|
 | **Local database setup (decision needed)** | Docker and PostgreSQL are not installed on this machine. Options: (a) install Docker Desktop and run `postgis/postgis` via Compose — recommended, matches deployment; (b) install PostgreSQL + PostGIS natively via the EDB installer/StackBuilder; (c) use a free hosted Postgres with PostGIS (Supabase/Neon) for development. |
 | MapLibre globe + deck.gl interop | **Resolved in M1 spike.** deck.gl 9.4 *interleaved* mode renders nothing on MapLibre 6 (no error); *overlaid* mode works on globe and flat projections. Consequence: deck layers always draw above map layers. MapLibre 6 also needs its worker served explicitly (`setWorkerUrl`, copied by `apps/web/scripts/copy-maplibre-worker.mjs`). |
-| Node.js version | Tailwind 4.3 needs `require(esm)` → Node ≥ 20.19. Project standard: Node 24 LTS (`.nvmrc`). Node 20 is end-of-life. |
+| Node.js version | Tailwind 4.3 needs `require(esm)` → Node ≥ 20.19. Project standard: Node 26 LTS (`.nvmrc`). Node 20 is end-of-life. |
 | Boundary resolution | Natural Earth 1:110m (M1 spike) omits small states (e.g. Singapore, Malta). M2 ingests 1:50m into PostGIS and serves it from the API. Use `ISO_A3_EH`; Kosovo falls back to `ADM0_A3` (`KOS`). |
 | MEM thresholds in Python | No standard Python package; implement and validate against R `mem`. If validation fails, fall back to documented percentile thresholds and label them as such. |
 | Data revisions | FluNet back-fills; ingestion keeps revision history and forecasts record which data snapshot they used. |
