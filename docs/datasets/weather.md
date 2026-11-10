@@ -1,7 +1,7 @@
 # Weather: ERA5 via Open-Meteo
 
 **Status:** verified 2026-11-10 · **Role:** weather context for dengue (post-MVP phase P1,
-milestone D3) and, in D4, candidate forecasting features.
+milestone D3) and forecasting features of the dengue `*_weather` models (D4).
 
 ## What it is
 
@@ -48,6 +48,8 @@ Weather is loaded for every area with a WHO dengue report (199).
    over 2013–2022 (week 53 uses week 52).
 5. **Features for D4** (`weather.lagged_features`): 4-week mean temperature and humidity
    and 4-week total precipitation, lagged 4, 8 and 12 weeks; missing weeks stay gaps.
+   `forecasting/data.py` adds each one's anomaly from the country's 2013–2022 mean for the
+   same ISO week (18 features in all).
 
 ## Loading within the free quota
 
@@ -65,7 +67,8 @@ days of the free daily limit. Loading is therefore **resumable**:
   (separate hourly windows). When every area is complete it makes no requests;
 - once complete, the weekly job (`ei weekly`) re-fetches each area's last **8 weeks**
   (ERA5T revisions). Weather is optional in the weekly job: a failure is logged and the
-  job continues, since nothing depended on weather before D4.
+  job continues; dengue forecasting then uses the weather already stored (the newest
+  weeks lack weather features, which the tree models handle as missing).
 
 GitHub-hosted runners share IP addresses, so other users can use up the per-IP quota and
 a run may stop early; the next run continues.

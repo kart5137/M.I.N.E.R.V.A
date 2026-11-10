@@ -12,6 +12,12 @@ For every 4-week window ending on a week from HOTSPOTS_FROM to the latest week:
   from the other participants), 999 permutations, folded pseudo p-value as in PySAL
   `esda`; z = (observed − mean of permutations) / their sd. Benjamini–Hochberg FDR per
   window and statistic; significant at p_fdr < 0.05.
+
+Dengue (D4): the input is the mean weekly incidence per 100,000 over the window's
+reported weeks (≥ 2 of 4; gaps are not zeros), and the statistics run on
+log(1 + incidence) so that a few very high countries do not dominate. Case definitions
+differ between countries, so a dengue hot spot is a cluster of high *reported*
+incidence.
 """
 
 from __future__ import annotations
@@ -110,9 +116,16 @@ def classify(stat: str, zval: float, p_fdr: float, dev: float, lag: float) -> st
             (True, False): "HL", (False, True): "LH"}[(dev > 0, lag > 0)]
 
 
-def window_values(weekly: pd.DataFrame, end: date, weeks: int) -> pd.Series:
-    """Pooled positivity per country for the window, ≥ MIN_TESTS specimens."""
+def window_values(weekly: pd.DataFrame, end: date, weeks: int,
+                  spec: cfg.DetectionSpec = cfg.INFLUENZA) -> pd.Series:
+    """Pooled positivity per country for the window, ≥ MIN_TESTS specimens; dengue: mean
+    weekly incidence over the reported weeks (≥ DENGUE_HOTSPOT_MIN_WEEKS)."""
     start = pd.Timestamp(end) - pd.Timedelta(weeks=weeks - 1)
+    if spec.metric == "incidence":
+        w = weekly[(weekly["week_start"] >= start)
+                   & (weekly["week_start"] <= pd.Timestamp(end)) & weekly["p"].notna()]
+        g = w.groupby("iso3")["p"].agg(["mean", "count"])
+        return g.loc[g["count"] >= cfg.DENGUE_HOTSPOT_MIN_WEEKS, "mean"].sort_index()
     w = weekly[(weekly["week_start"] >= start) & (weekly["week_start"] <= pd.Timestamp(end))
                & (weekly["tests"] > 0) & (weekly["positives"] <= weekly["tests"])]
     g = w.groupby("iso3")[["positives", "tests"]].sum()
@@ -121,12 +134,14 @@ def window_values(weekly: pd.DataFrame, end: date, weeks: int) -> pd.Series:
 
 
 def hotspots_for_window(weekly: pd.DataFrame, geo: Geography, end: date,
-                        weeks: int = cfg.HOTSPOT_WINDOW_WEEKS) -> list[HotspotRow]:
-    values = window_values(weekly, end, weeks)
+                        weeks: int = cfg.HOTSPOT_WINDOW_WEEKS,
+                        spec: cfg.DetectionSpec = cfg.INFLUENZA) -> list[HotspotRow]:
+    values = window_values(weekly, end, weeks, spec)
     nb = neighbours(geo, list(values.index), cfg.KNN_K)
     if len(nb.codes) < 10:
         return []
-    x = values.reindex(nb.codes).to_numpy(dtype=float)
+    raw = values.reindex(nb.codes).to_numpy(dtype=float)
+    x = np.log1p(raw) if spec.metric == "incidence" else raw
     rng = np.random.default_rng(cfg.HOTSPOT_SEED + end.toordinal())
     res = local_statistics(x, nb, cfg.PERMUTATIONS, rng)
     dev = x - x.mean()
@@ -136,7 +151,7 @@ def hotspots_for_window(weekly: pd.DataFrame, geo: Geography, end: date,
         for i, iso3 in enumerate(nb.codes):
             rows.append(HotspotRow(
                 iso3=iso3, window_end=end, window_weeks=weeks, statistic=stat,
-                value=float(x[i]), stat_value=float(r["stat"][i]), z_score=float(r["z"][i]),
+                value=float(raw[i]), stat_value=float(r["stat"][i]), z_score=float(r["z"][i]),
                 p_value=float(r["p"][i]), p_fdr=float(p_fdr[i]),
                 classification=classify(stat, r["z"][i], p_fdr[i], dev[i],
                                         res["local_moran"]["lag"][i]),
@@ -145,10 +160,10 @@ def hotspots_for_window(weekly: pd.DataFrame, geo: Geography, end: date,
     return rows
 
 
-def compute_hotspots(weekly: pd.DataFrame, geo: Geography, latest_week: date
-                     ) -> list[HotspotRow]:
+def compute_hotspots(weekly: pd.DataFrame, geo: Geography, latest_week: date,
+                     spec: cfg.DetectionSpec = cfg.INFLUENZA) -> list[HotspotRow]:
     out, end = [], cfg.HOTSPOTS_FROM
     while end <= latest_week:
-        out += hotspots_for_window(weekly, geo, end)
+        out += hotspots_for_window(weekly, geo, end, spec=spec)
         end += timedelta(weeks=1)
     return out

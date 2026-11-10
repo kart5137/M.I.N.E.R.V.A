@@ -25,6 +25,11 @@ def _d(iso: str | None) -> str:
     return f"{d.day} {MONTHS[d.month - 1]} {d.year}"
 
 
+def _month(iso: str) -> str:
+    d = date.fromisoformat(iso)
+    return f"{MONTHS[d.month - 1]} {d.year}"
+
+
 def _pct(v: float | None, digits: int = 1) -> str:
     return "—" if v is None else f"{v * 100:.{digits}f}%"
 
@@ -46,6 +51,20 @@ def _rel(cur: float | None, prev: float | None) -> str:
     return f"{(cur - prev) / prev * 100:+.1f}% vs {_int(prev)}"
 
 
+def _inc(v: float | None, digits: int | None = None) -> str:
+    """Incidence per 100,000 (dengue): 2 decimals below 10, 1 below 100, else none."""
+    if v is None:
+        return "—"
+    d = digits if digits is not None else (2 if abs(v) < 10 else 1 if abs(v) < 100 else 0)
+    return f"{v:,.{d}f}"
+
+
+def _rel_inc(cur: float | None, prev: float | None) -> str:
+    if cur is None or not prev:
+        return "no comparison"
+    return f"{(cur - prev) / prev * 100:+.1f}% vs {_inc(prev)}"
+
+
 def _table(head: list[str], rows: list[list[str]], align: str) -> list[str]:
     sep = ["---:" if a == "r" else "---" for a in align]
     return (["| " + " | ".join(head) + " |", "| " + " | ".join(sep) + " |"]
@@ -65,8 +84,13 @@ def render_markdown(c: dict) -> str:
     lines.append("")
 
     s = c["summary"]
+    inc = c.get("metric") == "incidence"
+    v = _inc if inc else _pct          # value formatter (incidence per 100k or positivity)
+    unit = " per 100,000" if inc else ""
     lines += ["## Summary", ""]
-    if c["scope"] == "global":
+    if inc:
+        lines += _dengue_summary(c, s, p)
+    elif c["scope"] == "global":
         lines += [
             f"- Lab-confirmed detections: **{_int(s['detections'])}** "
             f"({_rel(s['detections'], s['detections_previous'])}).",
@@ -100,14 +124,37 @@ def render_markdown(c: dict) -> str:
     lines.append("")
 
     lines += ["## Weekly values", "", "This period and the comparison period.", ""]
-    lines += _table(
-        ["Week", "Positivity", "Detections", "Specimens"],
-        [[_d(w["week_start"]) + (" (provisional)" if w["provisional"] else ""),
-          _pct(w["positivity"]), _int(w["positives"]), _int(w["specimens_tested"])]
-         for w in c["weekly"]], "lrrr")
+    if inc and not any(w["cases"] is not None for w in c["weekly"]) and c.get("monthly"):
+        lines[-2] = ("Reported monthly: the calendar months overlapping this period and the "
+                     "comparison period (incidence per 100,000 per week of the month).")
+        lines += _table(
+            ["Month", "Reported cases", "Incidence per 100,000"],
+            [[_month(m["month_start"]) + (" (provisional)" if m["provisional"] else ""),
+              _int(m["cases"]), _inc(m["incidence"])] for m in c["monthly"]], "lrr")
+    elif inc:
+        lines += _table(
+            ["Week", "Reported cases", "Incidence per 100,000"],
+            [[_d(w["week_start"]) + (" (provisional)" if w["provisional"] else ""),
+              _int(w["cases"]), _inc(w["incidence"])] for w in c["weekly"]], "lrr")
+    else:
+        lines += _table(
+            ["Week", "Positivity", "Detections", "Specimens"],
+            [[_d(w["week_start"]) + (" (provisional)" if w["provisional"] else ""),
+              _pct(w["positivity"]), _int(w["positives"]), _int(w["specimens_tested"])]
+             for w in c["weekly"]], "lrrr")
     lines.append("")
 
-    if c["scope"] == "global" and c["top_movers"]:
+    if inc and c["scope"] == "global" and c["top_movers"]:
+        lines += ["## Largest changes in incidence", "",
+                  f"Countries with ≥ {c['movers_min_cases']} reported cases in both periods; "
+                  "weekly incidence per 100,000.", ""]
+        lines += _table(
+            ["Country", "Incidence", "Previous", "Change"],
+            [[m["name"], _inc(m["incidence"]), _inc(m["previous_incidence"]),
+              "—" if m["change_pct"] is None else f"{m['change_pct']:+.0f}%"]
+             for m in c["top_movers"]], "lrrr")
+        lines.append("")
+    elif c["scope"] == "global" and c["top_movers"]:
         lines += ["## Largest changes in positivity", "",
                   f"Countries with ≥ {c['movers_min_specimens']} specimens in both periods.",
                   ""]
@@ -121,19 +168,19 @@ def render_markdown(c: dict) -> str:
         lines += ["## Outlook", ""]
         if c["forecasts"]:
             lines += _table(
-                ["Week", "Horizon", "Model", "Forecast", "80% interval"],
+                ["Week", "Horizon", "Model", f"Forecast{unit}", "80% interval"],
                 [[_d(f["target_week"]), f"+{f['horizon_weeks']} wk", f["model"],
-                  _pct(f["point"]), f"{_pct(f['lo80'], 0)}–{_pct(f['hi80'], 0)}"]
+                  v(f["point"]), f"{_interval(f['lo80'], f['hi80'], inc)}"]
                  for f in c["forecasts"]], "lllrr")
         else:
             lines.append("No forecast for this country in the current run.")
         lines.append("")
         t = c["thresholds"]
         if t and not t["quality_note"]:
-            lines.append(f"Moving Epidemic Method levels for {t['season']}: epidemic "
-                         f"threshold {_pct(t['epidemic_threshold'])}, medium "
-                         f"{_pct(t['medium'])}, high {_pct(t['high'])}, very high "
-                         f"{_pct(t['very_high'])} (from {t['n_seasons_used']} past seasons).")
+            lines.append(f"Moving Epidemic Method levels for {t['season']}{unit}: epidemic "
+                         f"threshold {v(t['epidemic_threshold'])}, medium "
+                         f"{v(t['medium'])}, high {v(t['high'])}, very high "
+                         f"{v(t['very_high'])} (from {t['n_seasons_used']} past seasons).")
         elif t:
             lines.append(f"MEM thresholds for {t['season']} are not usable: "
                          f"{t['quality_note']}.")
@@ -146,11 +193,13 @@ def render_markdown(c: dict) -> str:
         rows = [r for r in c["risk"] if c["scope"] == "country" or r["risk_level"] != "low"]
         if rows:
             lines += _table(
-                ["Country", "Risk", "Week", "Forecast (80%)", "Epidemic threshold", "High"],
+                ["Country", "Risk", "Week", f"Forecast (80%){unit}", "Epidemic threshold",
+                 "High"],
                 [[r["name"], r["risk_level"], _d(r["target_week"]),
-                  f"{_pct(r['forecast_point'])} ({_pct(r['forecast_lo80'], 0)}–"
-                  f"{_pct(r['forecast_hi80'], 0)})", _pct(r["epidemic_threshold"]),
-                  _pct(r["high_threshold"])] for r in rows], "lllrrr")
+                  f"{v(r['forecast_point'])} "
+                  f"({_interval(r['forecast_lo80'], r['forecast_hi80'], inc)})",
+                  v(r["epidemic_threshold"]), v(r["high_threshold"])] for r in rows],
+                "lllrrr")
         low = sum(r["risk_level"] == "low" for r in c["risk"])
         if c["scope"] == "global":
             lines += ["", f"{low} further assessed countries are at low risk."]
@@ -171,9 +220,9 @@ def render_markdown(c: dict) -> str:
             lines.append("No anomalous weeks in this period.")
     elif a["weeks"]:
         lines += _table(
-            ["Week", "Observed", "Expected", "Upper band", "Severity"],
-            [[_d(w["week_start"]), _pct(w["observed"]), _pct(w["expected"]),
-              _pct(w["upper_band"]), w["severity"]] for w in a["weeks"]], "lrrrl")
+            ["Week", f"Observed{unit}", "Expected", "Upper band", "Severity"],
+            [[_d(w["week_start"]), v(w["observed"]), v(w["expected"]),
+              v(w["upper_band"]), w["severity"]] for w in a["weeks"]], "lrrrl")
     else:
         lines.append("No anomalous weeks in this period.")
     lines.append("")
@@ -185,8 +234,9 @@ def render_markdown(c: dict) -> str:
                      else "No hotspot results for this period.")
     elif h["significant"]:
         lines += _table(
-            ["Country", "4-week positivity", "Gi*", "z", "p (FDR)", "Local Moran"],
-            [[x["name"], _pct(x["value"]), GI[x["gi_star"]], f"{x['z']:+.2f}",
+            ["Country", "4-week incidence per 100,000" if inc else "4-week positivity",
+             "Gi*", "z", "p (FDR)", "Local Moran"],
+            [[x["name"], v(x["value"]), GI[x["gi_star"]], f"{x['z']:+.2f}",
               f"{x['p_fdr']:.3f}", MORAN[x["local_moran"]]] for x in h["significant"]],
             "lrlrrl")
     else:
@@ -212,3 +262,45 @@ def render_markdown(c: dict) -> str:
               f"Template v{c['template_version']}. Analytical tool only; not medical or "
               "public-health guidance.", ""]
     return "\n".join(lines)
+
+
+def _interval(lo: float | None, hi: float | None, inc: bool) -> str:
+    if inc:
+        return f"{_inc(lo)}–{_inc(hi)}"
+    return f"{_pct(lo, 0)}–{_pct(hi, 0)}"
+
+
+def _dengue_summary(c: dict, s: dict, p: dict) -> list[str]:
+    if c["scope"] == "global":
+        out = [
+            f"- Reported dengue cases (weekly reporters): **{_int(s['cases'])}** "
+            f"({_rel(s['cases'], s['cases_previous'])}).",
+            f"- Weekly incidence: **{_inc(s['incidence'])} per 100,000** "
+            f"({_rel_inc(s['incidence'], s['incidence_previous'])}), pooled over "
+            f"{_int(s['weekly_countries'])} weekly-reporting countries.",
+            f"- Countries reporting: **{_int(s['countries_reporting'])}** "
+            f"(previously {_int(s['countries_reporting_previous'])}), including monthly "
+            "reporters.",
+        ]
+        if s["countries_with_anomaly"] is not None:
+            out += [
+                f"- Countries with an anomaly: **{_int(s['countries_with_anomaly'])}**.",
+                f"- Countries in a Gi* hot spot (4 weeks to the period end): "
+                f"**{_int(s['countries_in_hotspot'])}**.",
+                f"- Latest 2-week forecast at or above the epidemic threshold: "
+                f"**{_int(s['above_threshold'])}** of {_int(s['risk_assessed'])} countries "
+                "with thresholds.",
+            ]
+        return out
+    if not s["weeks_reported"] and not s["periods_reported"]:
+        return ["- No dengue cases were reported in this period."]
+    grain = ("weeks reported: "
+             f"{s['weeks_reported']} of {p['weeks']}" if s["grain"] != "month" else
+             "reported monthly (values from the overlapping calendar months)")
+    return [
+        f"- Reported cases: **{_int(s['cases'])}** "
+        f"({_rel(s['cases'], s['cases_previous'])}).",
+        f"- Weekly incidence: **{_inc(s['incidence'])} per 100,000** "
+        f"({_rel_inc(s['incidence'], s['incidence_previous'])}).",
+        f"- {grain[0].upper() + grain[1:]}; coverage tier {s['tier'] or 'not profiled'}.",
+    ]

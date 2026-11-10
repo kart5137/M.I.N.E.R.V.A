@@ -10,11 +10,11 @@ from sqlalchemy.orm import Session
 from app.core.db import get_session
 from app.queries import detection as det
 from app.queries import models as mq
-from app.queries.alerts import ALERT_RULES, list_alerts
-from app.queries.common import check_region, load_disease, load_lab_disease
+from app.queries.alerts import alert_rules, list_alerts
+from app.queries.common import check_region, load_disease
 from app.queries.countries import country_row
 from app.reports import service
-from app.reports.facts import LIMITATIONS
+from app.reports.facts import limitations
 from app.schemas.intelligence import (
     About,
     AlertList,
@@ -51,6 +51,30 @@ DATA_LIMITATIONS = [
     "Overseas departments (GLP, GUF, MTQ) have no boundary of their own and are not "
     "mapped or used in spatial statistics.",
 ]
+#: Mirrors pipeline/src/ei_pipeline/quality/coverage.py DENGUE_TIERS (3-year window).
+DENGUE_TIER_RULES = {
+    "A": "Forecast-ready (weekly): ≥ 85% of weeks reported, longest gap ≤ 8 weeks, last "
+         "report ≤ 8 weeks old, cases in ≥ 50% of reported weeks.",
+    "B": "Forecast with caution (weekly): ≥ 60% of weeks reported, last report ≤ 26 weeks "
+         "old, cases in ≥ 50% of reported weeks.",
+    "C": "Map and trends only: some data in the 3-year window (every monthly reporter and "
+         "mostly-zero weekly series).",
+    "D": "Historical only: no data in the 3-year window.",
+}
+DENGUE_DATA_LIMITATIONS = [
+    "Countries report suspected, probable or confirmed cases under their own case "
+    "definitions, so incidence compares within a country over time, not between countries.",
+    "Recent weeks are often revised upwards as reports arrive; provisional weeks are "
+    "marked and excluded from model training.",
+    "Monthly reporters are shown as trends only; they are not forecast or scanned for "
+    "anomalies, and their months are never split into invented weeks.",
+    "Weather is ERA5 at one point per country, which does not represent large or "
+    "climatically varied countries.",
+    "Most countries' dengue years are too irregular for MEM thresholds, so few countries "
+    "have a risk level.",
+    "Backtests use today's revised data, not the data as first published, so live "
+    "forecast accuracy will be somewhat lower than reported.",
+]
 
 
 @router.get("/alerts", response_model=AlertList, summary="Alerts with filters and facet counts")
@@ -68,13 +92,13 @@ def alerts(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> AlertList:
-    ctx = load_lab_disease(session, disease, "Alerting")
+    ctx = load_disease(session, disease)
     code = country_row(session, iso3)["iso3"] if iso3 else None
     total, by_type, by_sev, items = list_alerts(
         session, ctx, region=check_region(region), iso3=code, alert_type=alert_type,
         severity=severity, status=None if status == "all" else status, start=start,
         end=end, page=page, page_size=page_size)
-    return AlertList(meta=ctx.meta(), rules=ALERT_RULES, total=total, page=page,
+    return AlertList(meta=ctx.meta(), rules=alert_rules(ctx), total=total, page=page,
                      page_size=page_size, by_type=by_type, by_severity=by_sev, items=items)
 
 
@@ -87,7 +111,7 @@ def reports(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ReportList:
-    ctx = load_lab_disease(session, disease, "Intelligence reports")
+    ctx = load_disease(session, disease)
     total, items = service.list_reports(session, ctx, scope, iso3, page, page_size)
     return ReportList(total=total, page=page, page_size=page_size, items=items)
 
@@ -98,7 +122,7 @@ def generate_report(req: GenerateRequest, request: Request,
                     session: Session = Depends(get_session),
                     disease: Disease = "influenza") -> GenerateResponse:
     service.check_rate(request.client.host if request.client else "unknown")
-    ctx = load_lab_disease(session, disease, "Intelligence reports")
+    ctx = load_disease(session, disease)
     report, reused = service.generate(session, ctx, req)
     return GenerateResponse(report=report, reused=reused)
 
@@ -112,7 +136,7 @@ def report(report_id: int, session: Session = Depends(get_session)) -> ReportDet
             summary="Regenerate from current stored data and compare with the stored report")
 def verify_report(report_id: int, session: Session = Depends(get_session),
                   disease: Disease = "influenza") -> Verification:
-    ctx = load_lab_disease(session, disease, "Intelligence reports")
+    ctx = load_disease(session, disease)
     return service.verify(session, ctx, report_id)
 
 
@@ -165,6 +189,8 @@ def about(session: Session = Depends(get_session), disease: Disease = "influenza
         meta=ctx.meta(), sources=[SourceInfo(**r) for r in sources],
         coverage_reference_week=ref,
         tiers=[TierInfo(tier=t, countries=counts.get(t, 0), rule=rule)
-               for t, rule in TIER_RULES.items()],
-        forecast_run=fc, detection_run=dr, limitations=DATA_LIMITATIONS + LIMITATIONS,
+               for t, rule in (DENGUE_TIER_RULES if ctx.case_based else TIER_RULES).items()],
+        forecast_run=fc, detection_run=dr,
+        limitations=(DENGUE_DATA_LIMITATIONS if ctx.case_based else DATA_LIMITATIONS)
+        + limitations(ctx),
     )

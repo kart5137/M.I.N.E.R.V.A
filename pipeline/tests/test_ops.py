@@ -123,14 +123,18 @@ def fake_jobs(monkeypatch):
 def test_weekly_runs_every_step_in_order(fake_jobs, capsys):
     assert cli.main(["weekly", "--fast", "--keep", "4"]) == 0
     names = [c[0] for c in fake_jobs]
-    assert names == [*cli.STEPS, "forecast", "detect", "prune"]
+    # Influenza is forecast and scanned before dengue (D4).
+    assert cli.DISEASES == ("influenza", "dengue")
+    assert names == [*cli.STEPS, "forecast", "detect", "forecast", "detect", "prune"]
     # Only surveillance sources are re-downloaded; others are fetched only when missing.
     assert cli.REFRESHED == ("flunet", "dengue")
     assert [c[1]["refresh"] for c in fake_jobs[:len(cli.STEPS)]] == [
         s in cli.REFRESHED for s in cli.STEPS]
-    assert fake_jobs[-3][1] == {"fast": True}
+    assert fake_jobs[-5][1] == {"disease": "influenza", "fast": True}
+    assert fake_jobs[-3][1] == {"disease": "dengue", "fast": True}
     out = capsys.readouterr().out
-    assert '[forecast]' in out and '"run_key": "k"' in out and '"x"' not in out
+    assert '[forecast:influenza]' in out and '[detect:dengue]' in out
+    assert '"run_key": "k"' in out and '"x"' not in out
 
 
 def test_weekly_stops_on_failure(fake_jobs, monkeypatch):
@@ -156,7 +160,8 @@ def test_weekly_continues_when_optional_weather_fails(fake_jobs, monkeypatch):
     monkeypatch.setattr(cli, "_run_step", run_step)
     assert cli.OPTIONAL == ("weather",)
     assert cli.main(["weekly"]) == 0
-    assert [c[0] for c in fake_jobs][-3:] == ["forecast", "detect", "prune"]
+    assert [c[0] for c in fake_jobs][-5:] == ["forecast", "detect", "forecast", "detect",
+                                              "prune"]
 
 
 def test_ingest_weather_passes_budget_options(fake_jobs):
@@ -171,9 +176,11 @@ def test_cli_single_commands(fake_jobs, capsys):
     assert [c[0] for c in fake_jobs] == list(cli.STEPS)
     assert cli.main(["prune", "--keep", "3"]) == 0
     assert cli.main(["detect", "run"]) == 0
-    assert cli.main(["forecast", "run", "--fast"]) == 0
+    assert cli.main(["forecast", "run", "--fast", "--disease", "dengue"]) == 0
     out = capsys.readouterr().out
-    assert "[prune]" in out and "[detect]" in out and "[forecast]" in out
+    assert "[prune]" in out and "[detect:influenza]" in out and "[detect:dengue]" in out
+    assert "[forecast:dengue]" in out and "[forecast:influenza]" not in out
+    assert fake_jobs[-1] == ("forecast", {"disease": "dengue", "fast": True})
 
 
 def test_summary_flattens_reports():

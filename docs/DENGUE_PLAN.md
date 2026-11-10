@@ -5,7 +5,9 @@ Status: **approved 2026-11-10.** D1 (ingestion) built 2026-11-10 — see
 [datasets/dengue_profile.md](datasets/dengue_profile.md). D2 (dashboard) built 2026-11-10 —
 rules in [datasets/dengue.md](datasets/dengue.md#dashboard-values-d2). D3 (weather) built
 2026-11-10 — [datasets/weather.md](datasets/weather.md); NASA POWER was evaluated as a
-quota-free alternative and rejected (drift against ERA5). D4 not started.
+quota-free alternative and rejected (drift against ERA5). D4 (forecasting, detection, alerts,
+reports) built 2026-11-10 — [datasets/dengue.md](datasets/dengue.md#forecasting-and-detection-d4)
+and the generated model card [models/dengue-incidence.md](models/dengue-incidence.md).
 
 ## 1. Sources (verified 2026-11-09)
 
@@ -60,7 +62,7 @@ the missing case values (8,954) are periods not yet reported.
 | D1 ✓ | WHO dengue ingestion with validation report, coverage tiers, revisions; profile doc | Weekly job loads dengue; validation numbers documented |
 | D2 ✓ | Multi-disease API + disease selector; Overview, Surveillance, Countries, country page for dengue | Dengue browsable on the live site with correct units |
 | D3 ✓ | Open-Meteo weather ingestion + weekly weather features; weather panel | Weather stored for all dengue countries; panel shown |
-| D4 | Dengue forecasting (with/without weather), detection, alerts, reports | Backtest report shows whether weather helps; dengue in alerts and reports |
+| D4 ✓ | Dengue forecasting (with/without weather), detection, alerts, reports | Backtest report shows whether weather helps; dengue in alerts and reports |
 
 Each milestone ends with the usual report and waits for approval.
 

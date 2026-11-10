@@ -10,11 +10,14 @@
                                      Open-Meteo ERA5 → weather_weekly for dengue areas
                                      (D3); resumable within N weighted API calls
     ei ingest all [--refresh]        all of the above, in order
-    ei forecast run [--fast]         backtest, select, train and store forecasts (M5)
-    ei detect run                    thresholds, risk, anomalies, hotspots (M6), alerts (M7)
+    ei forecast run [--fast] [--disease D]
+                                     backtest, select, train and store forecasts (M5;
+                                     dengue incidence D4); default: every disease
+    ei detect run [--disease D]      thresholds, risk, anomalies, hotspots (M6), alerts (M7)
     ei prune [--keep N]              drop per-country detail of old forecast runs (M8)
     ei weekly [--fast]               the scheduled job: ingest (FluNet, dengue refreshed,
-                                     weather topped up), forecast, detect, prune (M8)
+                                     weather topped up), then forecast and detect for
+                                     influenza and dengue, prune (M8)
 """
 
 from __future__ import annotations
@@ -42,9 +45,13 @@ STEPS = ("reference", "boundaries", "population", "health", "flunet", "dengue", 
 #: Surveillance sources re-downloaded by every weekly run; reference files only when
 #: missing.
 REFRESHED = ("flunet", "dengue")
-#: Steps whose failure is logged without stopping the weekly job: weather is context
-#: only until dengue forecasting (D4) uses it.
+#: Steps whose failure is logged without stopping the weekly job. Weather: dengue
+#: forecasting (D4) reads the weather already stored; a missed top-up only leaves the
+#: newest weeks without weather features (tree models handle missing values).
 OPTIONAL = ("weather",)
+#: Diseases forecast and scanned by the weekly job, in order: influenza first so that its
+#: outputs are stored before the dengue steps run.
+DISEASES = ("influenza", "dengue")
 SUMMARY_KEYS = ("inserted", "updated", "unchanged", "revisions_recorded", "rows_excluded",
                 "reference_week", "reference_month", "coverage_tiers", "areas", "latest_year",
                 "countries_without_population", "indicators", "latest_week",
@@ -98,9 +105,11 @@ def _weekly(engine, *, fast: bool, keep: int) -> int:
             if step not in OPTIONAL:
                 raise
             log.exception("Optional step %s failed; continuing", step)
-    _timed("forecast", lambda: {k: v for k, v in run_forecast(engine, fast=fast).items()
-                                if k in ("run_key", "reference_week", "forecasts", "active")})
-    _timed("detect", lambda: run_detection(engine))
+    for disease in DISEASES:
+        _timed(f"forecast:{disease}", lambda d=disease: {
+            k: v for k, v in run_forecast(engine, disease=d, fast=fast).items()
+            if k in ("run_key", "reference_week", "forecasts", "active")})
+        _timed(f"detect:{disease}", lambda d=disease: run_detection(engine, d))
     _timed("prune", lambda: prune_runs(engine, keep))
     return 0
 
@@ -121,8 +130,10 @@ def main(argv: list[str] | None = None) -> int:
     forecast.add_argument("step", choices=("run",))
     forecast.add_argument("--fast", action="store_true",
                           help="small models for a quick check (not for real use)")
+    forecast.add_argument("--disease", choices=(*DISEASES, "all"), default="all")
     detect = sub.add_parser("detect", help="thresholds, risk, anomalies and hotspots")
     detect.add_argument("step", choices=("run",))
+    detect.add_argument("--disease", choices=(*DISEASES, "all"), default="all")
     prune = sub.add_parser("prune", help="drop per-country detail of old forecast runs")
     prune.add_argument("--keep", type=int, default=DEFAULT_KEEP,
                        help=f"forecast runs to keep in full (default {DEFAULT_KEEP})")
@@ -143,16 +154,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "forecast":
         from ei_pipeline.forecasting.run import run_forecast  # heavy imports: only when used
 
-        t0 = time.perf_counter()
-        summary = run_forecast(engine, fast=args.fast)
-        print(f"[forecast] {time.perf_counter() - t0:.1f}s {json.dumps(summary, default=str)}")
+        for d in (DISEASES if args.disease == "all" else (args.disease,)):
+            t0 = time.perf_counter()
+            summary = run_forecast(engine, disease=d, fast=args.fast)
+            print(f"[forecast:{d}] {time.perf_counter() - t0:.1f}s "
+                  f"{json.dumps(summary, default=str)}")
         return 0
     if args.command == "detect":
         from ei_pipeline.detection.run import run_detection
 
-        t0 = time.perf_counter()
-        summary = run_detection(engine)
-        print(f"[detect] {time.perf_counter() - t0:.1f}s {json.dumps(summary, default=str)}")
+        for d in (DISEASES if args.disease == "all" else (args.disease,)):
+            t0 = time.perf_counter()
+            summary = run_detection(engine, d)
+            print(f"[detect:{d}] {time.perf_counter() - t0:.1f}s "
+                  f"{json.dumps(summary, default=str)}")
         return 0
     steps = STEPS if args.step == "all" else (args.step,)
     for step in steps:

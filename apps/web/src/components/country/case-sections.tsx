@@ -6,14 +6,12 @@
  * country-intelligence.tsx.
  */
 
-import { ArrowRight, CalendarClock } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { WeeklyChart, type WeeklyPoint } from "@/components/charts/weekly-chart";
 import { QueryError } from "@/components/common/query-state";
 import { useCountryTimeseries } from "@/hooks/use-surveillance";
-import { type DiseaseInfo, FEATURE_LABELS } from "@/lib/diseases";
+import type { DiseaseInfo } from "@/lib/diseases";
 import { addWeeks, formatCompact, formatInt, formatPct, formatRate, formatWeek, windowLabel } from "@/lib/format";
 import { monthSpan } from "@/lib/incidence-scale";
 import type { CountryProfile } from "@/lib/types";
@@ -218,32 +216,6 @@ export function CaseHistory({ iso3, p, info }: { iso3: string; p: CountryProfile
         </div>
       )}
     </Section>
-  );
-}
-
-export function LaterFeatures({ iso3, info }: { iso3: string; info: DiseaseInfo }) {
-  const missing = (Object.keys(info.features) as (keyof DiseaseInfo["features"])[])
-    .filter((f) => !info.features[f])
-    .map((f) => FEATURE_LABELS[f].toLowerCase());
-  return (
-    <section className="panel flex flex-wrap items-center justify-between gap-3 p-4">
-      <div className="flex items-start gap-3">
-        <CalendarClock className="mt-0.5 size-4 shrink-0 text-teal" aria-hidden />
-        <div>
-          <h2 className="text-sm font-medium">Coming in a later phase for {info.label.toLowerCase()}</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {missing.join(", ")}. These are available for influenza today.
-          </p>
-        </div>
-      </div>
-      <Link
-        href={`/countries/${iso3}`}
-        className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        Influenza view of this country
-        <ArrowRight className="size-3.5" aria-hidden />
-      </Link>
-    </section>
   );
 }
 

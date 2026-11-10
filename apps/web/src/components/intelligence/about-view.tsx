@@ -6,7 +6,9 @@ import Link from "next/link";
 import { QueryError } from "@/components/common/query-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAbout } from "@/hooks/use-intelligence";
+import { diseaseParam, withParams } from "@/lib/filters";
 import { formatInt, formatWeek } from "@/lib/format";
+import { DEFAULT_DISEASE, isDiseaseKey } from "@/lib/diseases";
 import type { About } from "@/lib/types";
 
 import { ALERT_LABEL } from "./alert-ui";
@@ -123,8 +125,27 @@ function Tiers({ d }: { d: About }) {
   );
 }
 
+/** Disease-specific wording; the API's `meta.disease` says which disease the page shows. */
+function isDengue(d: About): boolean {
+  return d.meta.disease === "dengue";
+}
+
+/** A link that keeps the page's disease. */
+function href(d: About, path: string): string {
+  const key = isDiseaseKey(d.meta.disease) ? d.meta.disease : DEFAULT_DISEASE;
+  return withParams(path, diseaseParam(key));
+}
+
+const DENGUE_STEPS = [
+  ["Ingest", "WHO Global Dengue Surveillance, World Bank population and ERA5 weather (Open-Meteo) are downloaded, validated and loaded; revisions to past periods are kept."],
+  ["Profile", "Each country's series is profiled into a coverage tier (3-year window); weekly and monthly reporters are kept apart, and recent periods are marked provisional."],
+  ["Forecast", "Weekly incidence per 100,000: baselines, and Random Forest and XGBoost with and without weather, are backtested on past origins; the best model that beats seasonal-naive is used."],
+  ["Detect", "MEM thresholds (calendar years), risk levels, anomalies and hotspots on weekly incidence are computed from stored data."],
+  ["Alert & report", "Fixed rules turn detection outputs into alerts; reports are deterministic templates over stored facts."],
+];
+
 function Pipeline({ d }: { d: About }) {
-  const steps = [
+  const steps = isDengue(d) ? DENGUE_STEPS : [
     ["Ingest", "WHO FluNet, Natural Earth and World Bank are downloaded, validated and loaded; revisions to past weeks are kept."],
     ["Profile", "Each country's series is profiled into a coverage tier; recent weeks are marked provisional."],
     ["Forecast", "Baselines, Random Forest and XGBoost are backtested on past origins; the best model that beats seasonal-naive is used."],
@@ -147,24 +168,34 @@ function Pipeline({ d }: { d: About }) {
   );
 }
 
+const DENGUE_MODEL_ROWS = [
+  ["Target", "Weekly reported incidence per 100,000 per country, modelled as log(incidence + one case per 100,000); tree models learn the change from the latest week."],
+  ["Horizons", "1, 2 and 4 weeks ahead; one pooled model per horizon (direct strategy). Weekly reporters in tiers A and B with a population."],
+  ["Inputs", "Lagged incidence and trends, same week last year, time of year, reported case volume, neighbouring-country incidence and latitude; weather models add 18 lagged ERA5 temperature, rainfall and humidity features and their anomalies."],
+  ["Weather test", "Each tree model is fitted with and without weather on the same rows; a weather model is used only if it wins the backtest. The model card reports the difference with a bootstrap interval."],
+  ["Intervals", "Split conformal, calibrated separately by weekly case count; 80% and 95%."],
+  ["Explanations", "SHAP contributions per forecast and global importance."],
+];
+
 function ModelCard({ d }: { d: About }) {
   const f = d.forecast_run;
+  const dengue = isDengue(d);
   return (
     <Card
-      title="Model card: influenza test positivity forecasts"
+      title={dengue ? "Model card: dengue incidence forecasts" : "Model card: influenza test positivity forecasts"}
       subtitle={f ? `Run ${f.run_key} · trained to ${formatWeek(f.train_end)} · backtest ${formatWeek(f.eval_start)} – ${formatWeek(f.eval_end)}` : "No forecasting run yet."}
     >
       {f && (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <dl className="space-y-2 text-xs">
-            {[
+            {(dengue ? DENGUE_MODEL_ROWS : [
               ["Target", "Weekly test positivity per country, modelled on the logit scale."],
               ["Horizons", "1, 2 and 4 weeks ahead; one pooled model per horizon (direct strategy)."],
               ["Inputs", "Lagged positivity and trends, same week last year, calendar, testing volume, transmission-zone and neighbouring-country positivity, latitude and season type."],
               ["Evaluation", "Rolling-origin backtest every 2 weeks, expanding window, no future data; MAE, RMSE, MASE, skill vs seasonal-naive, interval coverage."],
               ["Intervals", "Split conformal, calibrated separately by testing volume; 80% and 95%."],
               ["Explanations", "SHAP contributions per forecast and global importance."],
-            ].map(([k, v]) => (
+            ]).map(([k, v]) => (
               <div key={k}>
                 <dt className="font-medium">{k}</dt>
                 <dd className="text-muted-foreground">{v}</dd>
@@ -187,7 +218,7 @@ function ModelCard({ d }: { d: About }) {
                   <tr key={m.id} className="border-b border-border/60 last:border-0">
                     <td className="py-1.5">{m.horizon_weeks} wk</td>
                     <td className="py-1.5">
-                      <Link href={`/predictions/models/${m.id}`} className="hover:underline">{m.label}</Link>
+                      <Link href={href(d, `/predictions/models/${m.id}`)} className="hover:underline">{m.label}</Link>
                     </td>
                     <td className="py-1.5 text-right">{m.metrics.mase?.toFixed(3) ?? "—"}</td>
                     <td className="py-1.5 text-right">
@@ -202,9 +233,9 @@ function ModelCard({ d }: { d: About }) {
             </table>
             <p className="mt-2 text-[11px] text-muted-foreground">
               Lower MASE is better; skill is the error reduction vs the same week last year. Full card:{" "}
-              <span className="font-mono">docs/models/influenza-positivity.md</span>.
+              <span className="font-mono">docs/models/{dengue ? "dengue-incidence.md" : "influenza-positivity.md"}</span>.
             </p>
-            <Link href="/predictions" className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <Link href={href(d, "/predictions")} className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
               Prediction Center <ArrowRight className="size-3.5" />
             </Link>
           </div>
@@ -216,6 +247,7 @@ function ModelCard({ d }: { d: About }) {
 
 function DetectionCard({ d }: { d: About }) {
   const r = d.detection_run;
+  const dengue = isDengue(d);
   return (
     <Card
       title="Methods card: detection and alerts"
@@ -227,8 +259,10 @@ function DetectionCard({ d }: { d: About }) {
             <div>
               <dt className="font-medium">Epidemic thresholds (Moving Epidemic Method)</dt>
               <dd className="text-muted-foreground">
-                Python port of R <span className="font-mono">mem</span> 2.19 with its defaults, validated to match it exactly.
-                Temperate countries only; {r.thresholds_current_usable ?? 0} countries have usable levels this season.
+                Python port of R <span className="font-mono">mem</span> 2.19 with its defaults, validated to match it exactly.{" "}
+                {dengue
+                  ? `Weekly incidence, calendar-year seasons; ${r.thresholds_current_usable ?? 0} countries have usable levels this year (most dengue years are too irregular for MEM).`
+                  : `Temperate countries only; ${r.thresholds_current_usable ?? 0} countries have usable levels this season.`}
               </dd>
             </div>
             <div>
@@ -240,15 +274,15 @@ function DetectionCard({ d }: { d: About }) {
             <div>
               <dt className="font-medium">Anomalies</dt>
               <dd className="text-muted-foreground">
-                Above the seasonal upper band (90th percentile of the same weeks in the latest 5 non-COVID years) with an EWMA
-                signal; {formatInt(r.anomalies?.seasonal_ewma)} flagged country-weeks since 2023. Isolation Forest is a secondary
-                signal only.
+                Above the seasonal upper band (90th percentile of the same weeks in the latest 5{dengue ? "" : " non-COVID"} years
+                {dengue ? ", on log incidence" : ""}) with an EWMA signal; {formatInt(r.anomalies?.seasonal_ewma)} flagged
+                country-weeks since 2023. Isolation Forest is a secondary signal only.
               </dd>
             </div>
             <div>
               <dt className="font-medium">Hotspots</dt>
               <dd className="text-muted-foreground">
-                Getis-Ord Gi* and Local Moran&apos;s I on 4-week positivity, queen contiguity with 4-nearest fallback, 999
+                Getis-Ord Gi* and Local Moran&apos;s I on 4-week {dengue ? "incidence" : "positivity"}, queen contiguity with 4-nearest fallback, 999
                 permutations, Benjamini–Hochberg FDR at 0.05; {r.hotspots?.windows ?? 0} weekly windows.
               </dd>
             </div>
@@ -269,7 +303,7 @@ function DetectionCard({ d }: { d: About }) {
               Active alerts since January 2025. Alerts that a later run no longer produces (e.g. after a data revision) are kept
               and marked retracted.
             </p>
-            <Link href="/reports" className="mt-2 inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+            <Link href={href(d, "/reports")} className="mt-2 inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
               Reports &amp; Alerts <ArrowRight className="size-3.5" />
             </Link>
           </div>

@@ -92,3 +92,13 @@ export function filterQuery(f: Filters): string {
   if (f.to) p.set("to", f.to);
   return p.toString();
 }
+
+/** The disease selected in the URL (forecasting, detection and intelligence hooks). */
+export function useDisease(): DiseaseKey {
+  return useFilters()[0].disease;
+}
+
+/** `path` with the selected disease appended (nothing for the default disease). */
+export function forDisease(path: string, disease: DiseaseKey): string {
+  return withParams(path, diseaseParam(disease));
+}

@@ -16,6 +16,10 @@ Rules (all deterministic; weeks from ALERTS_FROM to the latest week):
 
 Alerts are upserted on (disease, country, type, week). Active alerts that a run no longer
 produces are marked `retracted`.
+
+Dengue (D4) uses the same four rules on weekly incidence per 100,000, except
+**sustained_growth**: incidence rose in each of 3 consecutive weeks (each week with
+≥ 20 reported cases) by ≥ 50% in total; severity medium when it at least doubled.
 """
 
 from __future__ import annotations
@@ -34,6 +38,10 @@ GROWTH_WEEKS = 3
 GROWTH_MIN_PP = 5.0
 GROWTH_MEDIUM_PP = 10.0
 GROWTH_MIN_TESTS = 50
+#: Dengue growth rule (relative rise; each week needs this many reported cases).
+DENGUE_GROWTH_MIN_RISE = 0.50
+DENGUE_GROWTH_MEDIUM_RISE = 1.00
+DENGUE_GROWTH_MIN_CASES = 20
 WEEK = timedelta(weeks=1)
 
 ANOMALY_SEVERITY = {"moderate": "low", "high": "medium", "severe": "high"}
@@ -50,6 +58,16 @@ RULES = {
                         f"≥ {GROWTH_MIN_PP:g} pp in total (≥ {GROWTH_MIN_TESTS} specimens "
                         "each week).",
 }
+DENGUE_GROWTH_RULE = (f"Incidence up in {GROWTH_WEEKS} consecutive weeks by "
+                      f"≥ {DENGUE_GROWTH_MIN_RISE:.0%} in total (≥ {DENGUE_GROWTH_MIN_CASES} "
+                      "reported cases each week).")
+
+
+def rules(metric: str = "positivity") -> dict[str, str]:
+    if metric == "positivity":
+        return RULES
+    return {k: v.replace("positivity", "incidence").replace("Positivity", "Incidence")
+            for k, v in RULES.items()} | {"sustained_growth": DENGUE_GROWTH_RULE}
 
 
 @dataclass
@@ -69,14 +87,25 @@ def _pct(v: float | None) -> str:
     return "—" if v is None or pd.isna(v) else f"{v * 100:.1f}%"
 
 
+def _inc(v: float | None) -> str:
+    if v is None or pd.isna(v):
+        return "—"
+    d = 2 if abs(v) < 10 else 1 if abs(v) < 100 else 0
+    return f"{v:,.{d}f} per 100k"
+
+
+def _fmt(metric: str):
+    return _pct if metric == "positivity" else _inc
+
+
 def _r(v) -> float | None:
     return None if v is None or pd.isna(v) else round(float(v), 6)
 
 
-def anomaly_alerts(df: pd.DataFrame) -> list[AlertRow]:
+def anomaly_alerts(df: pd.DataFrame, metric: str = "positivity") -> list[AlertRow]:
     """`df`: seasonal-EWMA anomalies (id, iso3, name, week_start, observed, expected,
     upper_band, score, severity, is_provisional, specimens_tested)."""
-    out = []
+    f, out = _fmt(metric), []
     for _, g in df.sort_values(["iso3", "week_start"]).groupby("iso3"):
         weeks = set(g["week_start"])
         for r in g.itertuples():
@@ -85,20 +114,24 @@ def anomaly_alerts(df: pd.DataFrame) -> list[AlertRow]:
             out.append(AlertRow(
                 iso3=r.iso3, alert_type="new_anomaly", week_start=r.week_start,
                 severity=ANOMALY_SEVERITY[r.severity],
-                title=(f"{r.name}: positivity {_pct(r.observed)} above the seasonal range "
-                       f"(expected {_pct(r.expected)}, upper band {_pct(r.upper_band)})"),
-                details={"observed": _r(r.observed), "expected": _r(r.expected),
+                title=(f"{r.name}: {metric} {f(r.observed)} above the seasonal range "
+                       f"(expected {f(r.expected)}, upper band {f(r.upper_band)})"),
+                details={"metric": metric, "observed": _r(r.observed),
+                         "expected": _r(r.expected),
                          "upper_band": _r(r.upper_band), "score": _r(r.score),
                          "anomaly_severity": r.severity,
-                         "specimens_tested": int(r.specimens_tested),
-                         "provisional": bool(r.is_provisional), "rule": RULES["new_anomaly"]},
+                         "specimens_tested": None if pd.isna(r.specimens_tested)
+                         else int(r.specimens_tested),
+                         "provisional": bool(r.is_provisional),
+                         "rule": rules(metric)["new_anomaly"]},
                 anomaly_id=int(r.id),
             ))
     return out
 
 
-def hotspot_alerts(df: pd.DataFrame) -> list[AlertRow]:
+def hotspot_alerts(df: pd.DataFrame, metric: str = "positivity") -> list[AlertRow]:
     """`df`: Gi* rows (id, iso3, name, window_end, value, z_score, p_fdr, classification)."""
+    f = _fmt(metric)
     hot = df[df["classification"] == "hot"]
     keys = set(zip(hot["iso3"], hot["window_end"], strict=True))
     out = []
@@ -107,19 +140,20 @@ def hotspot_alerts(df: pd.DataFrame) -> list[AlertRow]:
             continue
         out.append(AlertRow(
             iso3=r.iso3, alert_type="new_hotspot", week_start=r.window_end, severity="medium",
-            title=(f"{r.name}: new Gi* hot spot (4-week positivity {_pct(r.value)}, "
+            title=(f"{r.name}: new Gi* hot spot (4-week {metric} {f(r.value)}, "
                    f"z {r.z_score:+.2f}, FDR p {r.p_fdr:.3f})"),
-            details={"value": _r(r.value), "z_score": _r(r.z_score), "p_fdr": _r(r.p_fdr),
-                     "window_weeks": 4, "rule": RULES["new_hotspot"]},
+            details={"metric": metric, "value": _r(r.value), "z_score": _r(r.z_score),
+                     "p_fdr": _r(r.p_fdr), "window_weeks": 4,
+                     "rule": rules(metric)["new_hotspot"]},
             hotspot_id=int(r.id),
         ))
     return out
 
 
-def risk_alerts(df: pd.DataFrame) -> list[AlertRow]:
+def risk_alerts(df: pd.DataFrame, metric: str = "positivity") -> list[AlertRow]:
     """`df`: all stored risk assessments (id, iso3, name, assessed_week, target_week,
     risk_level, forecast_point, epidemic_threshold, high_threshold, season)."""
-    out = []
+    f, out = _fmt(metric), []
     for _, g in df.sort_values(["iso3", "assessed_week"]).groupby("iso3"):
         prev = None
         for r in g.itertuples():
@@ -130,14 +164,15 @@ def risk_alerts(df: pd.DataFrame) -> list[AlertRow]:
                     iso3=r.iso3, alert_type="risk_escalation", week_start=r.assessed_week,
                     severity=RISK_SEVERITY[r.risk_level],
                     title=(f"{r.name}: {r.risk_level} risk — 2-week forecast "
-                           f"{_pct(r.forecast_point)} vs epidemic threshold "
-                           f"{_pct(r.epidemic_threshold)}"),
-                    details={"risk_level": r.risk_level, "previous_level": prev,
+                           f"{f(r.forecast_point)} vs epidemic threshold "
+                           f"{f(r.epidemic_threshold)}"),
+                    details={"metric": metric, "risk_level": r.risk_level,
+                             "previous_level": prev,
                              "target_week": r.target_week.isoformat(),
                              "forecast_point": _r(r.forecast_point),
                              "epidemic_threshold": _r(r.epidemic_threshold),
                              "high_threshold": _r(r.high_threshold), "season": r.season,
-                             "rule": RULES["risk_escalation"]},
+                             "rule": rules(metric)["risk_escalation"]},
                     risk_id=int(r.id),
                 ))
             prev = r.risk_level
@@ -176,7 +211,40 @@ def growth_alerts(df: pd.DataFrame) -> list[AlertRow]:
     return out
 
 
-def _load(engine: Engine, disease_id: int) -> dict[str, pd.DataFrame]:
+def dengue_growth_alerts(df: pd.DataFrame) -> list[AlertRow]:
+    """`df`: weekly rows (iso3, name, week_start, cases, population, is_provisional)."""
+    out = []
+    ok = df[(df["cases"] >= DENGUE_GROWTH_MIN_CASES) & (df["population"] > 0)].copy()
+    ok["p"] = ok["cases"] / ok["population"] * 1e5
+    for iso3, g in ok.sort_values(["iso3", "week_start"]).groupby("iso3"):
+        weeks, p = list(g["week_start"]), list(g["p"])
+        prov, name = list(g["is_provisional"]), g["name"].iloc[0]
+        holding = False
+        for i in range(len(weeks)):
+            cond = False
+            if i >= GROWTH_WEEKS:
+                span = weeks[i - GROWTH_WEEKS: i + 1]
+                vals = p[i - GROWTH_WEEKS: i + 1]
+                consecutive = all(b - a == WEEK for a, b in zip(span, span[1:], strict=False))
+                rising = all(b > a for a, b in zip(vals, vals[1:], strict=False))
+                rise = vals[-1] / vals[0] - 1
+                cond = consecutive and rising and rise >= DENGUE_GROWTH_MIN_RISE
+            if cond and not holding and weeks[i] >= ALERTS_FROM:
+                out.append(AlertRow(
+                    iso3=iso3, alert_type="sustained_growth", week_start=weeks[i],
+                    severity="medium" if rise >= DENGUE_GROWTH_MEDIUM_RISE else "low",
+                    title=(f"{name}: incidence up {GROWTH_WEEKS} weeks in a row, "
+                           f"{_inc(vals[0])} → {_inc(vals[-1])} (+{rise:.0%})"),
+                    details={"metric": "incidence", "from_week": span[0].isoformat(),
+                             "values": [_r(v) for v in vals], "rise_pct": round(rise * 100, 1),
+                             "provisional": bool(prov[i]), "rule": DENGUE_GROWTH_RULE},
+                ))
+            holding = cond
+    return out
+
+
+def _load(engine: Engine, disease_id: int, metric: str = "positivity"
+          ) -> dict[str, pd.DataFrame]:
     with engine.connect() as c:
         q = lambda sql: pd.read_sql(text(sql), c, params={"d": disease_id})  # noqa: E731
         frames = {
@@ -200,7 +268,18 @@ def _load(engine: Engine, disease_id: int) -> dict[str, pd.DataFrame]:
                        s.positives, s.is_provisional
                 FROM surveillance_weekly s JOIN countries c ON c.iso3 = s.iso3
                 WHERE s.disease_id = :d AND s.week_start >= DATE '{ALERTS_FROM}' - 28
-                  AND s.positives IS NOT NULL AND s.specimens_tested > 0"""),
+                  AND s.positives IS NOT NULL AND s.specimens_tested > 0""")
+            if metric == "positivity" else q(f"""
+                SELECT s.iso3, c.name, s.week_start, s.cases, s.is_provisional,
+                  (SELECT pa.population::float8 FROM population_annual pa
+                    WHERE pa.iso3 = s.iso3 AND pa.population > 0
+                    ORDER BY (pa.year <= extract(year FROM s.week_start)) DESC,
+                             CASE WHEN pa.year <= extract(year FROM s.week_start)
+                                  THEN -pa.year ELSE pa.year END
+                    LIMIT 1) AS population
+                FROM surveillance_weekly s JOIN countries c ON c.iso3 = s.iso3
+                WHERE s.disease_id = :d AND s.week_start >= DATE '{ALERTS_FROM}' - 28
+                  AND s.cases IS NOT NULL"""),
         }
     for f, cols in (("anomalies", ["week_start"]), ("hotspots", ["window_end"]),
                     ("risk", ["assessed_week", "target_week"]), ("weekly", ["week_start"])):
@@ -209,13 +288,18 @@ def _load(engine: Engine, disease_id: int) -> dict[str, pd.DataFrame]:
     return frames
 
 
-def build_alerts(frames: dict[str, pd.DataFrame]) -> list[AlertRow]:
-    return (anomaly_alerts(frames["anomalies"]) + hotspot_alerts(frames["hotspots"])
-            + risk_alerts(frames["risk"]) + growth_alerts(frames["weekly"]))
+def build_alerts(frames: dict[str, pd.DataFrame], metric: str = "positivity"
+                 ) -> list[AlertRow]:
+    growth = (growth_alerts(frames["weekly"]) if metric == "positivity"
+              else dengue_growth_alerts(frames["weekly"]))
+    return (anomaly_alerts(frames["anomalies"], metric)
+            + hotspot_alerts(frames["hotspots"], metric)
+            + risk_alerts(frames["risk"], metric) + growth)
 
 
-def generate_alerts(engine: Engine, disease_id: int, run_id: int) -> dict:
-    alerts = build_alerts(_load(engine, disease_id))
+def generate_alerts(engine: Engine, disease_id: int, run_id: int,
+                    metric: str = "positivity") -> dict:
+    alerts = build_alerts(_load(engine, disease_id, metric), metric)
     with engine.begin() as c:
         for a in alerts:
             values = {

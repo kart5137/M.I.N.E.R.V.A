@@ -31,6 +31,8 @@ MODEL_LABELS = {
     "seasonal_naive": "Seasonal naive", "last_value": "Last value",
     "moving_average_4": "4-week moving average", "random_forest": "Random Forest",
     "xgboost": "XGBoost",
+    # Dengue (D4): the same algorithms with ERA5 weather features added.
+    "random_forest_weather": "Random Forest + weather", "xgboost_weather": "XGBoost + weather",
 }
 
 #: Forecasting features (pipeline/src/ei_pipeline/forecasting/features.py) for display.
@@ -49,4 +51,31 @@ FEATURE_LABELS = {
     "nbr_diff2": "Neighbours' 2-week change", "season_nh": "Northern season",
     "season_sh": "Southern season", "season_yr": "Year-round season",
     "lat": "Latitude", "abs_lat": "Distance from equator",
+    "log_cases_mean4": "Reported cases, 4-week mean (log)",
 }
+
+_WEATHER_VARS = {"temperature": ("Temperature", "mean"), "precipitation": ("Rainfall", "total"),
+                 "humidity": ("Humidity", "mean")}
+
+
+def _weather_labels() -> dict[str, str]:
+    out = {}
+    for var, (name, agg) in _WEATHER_VARS.items():
+        for lag in (4, 8, 12):
+            stem = "mean" if agg == "mean" else "sum"
+            out[f"{var}_{stem}4_lag{lag}"] = f"{name}, 4-week {agg}, {lag} weeks earlier"
+            out[f"{var}_anom4_lag{lag}"] = f"{name} anomaly, {lag} weeks earlier"
+    return out
+
+
+FEATURE_LABELS.update(_weather_labels())
+
+
+def feature_label(feature: str, target: str = "positivity") -> str:
+    """Display label of a forecasting feature for a target ("positivity" or
+    "incidence"): the autoregressive features describe the target being forecast."""
+    label = FEATURE_LABELS.get(feature, feature)
+    if target == "incidence":
+        label = (label.replace("Positivity", "Incidence").replace("positivity", "incidence")
+                 .replace("Peak in the last", "Peak incidence in the last"))
+    return label

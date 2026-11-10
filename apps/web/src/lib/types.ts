@@ -459,11 +459,22 @@ export interface Explanation {
   forecast_id: number;
   model_type: string;
   horizon_weeks: number;
+  /** "positivity" (logit scale) or "incidence" (log of incidence + one case per 100,000). */
+  target: "positivity" | "incidence";
   base_value: number | null;
+  /** The forecast on the model scale. */
   prediction_logit: number;
   point: number;
   other_features: number;
-  contributions: { feature: string; label: string; shap_value: number; feature_value: number | null; rank: number }[];
+  contributions: {
+    feature: string;
+    label: string;
+    shap_value: number;
+    feature_value: number | null;
+    /** Dengue level features as incidence per 100,000. */
+    natural_value?: number | null;
+    rank: number;
+  }[];
 }
 
 export interface CountryBacktest {
@@ -645,7 +656,10 @@ export interface GlobalForecastItem {
   point: number;
   lo80: number | null;
   hi80: number | null;
+  /** Influenza: point − origin, percentage points. */
   change_pp: number | null;
+  /** Dengue: relative change from the origin week, percent. */
+  change_pct: number | null;
 }
 
 export interface GlobalForecasts {
@@ -711,16 +725,23 @@ export interface ReportList {
   items: ReportSummary[];
 }
 
+/** Influenza weeks carry positivity, positives and specimens; dengue weeks cases and incidence. */
 export interface ReportContentWeek {
   week_start: string;
-  positivity: number | null;
-  positives: number | null;
-  specimens_tested: number | null;
+  positivity?: number | null;
+  positives?: number | null;
+  specimens_tested?: number | null;
+  cases?: number | null;
+  incidence?: number | null;
   provisional: boolean;
 }
 
 export interface ReportDetail extends ReportSummary {
   content: {
+    disease: { key: string; name: string };
+    /** Present on dengue reports. */
+    metric?: "incidence";
+    monthly?: { month_start: string; cases: number | null; incidence: number | null; provisional: boolean }[];
     period: { start: string; end: string; previous_start: string; previous_end: string; weeks: number; includes_provisional: boolean };
     weekly: ReportContentWeek[];
     [key: string]: unknown;

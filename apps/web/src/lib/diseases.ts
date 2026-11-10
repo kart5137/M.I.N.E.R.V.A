@@ -1,7 +1,8 @@
 /**
  * Diseases the dashboard can show, and which features each one has. Influenza has the
- * full platform; dengue (post-MVP phase P1) has surveillance views now, with forecasting,
- * detection, analytics and reports arriving in phase D4.
+ * full platform. Dengue (post-MVP phase P1) has surveillance, weather, forecasting,
+ * detection, alerts and reports (D4); Analytics compares influenza test positivity with
+ * health-system indicators and stays influenza-only.
  */
 
 export type DiseaseKey = "influenza" | "dengue";
@@ -14,6 +15,8 @@ export interface DiseaseInfo {
   /** Reported case counts (dengue) rather than laboratory test results (influenza). */
   caseBased: boolean;
   features: Record<Feature, boolean>;
+  /** Why a feature is not available, shown instead of the page. */
+  unavailable?: Partial<Record<Feature, string>>;
   /** Short attribution shown in page footers. */
   sourceNote: string;
 }
@@ -30,7 +33,13 @@ export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
     key: "dengue",
     label: "Dengue",
     caseBased: true,
-    features: { forecasting: false, detection: false, analytics: false, reports: false },
+    features: { forecasting: true, detection: true, analytics: false, reports: true },
+    unavailable: {
+      analytics:
+        "Analytics compares influenza test positivity with health-system indicators and subtype mixes; dengue has " +
+        "reported cases instead, so this page covers influenza only. Dengue trends, forecasts and outbreak " +
+        "detection are on the other pages.",
+    },
     sourceNote: "WHO Global Dengue Surveillance",
   },
 };

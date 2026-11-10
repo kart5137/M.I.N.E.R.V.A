@@ -9,7 +9,7 @@ import { QueryError } from "@/components/common/query-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAlerts, useGenerateReport, useReports } from "@/hooks/use-intelligence";
 import { useCountries } from "@/hooks/use-surveillance";
-import { useFilters } from "@/lib/filters";
+import { diseaseParam, useDisease, useFilters, withParams } from "@/lib/filters";
 import { formatInt, formatWeek } from "@/lib/format";
 import type { AlertSeverity, AlertType } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -79,6 +79,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 }
 
 function AlertsPanel() {
+  const dp = diseaseParam(useDisease());
   const [filters] = useFilters();
   const params = useSearchParams();
   const [type, setType] = useState<AlertType | null>((params.get("type") as AlertType) ?? null);
@@ -162,7 +163,7 @@ function AlertsPanel() {
                     {a.details.provisional === true && <span className="ml-1 text-[10px] text-status-warn">prov.</span>}
                   </td>
                   <td className="whitespace-nowrap px-2 py-2">
-                    <Link href={`/countries/${a.iso3}`} className="hover:underline">{a.name}</Link>
+                    <Link href={withParams(`/countries/${a.iso3}`, dp)} className="hover:underline">{a.name}</Link>
                   </td>
                   <td className="px-2 py-2"><AlertTypeLabel t={a.alert_type} /></td>
                   <td className="px-2 py-2"><AlertSeverityBadge s={a.severity} /></td>
@@ -207,7 +208,8 @@ export function GenerateReportForm({ fixedIso3 }: { fixedIso3?: string }) {
   const [scope, setScope] = useState<"global" | "country">(fixedIso3 ? "country" : "global");
   const [iso3, setIso3] = useState(fixedIso3 ?? "");
   const [weeks, setWeeks] = useState(filters.weeks);
-  const countries = useCountries({ region: null, q: "", sort: "name", order: "asc", page: 1, pageSize: 300 });
+  const disease = useDisease();
+  const countries = useCountries({ disease, region: null, q: "", sort: "name", order: "asc", page: 1, pageSize: 300 });
   const gen = useGenerateReport();
 
   const submit = (e: React.FormEvent) => {
@@ -220,7 +222,10 @@ export function GenerateReportForm({ fixedIso3 }: { fixedIso3?: string }) {
         to: filters.to,
         weeks,
       },
-      { onSuccess: (r) => router.push(`/reports/${r.report.id}${r.reused ? "?reused=1" : ""}`) },
+      {
+        onSuccess: (r) =>
+          router.push(withParams(`/reports/${r.report.id}`, r.reused ? "reused=1" : "", diseaseParam(disease))),
+      },
     );
   };
 
@@ -274,6 +279,7 @@ export function GenerateReportForm({ fixedIso3 }: { fixedIso3?: string }) {
 }
 
 function ReportsPanel() {
+  const dp = diseaseParam(useDisease());
   const [page, setPage] = useState(1);
   const q = useReports(page);
   const d = q.data;
@@ -307,7 +313,7 @@ function ReportsPanel() {
               {d.items.map((r) => (
                 <tr key={r.id} className="border-b border-border/60 last:border-0 hover:bg-accent/40">
                   <td className="px-4 py-2">
-                    <Link href={`/reports/${r.id}`} className="hover:underline">{r.title}</Link>
+                    <Link href={withParams(`/reports/${r.id}`, dp)} className="hover:underline">{r.title}</Link>
                   </td>
                   <td className="whitespace-nowrap px-2 py-2 text-muted-foreground">
                     {formatWeek(r.period_start)} – {formatWeek(r.period_end)}

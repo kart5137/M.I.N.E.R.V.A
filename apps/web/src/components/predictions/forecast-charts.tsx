@@ -4,7 +4,8 @@ import { useMemo } from "react";
 
 import { CHART, EChart, type EChartsOption } from "@/components/charts/echart";
 import { COLD, HOT } from "@/lib/detection-scale";
-import { addWeeks, formatInt, formatPct, formatWeek, weeksBetween } from "@/lib/format";
+import { addWeeks, formatInt, formatPct, formatRate, formatSigned, formatWeek, weeksBetween } from "@/lib/format";
+import type { Metric } from "@/lib/metric";
 import type { CountryBacktest, Explanation, ForecastOut, SeriesPoint } from "@/lib/types";
 
 const OBS = CHART.categorical[0];
@@ -15,7 +16,6 @@ const BAND95 = "rgba(191,132,24,0.14)";
 const INCREASE = HOT;
 const DECREASE = COLD;
 
-const pct = (v: number) => `${Math.round(v * 100)}%`;
 const row = (k: string, v: string, color?: string) =>
   `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:${CHART.muted}">${color ? `<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:6px"></span>` : ""}${k}</span><span style="font-variant-numeric:tabular-nums">${v}</span></div>`;
 
@@ -37,15 +37,18 @@ function bandSeries(name: string, lo: (number | null)[], hi: (number | null)[], 
   ];
 }
 
-/** Observed weekly positivity, then the selected model's 1/2/4-week forecasts with 80% and 95% intervals. */
+/** Observed weekly values (positivity, or dengue incidence), then the selected model's 1/2/4-week forecasts with
+ * 80% and 95% intervals. */
 export function ForecastChart({
   history,
   forecasts,
   minSpecimens,
+  m,
 }: {
   history: SeriesPoint[];
   forecasts: ForecastOut[];
   minSpecimens: number;
+  m: Metric;
 }) {
   const option = useMemo<EChartsOption>(() => {
     const origin = forecasts[0]?.origin_week ?? history.at(-1)?.week_start ?? "";
@@ -55,8 +58,11 @@ export function ForecastChart({
     const weeks = Array.from({ length: weeksBetween(start, end) + 1 }, (_, i) => addWeeks(start, i));
     const obs = new Map(history.map((p) => [p.week_start, p]));
     const fc = new Map(forecasts.map((f) => [f.target_week, f]));
-    const val = (p: SeriesPoint | undefined) =>
-      p && p.reported && p.positivity != null && (p.specimens_tested ?? 0) >= minSpecimens ? p.positivity : null;
+    const val = (p: SeriesPoint | undefined) => {
+      if (!p || !p.reported) return null;
+      if (m.key === "incidence") return p.incidence ?? null;
+      return p.positivity != null && (p.specimens_tested ?? 0) >= minSpecimens ? p.positivity : null;
+    };
 
     const settled = weeks.map((w) => (w <= origin ? val(obs.get(w)) : null));
     const provisional = weeks.map((w) => (w >= origin ? val(obs.get(w)) : null));
@@ -80,13 +86,18 @@ export function ForecastChart({
           const f = fc.get(w);
           const lines = [`<div style="font-weight:600;margin-bottom:4px">${formatWeek(w)}</div>`];
           if (o?.reported) {
-            lines.push(row(w > origin ? "Observed (provisional)" : "Observed", formatPct(o.positivity), OBS));
-            lines.push(row("Specimens", formatInt(o.specimens_tested)));
+            if (m.key === "incidence") {
+              lines.push(row(w > origin ? "Observed (provisional)" : "Observed", `${m.format(o.incidence)} per 100k`, OBS));
+              lines.push(row("Reported cases", formatInt(o.cases)));
+            } else {
+              lines.push(row(w > origin ? "Observed (provisional)" : "Observed", formatPct(o.positivity), OBS));
+              lines.push(row("Specimens", formatInt(o.specimens_tested)));
+            }
           } else if (w <= (history.at(-1)?.week_start ?? "")) lines.push(row("Observed", "Not reported"));
           if (f) {
-            lines.push(row(`Forecast (+${f.horizon_weeks} wk)`, formatPct(f.point), FC));
-            lines.push(row("80% interval", `${formatPct(f.lo80)} – ${formatPct(f.hi80)}`));
-            lines.push(row("95% interval", `${formatPct(f.lo95)} – ${formatPct(f.hi95)}`));
+            lines.push(row(`Forecast (+${f.horizon_weeks} wk)`, m.format(f.point), FC));
+            lines.push(row("80% interval", `${m.format(f.lo80)} – ${m.format(f.hi80)}`));
+            lines.push(row("95% interval", `${m.format(f.lo95)} – ${m.format(f.hi95)}`));
           }
           return lines.join("");
         },
@@ -108,9 +119,9 @@ export function ForecastChart({
       yAxis: {
         type: "value",
         min: 0,
-        max: Math.min(1, Math.ceil(Math.max(0.05, ...settled.map((v) => v ?? 0), ...provisional.map((v) => v ?? 0), ...hi80.map((v) => v ?? 0)) * 1.2 * 20) / 20),
+        max: axisMax(Math.max(...settled.map((v) => v ?? 0), ...provisional.map((v) => v ?? 0), ...hi80.map((v) => v ?? 0)), m),
         splitLine: { lineStyle: { color: CHART.grid } },
-        axisLabel: { color: CHART.muted, fontSize: 10, formatter: pct },
+        axisLabel: { color: CHART.muted, fontSize: 10, formatter: m.axis },
       },
       series: [
         ...bandSeries("95", lo95, hi95, BAND95),
@@ -154,12 +165,20 @@ export function ForecastChart({
         },
       ],
     };
-  }, [history, forecasts, minSpecimens]);
-  return <EChart option={option} ariaLabel="Observed positivity with forecasts and prediction intervals" />;
+  }, [history, forecasts, minSpecimens, m]);
+  return <EChart option={option} ariaLabel={`Observed ${m.noun} with forecasts and prediction intervals`} />;
+}
+
+/** Upper axis bound: positivity capped at 100% in 5% steps; incidence to a round number. */
+function axisMax(top: number, m: Metric): number {
+  if (m.key === "positivity") return Math.min(1, Math.ceil(Math.max(0.05, top) * 1.2 * 20) / 20);
+  const v = Math.max(top * 1.2, 0.1);
+  const step = 10 ** Math.floor(Math.log10(v));
+  return Math.ceil(v / step) * step;
 }
 
 /** Past out-of-sample forecasts vs. what was later observed (one horizon). */
-export function BacktestChart({ data }: { data: CountryBacktest }) {
+export function BacktestChart({ data, m }: { data: CountryBacktest; m: Metric }) {
   const option = useMemo<EChartsOption>(() => {
     const pts = data.points;
     const weeks = pts.map((p) => p.target_week);
@@ -181,9 +200,9 @@ export function BacktestChart({ data }: { data: CountryBacktest }) {
           const p = pts[params[0]?.dataIndex ?? 0];
           return [
             `<div style="font-weight:600;margin-bottom:4px">${formatWeek(p.target_week)}</div>`,
-            row("Observed", formatPct(p.actual), OBS),
-            row(`Forecast made ${formatWeek(p.origin_week)}`, formatPct(p.point), FC),
-            p.lo80 != null ? row("80% interval", `${formatPct(p.lo80)} – ${formatPct(p.hi80)}`) : row("80% interval", "not yet calibrated"),
+            row("Observed", m.format(p.actual), OBS),
+            row(`Forecast made ${formatWeek(p.origin_week)}`, m.format(p.point), FC),
+            p.lo80 != null ? row("80% interval", `${m.format(p.lo80)} – ${m.format(p.hi80)}`) : row("80% interval", "not yet calibrated"),
           ].join("");
         },
       },
@@ -199,20 +218,22 @@ export function BacktestChart({ data }: { data: CountryBacktest }) {
           formatter: (v: string) => new Date(`${v}T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", year: "2-digit", timeZone: "UTC" }),
         },
       },
-      yAxis: { type: "value", min: 0, splitLine: { lineStyle: { color: CHART.grid } }, axisLabel: { color: CHART.muted, fontSize: 10, formatter: pct } },
+      yAxis: { type: "value", min: 0, splitLine: { lineStyle: { color: CHART.grid } }, axisLabel: { color: CHART.muted, fontSize: 10, formatter: m.axis } },
       series: [
         ...bandSeries("80", pts.map((p) => p.lo80), pts.map((p) => p.hi80), BAND80),
         { name: "Observed", type: "line", data: pts.map((p) => p.actual), showSymbol: false, lineStyle: { width: 2, color: OBS }, itemStyle: { color: OBS } },
         { name: "Forecast", type: "line", data: pts.map((p) => p.point), showSymbol: false, lineStyle: { width: 2, color: FC }, itemStyle: { color: FC } },
       ],
     };
-  }, [data]);
-  return <EChart option={option} ariaLabel="Backtest forecasts compared with observed positivity" />;
+  }, [data, m]);
+  return <EChart option={option} ariaLabel={`Backtest forecasts compared with observed ${m.noun}`} />;
 }
 
-/** Display a feature value in readable units (logit features as positivity). */
-export function featureValue(feature: string, v: number | null): string {
+/** Display a feature value in readable units (influenza logit features as positivity; dengue level features as
+ * incidence, changes as %, weather in its units). */
+export function featureValue(feature: string, v: number | null, natural?: number | null, target = "positivity"): string {
   if (v == null) return "missing";
+  if (target === "incidence") return dengueFeatureValue(feature, v, natural);
   const expit = (x: number) => 1 / (1 + Math.exp(-x));
   if (/^y_(lag\d|mean\d|last_year|peak52)$/.test(feature) || feature === "zone_mean_lag0") return formatPct(expit(v));
   if (feature === "log_tests_lag0") return `${formatInt(Math.expm1(v))} specimens`;
@@ -223,11 +244,32 @@ export function featureValue(feature: string, v: number | null): string {
   return v.toFixed(2);
 }
 
-/** SHAP contributions (log-odds of positivity), largest first, plus the remainder. */
+function dengueFeatureValue(feature: string, v: number, natural?: number | null): string {
+  if (natural != null) return `${formatRate(natural)} per 100k`;
+  const pctChange = (x: number) => formatSigned((Math.exp(x) - 1) * 100, 0, "%");
+  if (/^y_diff\d$/.test(feature) || feature === "nbr_diff2") return pctChange(v);
+  if (feature === "log_cases_mean4") return `${formatInt(Math.expm1(v))} cases/week`;
+  if (feature === "lat" || feature === "abs_lat") return `${v.toFixed(1)}°`;
+  if (feature.startsWith("temperature_anom")) return formatSigned(v, 1, " °C");
+  if (feature.startsWith("temperature_")) return `${v.toFixed(1)} °C`;
+  if (feature.startsWith("precipitation_anom")) return formatSigned(v, 0, " mm");
+  if (feature.startsWith("precipitation_")) return `${Math.round(v)} mm`;
+  if (feature.startsWith("humidity_anom")) return formatSigned(v, 1, " pts");
+  if (feature.startsWith("humidity_")) return `${v.toFixed(0)}%`;
+  return `${v.toFixed(2)} (log)`;
+}
+
+/** SHAP contributions (log-odds of positivity, or change in log incidence for dengue), largest first, plus the
+ * remainder. */
 export function ShapWaterfall({ data }: { data: Explanation }) {
   const option = useMemo<EChartsOption>(() => {
+    const scale = data.target === "incidence" ? "log scale" : "log-odds";
     const items = [
-      ...data.contributions.map((c) => ({ name: c.label, value: c.shap_value, sub: featureValue(c.feature, c.feature_value) })),
+      ...data.contributions.map((c) => ({
+        name: c.label,
+        value: c.shap_value,
+        sub: featureValue(c.feature, c.feature_value, c.natural_value, data.target),
+      })),
       { name: "All other features", value: data.other_features, sub: "" },
     ].reverse();
     return {
@@ -237,7 +279,7 @@ export function ShapWaterfall({ data }: { data: Explanation }) {
         ...CHART.tooltip,
         formatter: (p: { dataIndex: number }) => {
           const it = items[p.dataIndex];
-          return `<div style="font-weight:600">${it.name}</div>${it.sub ? row("Value", it.sub) : ""}${row("Effect (log-odds)", `${it.value >= 0 ? "+" : ""}${it.value.toFixed(3)}`)}`;
+          return `<div style="font-weight:600">${it.name}</div>${it.sub ? row("Value", it.sub) : ""}${row(`Effect (${scale})`, `${it.value >= 0 ? "+" : ""}${it.value.toFixed(3)}`)}`;
         },
       },
       xAxis: {

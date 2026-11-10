@@ -84,13 +84,15 @@ export function SurveillanceView() {
     setParam(FILL_PARAM, m === "positivity" ? null : m);
   };
   const info = DISEASES[filters.disease];
-  // Case-based diseases (dengue) have only their primary fill until detection exists for
-  // them; the detection hooks are kept idle so no influenza data is drawn.
+  // The "positivity" fill is the disease's primary measure: test positivity, or cases per
+  // 100,000 for case-based diseases (dengue), which have the detection fills too (D4).
   const caseBased = info.caseBased;
-  const activeFill: FillMode | "none" = caseBased && fillMode !== "none" ? "positivity" : fillMode;
-  const fillOptions: { key: FillMode | "none"; label: string }[] = caseBased
-    ? [{ key: "positivity", label: "Cases per 100,000" }, { key: "none", label: "None" }]
-    : [...FILL_MODES, { key: "none", label: "None" }];
+  const activeFill: FillMode | "none" =
+    !info.features.detection && fillMode !== "none" ? "positivity" : fillMode;
+  const fillOptions: { key: FillMode | "none"; label: string }[] = [
+    ...FILL_MODES.map((m) => (m.key === "positivity" && caseBased ? { ...m, label: "Cases per 100,000" } : m)),
+    { key: "none", label: "None" },
+  ];
   const anomaliesOn = showAnomalies && info.features.detection;
   const layers: GlobeLayers = { positivity: activeFill === "positivity", detections };
   const detection = useDetectionLayers(

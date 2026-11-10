@@ -25,7 +25,9 @@ import {
   SEVERITY_LABEL,
 } from "@/lib/detection-scale";
 import { useFilters } from "@/lib/filters";
-import { formatInt, formatPct, formatSigned, formatWeek } from "@/lib/format";
+import { diseaseParam, useDisease, withParams } from "@/lib/filters";
+import { formatInt, formatSigned, formatWeek } from "@/lib/format";
+import { metricFor } from "@/lib/metric";
 import type { AnomalyItem, HotspotItem, Severity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +59,8 @@ function pText(p: number): string {
 }
 
 export function HotspotsView() {
+  const disease = useDisease();
+  const m = metricFor(disease);
   const [filters, setFilters] = useFilters();
   const router = useRouter();
   const [mode, setMode] = useState<Extract<FillMode, "hotspots" | "moran">>("hotspots");
@@ -75,7 +79,7 @@ export function HotspotsView() {
 
   const description = h?.window
     ? `Hotspots: 4-week window ${formatWeek(h.window.start)} – ${formatWeek(h.window.end)}. Anomalies: ${anomalies.data ? `${formatWeek(anomalies.data.window.start)} – ${formatWeek(anomalies.data.window.end)}` : "…"}.`
-    : "Spatial clusters of test positivity and weeks unusually high for the time of year.";
+    : `Spatial clusters of ${m.noun} and weeks unusually high for the time of year.`;
 
   if (h && !h.run) {
     return (
@@ -182,6 +186,8 @@ function HotspotTable({
   error: Error | null;
   mode: "hotspots" | "moran";
 }) {
+  const disease = useDisease();
+  const m = metricFor(disease);
   const [showAll, setShowAll] = useState(false);
   const rows = useMemo(() => {
     const all = [...(data ?? [])];
@@ -211,7 +217,7 @@ function HotspotTable({
               <thead className="sticky top-0 bg-card text-[11px] text-muted-foreground">
                 <tr className="border-b border-border">
                   <th className="py-1.5 text-left font-normal">Country</th>
-                  <th className="py-1.5 text-right font-normal">Positivity</th>
+                  <th className="py-1.5 text-right font-normal">{m.key === "incidence" ? "Incidence /100k" : "Positivity"}</th>
                   <th className="py-1.5 pl-2 text-right font-normal">z</th>
                   <th className="py-1.5 pl-2 text-right font-normal">p</th>
                   <th className="py-1.5 pl-2 text-right font-normal">p (FDR)</th>
@@ -226,7 +232,7 @@ function HotspotTable({
                   return (
                     <tr key={r.iso3} className="border-b border-border/60 last:border-0">
                       <td className="py-1.5">
-                        <Link href={`/countries/${r.iso3}`} className="hover:underline">
+                        <Link href={withParams(`/countries/${r.iso3}`, diseaseParam(disease))} className="hover:underline">
                           {r.name}
                         </Link>
                         {r.neighbour_source === "knn" && (
@@ -235,7 +241,7 @@ function HotspotTable({
                           </span>
                         )}
                       </td>
-                      <td className="py-1.5 text-right">{formatPct(r.value)}</td>
+                      <td className="py-1.5 text-right">{m.format(r.value)}</td>
                       <td className="py-1.5 pl-2 text-right">{formatSigned(s.z_score, 2)}</td>
                       <td className="py-1.5 pl-2 text-right text-muted-foreground">{pText(s.p_value)}</td>
                       <td className="py-1.5 pl-2 text-right">{pText(s.p_fdr)}</td>
@@ -365,6 +371,8 @@ export function SeverityBadge({ s }: { s: Severity }) {
 }
 
 function AnomalyFeed({ items, error, weeks }: { items: AnomalyItem[] | undefined; error: Error | null; weeks: number }) {
+  const disease = useDisease();
+  const m = metricFor(disease);
   const primary = (items ?? []).filter((a) => a.method === "seasonal_ewma");
   const byCountry = useMemo(() => {
     const m = new Map<string, AnomalyItem[]>();
@@ -384,7 +392,7 @@ function AnomalyFeed({ items, error, weeks }: { items: AnomalyItem[] | undefined
           return (
             <li key={latest.iso3} className="rounded-md border border-border/70 p-2.5">
               <div className="flex items-center justify-between gap-2">
-                <Link href={`/countries/${latest.iso3}`} className="flex items-center gap-1 text-xs font-medium hover:underline">
+                <Link href={withParams(`/countries/${latest.iso3}`, diseaseParam(disease))} className="flex items-center gap-1 text-xs font-medium hover:underline">
                   {latest.name} <ArrowRight className="size-3 text-muted-foreground" />
                 </Link>
                 <span className="text-[10.5px] text-muted-foreground">{latest.who_region}</span>
@@ -393,7 +401,7 @@ function AnomalyFeed({ items, error, weeks }: { items: AnomalyItem[] | undefined
                 <thead className="text-muted-foreground">
                   <tr>
                     <th className="text-left font-normal">Week</th>
-                    <th className="text-right font-normal">Observed</th>
+                    <th className="text-right font-normal">Observed{m.key === "incidence" ? " /100k" : ""}</th>
                     <th className="text-right font-normal">Expected</th>
                     <th className="text-right font-normal">Upper band</th>
                     <th className="pl-2 text-right font-normal">Severity</th>
@@ -406,9 +414,9 @@ function AnomalyFeed({ items, error, weeks }: { items: AnomalyItem[] | undefined
                         {formatWeek(a.week_start)}
                         {a.is_provisional && <span className="ml-1 text-[10px] text-status-warn">prov.</span>}
                       </td>
-                      <td className="text-right">{formatPct(a.observed)}</td>
-                      <td className="text-right text-muted-foreground">{formatPct(a.expected)}</td>
-                      <td className="text-right text-muted-foreground">{formatPct(a.upper_band)}</td>
+                      <td className="text-right">{m.format(a.observed)}</td>
+                      <td className="text-right text-muted-foreground">{m.format(a.expected)}</td>
+                      <td className="text-right text-muted-foreground">{m.format(a.upper_band)}</td>
                       <td className="pl-2 text-right">{a.severity && <SeverityBadge s={a.severity} />}</td>
                     </tr>
                   ))}
@@ -423,11 +431,17 @@ function AnomalyFeed({ items, error, weeks }: { items: AnomalyItem[] | undefined
 }
 
 function SecondarySignals({ items }: { items: AnomalyItem[] | undefined }) {
+  const disease = useDisease();
+  const m = metricFor(disease);
   const rows = (items ?? []).filter((a) => a.method === "isolation_forest");
   return (
     <Card
       title="Secondary signal: Isolation Forest"
-      subtitle="Weeks unusual for the country's own history in positivity, testing volume or week-on-week change. Shown for context only; never used for alerts."
+      subtitle={
+        m.key === "incidence"
+          ? "Weeks unusual for the country's own history in incidence, case volume or week-on-week change. Shown for context only; never used for alerts."
+          : "Weeks unusual for the country's own history in positivity, testing volume or week-on-week change. Shown for context only; never used for alerts."
+      }
     >
       {items && rows.length === 0 && <p className="text-xs text-muted-foreground">No unusual weeks in this period.</p>}
       {rows.length > 0 && (
@@ -437,8 +451,8 @@ function SecondarySignals({ items }: { items: AnomalyItem[] | undefined }) {
               <tr className="border-b border-border">
                 <th className="py-1.5 text-left font-normal">Country</th>
                 <th className="py-1.5 text-left font-normal">Week</th>
-                <th className="py-1.5 text-right font-normal">Positivity</th>
-                <th className="py-1.5 text-right font-normal">Specimens</th>
+                <th className="py-1.5 text-right font-normal">{m.key === "incidence" ? "Incidence /100k" : "Positivity"}</th>
+                {m.key === "positivity" && <th className="py-1.5 text-right font-normal">Specimens</th>}
                 <th className="py-1.5 pl-2 text-right font-normal">Score</th>
               </tr>
             </thead>
@@ -446,13 +460,13 @@ function SecondarySignals({ items }: { items: AnomalyItem[] | undefined }) {
               {rows.map((a) => (
                 <tr key={`${a.iso3}-${a.week_start}`} className="border-b border-border/60 last:border-0">
                   <td className="py-1.5">
-                    <Link href={`/countries/${a.iso3}`} className="hover:underline">
+                    <Link href={withParams(`/countries/${a.iso3}`, diseaseParam(disease))} className="hover:underline">
                       {a.name}
                     </Link>
                   </td>
                   <td className="py-1.5 text-muted-foreground">{formatWeek(a.week_start)}</td>
-                  <td className="py-1.5 text-right">{formatPct(a.observed)}</td>
-                  <td className="py-1.5 text-right">{formatInt(a.specimens_tested)}</td>
+                  <td className="py-1.5 text-right">{m.format(a.observed)}</td>
+                  {m.key === "positivity" && <td className="py-1.5 text-right">{formatInt(a.specimens_tested)}</td>}
                   <td className="py-1.5 pl-2 text-right text-muted-foreground">{a.score.toFixed(2)}</td>
                 </tr>
               ))}
@@ -479,6 +493,8 @@ function Methods({
   anomalyNote: string | null;
   run: { run_key: string; finished_at: string | null } | null;
 }) {
+  const disease = useDisease();
+  const m = metricFor(disease);
   return (
     <section className="panel p-4 text-xs text-muted-foreground">
       <h2 className="flex items-center gap-1.5 text-sm font-medium text-foreground">
@@ -488,8 +504,9 @@ function Methods({
         <div>
           <dt className="text-foreground">Hotspots</dt>
           <dd>
-            Input: pooled positivity over 4 weeks per country (≥ 10 specimens); countries without data do not take part and
-            are shown as “no data”, never “cold”. Weights: {weights ?? "—"}. Getis-Ord Gi* and Local Moran&apos;s I with
+            {m.key === "incidence"
+              ? "Input: mean weekly incidence per 100,000 over 4 weeks per country (≥ 2 reported weeks; statistics on log(1 + incidence)); monthly reporters and countries without data do not take part and are shown as “no data”, never “cold”. Case definitions differ between countries, so a hot spot is a cluster of high reported incidence."
+              : "Input: pooled positivity over 4 weeks per country (≥ 10 specimens); countries without data do not take part and are shown as “no data”, never “cold”."} Weights: {weights ?? "—"}. Getis-Ord Gi* and Local Moran&apos;s I with
             conditional permutation inference ({formatInt(permutations)} permutations, ties counted against significance),
             Benjamini–Hochberg FDR at {alpha}. With about 130 countries, few pass the FDR correction; uncorrected p &lt; 0.05 is
             shown in a lighter tone and is suggestive only.

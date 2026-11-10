@@ -5,6 +5,7 @@ MEM levels of the season containing the target week,
   P < epidemic threshold → low; epidemic threshold ≤ P < high intensity → moderate;
   P ≥ high intensity → high.
 Countries without usable thresholds for that season are not assessed.
+Dengue (D4) applies the same rule to forecast incidence and incidence thresholds.
 """
 
 from __future__ import annotations
@@ -55,8 +56,16 @@ def load_forecasts(engine: Engine, disease_id: int) -> pd.DataFrame:
         """), c, params={"d": disease_id, "h": cfg.RISK_HORIZON})
 
 
+def fmt_value(v: float, metric: str = "positivity") -> str:
+    """Positivity as a percentage; incidence as cases per 100,000."""
+    if metric == "positivity":
+        return f"{v:.1%}"
+    d = 2 if abs(v) < 10 else 1 if abs(v) < 100 else 0
+    return f"{v:,.{d}f} per 100k"
+
+
 def assess(forecasts: pd.DataFrame, thresholds: dict[tuple[str, date], object],
-           season_start_of) -> list[RiskRow]:
+           season_start_of, metric: str = "positivity") -> list[RiskRow]:
     """`thresholds` maps (iso3, season_start) → ThresholdRow (usable ones only);
     `season_start_of(iso3, week)` gives the season start of a week for that country."""
     out = []
@@ -66,8 +75,9 @@ def assess(forecasts: pd.DataFrame, thresholds: dict[tuple[str, date], object],
         if t is None:
             continue
         level = risk_level(f.point, t.epidemic_threshold, t.high)
-        rule = (f"2-week forecast {f.point:.1%} vs {t.season} MEM epidemic threshold "
-                f"{t.epidemic_threshold:.1%} and high intensity {t.high:.1%}")
+        rule = (f"2-week forecast {fmt_value(f.point, metric)} vs {t.season} MEM epidemic "
+                f"threshold {fmt_value(t.epidemic_threshold, metric)} and high intensity "
+                f"{fmt_value(t.high, metric)}")
         out.append(RiskRow(
             iso3=f.iso3, assessed_week=f.origin_week, target_week=f.target_week,
             risk_level=level, rule=rule, forecast_point=float(f.point),

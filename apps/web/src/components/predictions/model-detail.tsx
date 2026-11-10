@@ -10,11 +10,13 @@ import { Provenance } from "@/components/common/provenance";
 import { QueryError } from "@/components/common/query-state";
 import { useModelDetail } from "@/hooks/use-forecasts";
 import { ApiError } from "@/lib/api";
-import { formatPct, formatWeek } from "@/lib/format";
+import { diseaseParam, useDisease, withParams } from "@/lib/filters";
+import { formatPct, formatRate, formatWeek } from "@/lib/format";
+import { type Metric, metricFor } from "@/lib/metric";
 import type { ModelDetail as Detail, Metrics } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-import { num, pp, signedPct } from "./prediction-center";
+import { err, num, signedPct } from "./prediction-center";
 
 function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
@@ -26,9 +28,9 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
   );
 }
 
-const ROWS: [keyof Metrics, string, (v: number | null) => string][] = [
-  ["mae", "MAE", pp],
-  ["rmse", "RMSE", pp],
+const rows = (m: Metric): [keyof Metrics, string, (v: number | null) => string][] => [
+  ["mae", "MAE", err(m)],
+  ["rmse", "RMSE", err(m)],
   ["mase", "MASE", (v) => num(v)],
   ["skill_vs_snaive", "Skill vs seasonal naive", signedPct],
   ["coverage_80", "80% interval coverage", (v) => formatPct(v, 1)],
@@ -37,6 +39,7 @@ const ROWS: [keyof Metrics, string, (v: number | null) => string][] = [
 
 export function ModelDetailView() {
   const { id } = useParams<{ id: string }>();
+  const m = metricFor(useDisease());
   const detail = useModelDetail(Number(id));
   const d = detail.data;
 
@@ -61,7 +64,8 @@ export function ModelDetailView() {
         </h1>
         {d && (
           <p className="mt-0.5 text-[13px] text-muted-foreground">
-            {d.kind === "ml" ? "Pooled machine-learning model" : "Baseline rule"} · target: weekly test positivity · run {d.run_key} · trained{" "}
+            {d.kind === "ml" ? "Pooled machine-learning model" : "Baseline rule"} · target:{" "}
+            {m.key === "incidence" ? "weekly dengue incidence per 100,000" : "weekly test positivity"} · run {d.run_key} · trained{" "}
             {new Date(d.trained_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
           </p>
         )}
@@ -81,7 +85,7 @@ export function ModelDetailView() {
                   </tr>
                 </thead>
                 <tbody className="metric">
-                  {ROWS.map(([k, label, f]) => (
+                  {rows(m).map(([k, label, f]) => (
                     <tr key={k} className="border-b border-border/60 last:border-0">
                       <td className="py-1.5 text-muted-foreground">{label}</td>
                       <td className="py-1.5 text-right">{f(d.metrics[k] as number | null)}</td>
@@ -91,9 +95,12 @@ export function ModelDetailView() {
                 </tbody>
               </table>
             </Card>
-            <Card title="Error by forecast origin" subtitle="Mean absolute error across countries for forecasts made at each origin (pp).">
+            <Card
+              title="Error by forecast origin"
+              subtitle={`Mean absolute error across countries for forecasts made at each origin (${m.key === "incidence" ? "cases per 100,000" : "pp"}).`}
+            >
               <div className="h-56">
-                <ErrorChart data={d} />
+                <ErrorChart data={d} m={m} />
               </div>
             </Card>
           </div>
@@ -101,7 +108,11 @@ export function ModelDetailView() {
           {d.importance.length > 0 && (
             <Card
               title="Global feature importance"
-              subtitle="Mean |SHAP| over the latest forecasts (log-odds scale). In a pooled model, latitude and season type partly act as country identifiers."
+              subtitle={
+                m.key === "incidence"
+                  ? "Mean |SHAP| over the latest forecasts (change in log incidence). In a pooled model, latitude and weather values partly act as country identifiers."
+                  : "Mean |SHAP| over the latest forecasts (log-odds scale). In a pooled model, latitude and season type partly act as country identifiers."
+              }
             >
               <div className="h-[420px]">
                 <ImportanceChart data={d} />
@@ -109,7 +120,7 @@ export function ModelDetailView() {
             </Card>
           )}
 
-          <CountryTable data={d} />
+          <CountryTable data={d} m={m} />
           <Card title="Model record">
             <dl className="grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
               <Item k="Training targets" v={d.train_start ? `${formatWeek(d.train_start)} – ${formatWeek(d.train_end)}` : `up to ${formatWeek(d.train_end)}`} />
@@ -138,14 +149,14 @@ function Item({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
 
 function Back() {
   return (
-    <Link href="/predictions" className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+    <Link href={withParams("/predictions", diseaseParam(useDisease()))} className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
       <ArrowLeft className="size-3.5" aria-hidden />
       Prediction Center
     </Link>
   );
 }
 
-function ErrorChart({ data }: { data: Detail }) {
+function ErrorChart({ data, m }: { data: Detail; m: Metric }) {
   const option = useMemo<EChartsOption>(() => ({
     animation: false,
     grid: { left: 44, right: 12, top: 12, bottom: 28 },
@@ -154,7 +165,7 @@ function ErrorChart({ data }: { data: Detail }) {
       ...CHART.tooltip,
       formatter: (p: { dataIndex: number }[]) => {
         const e = data.error_by_origin[p[0]?.dataIndex ?? 0];
-        return `<b>${formatWeek(e.origin_week)}</b><br/>MAE ${(e.mae * 100).toFixed(2)} pp · ${e.n} countries`;
+        return `<b>${formatWeek(e.origin_week)}</b><br/>MAE ${err(m)(e.mae)} · ${e.n} countries`;
       },
     },
     xAxis: {
@@ -173,7 +184,11 @@ function ErrorChart({ data }: { data: Detail }) {
       type: "value",
       min: 0,
       splitLine: { lineStyle: { color: CHART.grid } },
-      axisLabel: { color: CHART.muted, fontSize: 10, formatter: (v: number) => `${(v * 100).toFixed(0)}` },
+      axisLabel: {
+        color: CHART.muted,
+        fontSize: 10,
+        formatter: (v: number) => (m.key === "incidence" ? formatRate(v) : `${(v * 100).toFixed(0)}`),
+      },
     },
     series: [
       {
@@ -183,7 +198,7 @@ function ErrorChart({ data }: { data: Detail }) {
         barCategoryGap: "25%",
       },
     ],
-  }), [data]);
+  }), [data, m]);
   return <EChart option={option} ariaLabel="Mean absolute error by forecast origin" />;
 }
 
@@ -216,7 +231,7 @@ function ImportanceChart({ data }: { data: Detail }) {
   return <EChart option={option} ariaLabel="Global feature importance" />;
 }
 
-function CountryTable({ data }: { data: Detail }) {
+function CountryTable({ data, m }: { data: Detail; m: Metric }) {
   const [order, setOrder] = useState<"best" | "worst">("worst");
   const rows = useMemo(() => {
     const withMase = data.countries.filter((c) => c.metrics.mase != null);
@@ -255,11 +270,17 @@ function CountryTable({ data }: { data: Detail }) {
             {rows.map((c) => (
               <tr key={c.iso3} className="border-b border-border/60 last:border-0">
                 <td className="py-1.5">
-                  <Link href={`/predictions?country=${c.iso3}&h=${data.horizon_weeks}&model=${data.model_type}`} className="hover:text-primary">
+                  <Link
+                    href={withParams(
+                      `/predictions?country=${c.iso3}&h=${data.horizon_weeks}&model=${data.model_type}`,
+                      m.key === "incidence" ? "disease=dengue" : "",
+                    )}
+                    className="hover:text-primary"
+                  >
                     {c.name}
                   </Link>
                 </td>
-                <td className="py-1.5 text-right">{pp(c.metrics.mae)}</td>
+                <td className="py-1.5 text-right">{err(m)(c.metrics.mae)}</td>
                 <td className="py-1.5 text-right">{num(c.metrics.mase, 2)}</td>
                 <td className="py-1.5 text-right text-muted-foreground">{signedPct(c.metrics.skill_vs_snaive)}</td>
                 <td className="py-1.5 text-right text-muted-foreground">{formatPct(c.metrics.coverage_80, 0)}</td>

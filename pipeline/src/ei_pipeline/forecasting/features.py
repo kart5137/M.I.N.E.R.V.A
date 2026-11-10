@@ -2,7 +2,8 @@
 
 One frame per horizon h: a row per (country, origin t) with features, the baseline
 forecasts, and the target at t + h. Shifts are exact week offsets because the panel is
-on a complete weekly calendar.
+on a complete weekly calendar. `y` is the target on the model scale (logit positivity
+for influenza, log(incidence + one case per 100,000) for dengue); `p` on its natural scale.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ import pandas as pd
 
 from ei_db.catalog import FEATURE_LABELS  # noqa: F401  (re-exported for reports)
 from ei_pipeline.detection.weights import neighbour_mean
-from ei_pipeline.forecasting.data import Panel
+from ei_pipeline.forecasting.data import WEATHER_COLUMNS, Panel
 
 AUTOREGRESSIVE = ["y_lag0", "y_lag1", "y_lag2", "y_lag3", "y_mean4", "y_std4", "y_mean8",
                   "y_std8", "y_diff1", "y_diff2", "y_diff4", "y_peak52"]
@@ -21,9 +22,19 @@ CALENDAR = ["woy_sin", "woy_cos", "weeks_into_season"]
 TESTING = ["log_tests_lag0", "tests_trend"]
 SPATIAL = ["zone_mean_lag0", "nbr_mean_lag0", "nbr_diff2"]
 STATIC = ["season_nh", "season_sh", "season_yr", "lat", "abs_lat"]
+#: Influenza positivity features (M5/M6).
 FEATURES = AUTOREGRESSIVE + SEASONAL + CALENDAR + TESTING + SPATIAL + STATIC
 
-def _base(panel: Panel) -> pd.DataFrame:
+#: Dengue incidence features (D4). No influenza season types or transmission zones;
+#: reporting volume is the 4-week mean of reported cases.
+DENGUE_FEATURES = (AUTOREGRESSIVE + SEASONAL + ["woy_sin", "woy_cos", "log_cases_mean4"]
+                   + ["nbr_mean_lag0", "nbr_diff2", "lat", "abs_lat"])
+#: Lagged ERA5 weather and anomalies (data.WEATHER_COLUMNS), dengue `*_weather` models.
+WEATHER_FEATURES = list(WEATHER_COLUMNS)
+
+
+def _core(panel: Panel) -> pd.DataFrame:
+    """Features shared by every target: autoregressive, volume, neighbours, latitude."""
     df = panel.weekly.sort_values(["iso3", "week_start"]).reset_index(drop=True)
     g = df.groupby("iso3", sort=False)
     y = g["y"]
@@ -37,13 +48,34 @@ def _base(panel: Panel) -> pd.DataFrame:
         df[f"y_diff{k}"] = df["y_lag0"] - y.shift(k)
     df["y_peak52"] = y.rolling(52, min_periods=8).max().reset_index(level=0, drop=True)
 
-    # Testing volume at the origin (not a model feature): selects the conformal group.
-    df["tests_mean4"] = (
-        g["tests"].rolling(4, min_periods=1).mean().reset_index(level=0, drop=True)
+    # Volume at the origin (specimens or cases): selects the conformal group.
+    df["volume_mean4"] = (
+        g["volume"].rolling(4, min_periods=1).mean().reset_index(level=0, drop=True)
     )
 
-    log_tests = np.log1p(df["tests"])
-    df["log_tests_lag0"] = log_tests
+    # Neighbours (M6): mean target (model scale) of the country's spatial neighbours among
+    # the modelled countries (queen contiguity, else 4 nearest; detection/weights.py) at
+    # the origin, and its 2-week change.
+    if panel.neighbours is not None:
+        idx = df.set_index(["iso3", "week_start"])
+        nbr = neighbour_mean(idx, panel.neighbours, "y")
+        df["nbr_mean_lag0"] = nbr.reindex(pd.MultiIndex.from_frame(
+            df[["iso3", "week_start"]])).to_numpy()
+        df["nbr_diff2"] = df["nbr_mean_lag0"] - df.groupby("iso3", sort=False)[
+            "nbr_mean_lag0"].shift(2)
+    else:
+        df["nbr_mean_lag0"] = np.nan
+        df["nbr_diff2"] = np.nan
+
+    meta = panel.countries.set_index("iso3")
+    df["lat"] = df["iso3"].map(meta["lat"])
+    df["abs_lat"] = df["lat"].abs()
+    return df
+
+
+def _influenza(df: pd.DataFrame, panel: Panel) -> pd.DataFrame:
+    g = df.groupby("iso3", sort=False)
+    df["log_tests_lag0"] = np.log1p(df["tests"])
     t = g["tests"]
     recent = t.rolling(4, min_periods=2).mean().reset_index(level=0, drop=True)
     earlier = t.shift(4).rolling(8, min_periods=4).mean().reset_index(level=0, drop=True)
@@ -59,38 +91,40 @@ def _base(panel: Panel) -> pd.DataFrame:
     loo_n = joined["count"] - own.astype(int)
     df["zone_mean_lag0"] = (loo_sum / loo_n).where(loo_n > 0)
 
-    # Neighbours (M6): mean logit positivity of the country's spatial neighbours among the
-    # modelled countries (queen contiguity, else 4 nearest; detection/weights.py) at the
-    # origin, and its 2-week change.
-    if panel.neighbours is not None:
-        idx = df.set_index(["iso3", "week_start"])
-        nbr = neighbour_mean(idx, panel.neighbours, "y")
-        df["nbr_mean_lag0"] = nbr.reindex(pd.MultiIndex.from_frame(
-            df[["iso3", "week_start"]])).to_numpy()
-        df["nbr_diff2"] = df["nbr_mean_lag0"] - df.groupby("iso3", sort=False)[
-            "nbr_mean_lag0"].shift(2)
-    else:
-        df["nbr_mean_lag0"] = np.nan
-        df["nbr_diff2"] = np.nan
-
     season = df["iso3"].map(meta["flu_season"])
     df["season_type"] = season
     for s in ("NH", "SH", "YR"):
         df[f"season_{s.lower()}"] = (season == s).astype(float)
-    df["lat"] = df["iso3"].map(meta["lat"])
-    df["abs_lat"] = df["lat"].abs()
     return df
 
 
-def build_frames(panel: Panel, horizons) -> dict[int, pd.DataFrame]:
+def _dengue(df: pd.DataFrame) -> pd.DataFrame:
+    df["log_cases_mean4"] = np.log1p(df["volume_mean4"])
+    for col in WEATHER_COLUMNS:
+        if col not in df:
+            df[col] = np.nan
+    return df
+
+
+def _base(panel: Panel, disease: str = "influenza") -> pd.DataFrame:
+    df = _core(panel)
+    return _influenza(df, panel) if disease == "influenza" else _dengue(df)
+
+
+def build_frames(panel: Panel, horizons, disease: str = "influenza",
+                 features=None) -> dict[int, pd.DataFrame]:
     """Feature frame per horizon. Columns: iso3, origin (= week t), target_week,
-    FEATURES, baselines (`bl_*`, positivity scale), `actual_p`, `actual_y`, `trainable`."""
-    base = _base(panel)
+    features, baselines (`bl_*`, natural scale), `actual_p`, `actual_y`, `trainable`,
+    `volume_mean4`."""
+    if features is None:
+        features = FEATURES if disease == "influenza" else DENGUE_FEATURES + WEATHER_FEATURES
+    base = _base(panel, disease)
     g = base.groupby("iso3", sort=False)
+    keep = ["iso3", "week_start", "volume_mean4",
+            *[c for c in ("season_type", "offset") if c in base]]
     frames = {}
     for h in horizons:
-        f = base[["iso3", "week_start", "season_type", "tests_mean4",
-                  *[c for c in FEATURES if c in base]]].copy()
+        f = base[[*keep, *[c for c in features if c in base]]].copy()
         f = f.rename(columns={"week_start": "origin"})
         f["target_week"] = f["origin"] + pd.Timedelta(weeks=h)
 
@@ -102,10 +136,11 @@ def build_frames(panel: Panel, horizons) -> dict[int, pd.DataFrame]:
         iso_week = f["target_week"].dt.isocalendar().week.astype(float)
         f["woy_sin"] = np.sin(2 * np.pi * iso_week / 52.18)
         f["woy_cos"] = np.cos(2 * np.pi * iso_week / 52.18)
-        f["weeks_into_season"] = np.where(f["season_type"] == "NH", (iso_week - 40) % 52,
-                                          iso_week - 1)
+        if "weeks_into_season" in features:
+            f["weeks_into_season"] = np.where(f["season_type"] == "NH",
+                                              (iso_week - 40) % 52, iso_week - 1)
 
-        # Baselines on the observed-positivity scale.
+        # Baselines on the natural scale.
         p = g["p"]
         f["bl_last_value"] = p.shift(0)
         f["bl_seasonal_naive"] = p.shift(52 - h)

@@ -10,8 +10,9 @@ import { QueryError } from "@/components/common/query-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { useBacktest, useCountryForecasts, useExplanation, useModelRun } from "@/hooks/use-forecasts";
 import { useCountries, useCountryTimeseries } from "@/hooks/use-surveillance";
-import { updateSearchParams } from "@/lib/filters";
-import { addWeeks, formatPct, formatWeek } from "@/lib/format";
+import { diseaseParam, updateSearchParams, useDisease, withParams } from "@/lib/filters";
+import { addWeeks, formatPct, formatRate, formatWeek } from "@/lib/format";
+import { type Metric, metricFor } from "@/lib/metric";
 import { MIN_SPECIMENS } from "@/lib/positivity-scale";
 import type { Metrics, ModelSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,9 @@ const HORIZONS = [1, 2, 4] as const;
 const HISTORY_WEEKS = 26;
 
 export const pp = (v: number | null | undefined) => (v == null ? "—" : `${(v * 100).toFixed(2)} pp`);
+/** Forecast errors in the target's unit: percentage points of positivity, or incidence per 100,000. */
+export const err = (m: Metric) => (v: number | null | undefined) =>
+  m.key === "positivity" ? pp(v) : v == null ? "—" : `${formatRate(v)} /100k`;
 export const signedPct = (v: number | null | undefined) =>
   v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v * 100).toFixed(1)}%`;
 export const num = (v: number | null | undefined, d = 3) => (v == null ? "—" : v.toFixed(d));
@@ -68,16 +72,21 @@ function Select({ label, value, onChange, children }: {
   );
 }
 
+/** Default country per disease: a large tier-A reporter. */
+const DEFAULT_COUNTRY = { influenza: "USA", dengue: "BRA" } as const;
+
 export function PredictionCenter() {
   const params = useSearchParams();
+  const disease = useDisease();
+  const m = metricFor(disease);
   const run = useModelRun();
-  const countries = useCountries({ region: null, q: "", sort: "name", order: "asc", page: 1, pageSize: 300 });
+  const countries = useCountries({ disease, region: null, q: "", sort: "name", order: "asc", page: 1, pageSize: 300 });
   const eligible = useMemo(
     () => (countries.data?.items ?? []).filter((c) => c.tier === "A" || c.tier === "B"),
     [countries.data],
   );
 
-  const iso3 = (params.get("country") ?? "USA").toUpperCase();
+  const iso3 = (params.get("country") ?? DEFAULT_COUNTRY[disease]).toUpperCase();
   const h = HORIZONS.find((x) => String(x) === params.get("h")) ?? 1;
   const versions = (run.data?.models ?? []).filter((m) => m.horizon_weeks === h);
   const active = versions.find((m) => m.is_active);
@@ -87,7 +96,7 @@ export function PredictionCenter() {
   const fc = useCountryForecasts(iso3);
   const ref = fc.data?.meta.reference_week;
   const latest = fc.data?.meta.latest_week;
-  const history = useCountryTimeseries(ref ? iso3 : null, ref ? addWeeks(ref, -(HISTORY_WEEKS - 1)) : "", latest ?? "");
+  const history = useCountryTimeseries(ref ? iso3 : null, ref ? addWeeks(ref, -(HISTORY_WEEKS - 1)) : "", latest ?? "", disease);
   const modelForecasts = (fc.data?.forecasts ?? []).filter((f) => f.model_type === selected?.model_type);
   const forecastH = modelForecasts.find((f) => f.horizon_weeks === h);
   const explanation = useExplanation(forecastH?.has_explanation ? forecastH.id : null);
@@ -112,12 +121,12 @@ export function PredictionCenter() {
         title="Prediction Center"
         description={
           run.data
-            ? `Weekly influenza test positivity · forecasts from the reference week ${formatWeek(run.data.train_end)} · run ${run.data.run_key}`
+            ? `${m.key === "incidence" ? "Weekly dengue incidence per 100,000" : "Weekly influenza test positivity"} · forecasts from the reference week ${formatWeek(run.data.train_end)} · run ${run.data.run_key}`
             : "Loading…"
         }
       />
 
-      {run.data && <ActiveModels models={run.data.models} />}
+      {run.data && <ActiveModels models={run.data.models} m={m} />}
 
       <section className="flex flex-wrap items-end gap-3 panel p-3">
         <Select label="Country (coverage tier A or B)" value={iso3} onChange={(v) => updateSearchParams({ country: v })}>
@@ -154,7 +163,7 @@ export function PredictionCenter() {
           ))}
         </Select>
         {selected && (
-          <Link href={`/predictions/models/${selected.id}`} className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <Link href={withParams(`/predictions/models/${selected.id}`, diseaseParam(disease))} className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
             Model details <ArrowRight className="size-3.5" />
           </Link>
         )}
@@ -172,10 +181,12 @@ export function PredictionCenter() {
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
           <Card
             title={`${countryName} · ${selected?.label ?? ""}`}
-            subtitle={`Observed positivity (last ${HISTORY_WEEKS} weeks; hollow points are provisional) and forecasts for 1, 2 and 4 weeks ahead with 80% (darker) and 95% intervals. The axis fits the 80% interval; see the table for full 95% ranges.`}
+            subtitle={`Observed ${m.key === "incidence" ? "incidence per 100,000" : "positivity"} (last ${HISTORY_WEEKS} weeks; hollow points are provisional) and forecasts for 1, 2 and 4 weeks ahead with 80% (darker) and 95% intervals. The axis fits the 80% interval; see the table for full 95% ranges.`}
           >
             <div className="h-72">
-              {history.data && <ForecastChart history={history.data.points} forecasts={modelForecasts} minSpecimens={MIN_SPECIMENS} />}
+              {history.data && (
+                <ForecastChart history={history.data.points} forecasts={modelForecasts} minSpecimens={MIN_SPECIMENS} m={m} />
+              )}
             </div>
           </Card>
           <Card title="Forecasts" subtitle={`From the week of ${formatWeek(modelForecasts[0]?.origin_week)}`}>
@@ -183,7 +194,7 @@ export function PredictionCenter() {
               <thead className="text-[11px] text-muted-foreground">
                 <tr className="border-b border-border">
                   <th className="py-1.5 text-left font-normal">Week</th>
-                  <th className="py-1.5 text-right font-normal">Forecast</th>
+                  <th className="py-1.5 text-right font-normal">Forecast{m.key === "incidence" ? " /100k" : ""}</th>
                   <th className="py-1.5 text-right font-normal">80%</th>
                   <th className="py-1.5 text-right font-normal">95%</th>
                 </tr>
@@ -195,27 +206,27 @@ export function PredictionCenter() {
                       {formatWeek(f.target_week)}
                       <span className="ml-1 text-[10.5px] text-muted-foreground">+{f.horizon_weeks}</span>
                     </td>
-                    <td className="py-1.5 text-right font-medium">{formatPct(f.point)}</td>
+                    <td className="py-1.5 text-right font-medium">{m.format(f.point)}</td>
                     <td className="py-1.5 text-right text-muted-foreground">
-                      {formatPct(f.lo80, 0)}–{formatPct(f.hi80, 0)}
+                      {m.formatBound(f.lo80)}–{m.formatBound(f.hi80)}
                     </td>
                     <td className="py-1.5 text-right text-muted-foreground">
-                      {formatPct(f.lo95, 0)}–{formatPct(f.hi95, 0)}
+                      {m.formatBound(f.lo95)}–{m.formatBound(f.hi95)}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {modelForecasts.some((f) => f.hi95 != null && f.lo95 != null && f.hi95 - f.lo95 > 0.5) && (
+            {m.key === "positivity" && modelForecasts.some((f) => f.hi95 != null && f.lo95 != null && f.hi95 - f.lo95 > 0.5) && (
               <p className="mt-2 rounded border border-status-warn/40 bg-status-warn/10 px-2 py-1.5 text-[11px] text-foreground">
                 Few specimens are tested here, so weekly positivity is noisy and the 95% interval is very wide.
                 The point forecast is less reliable than for high-testing countries.
               </p>
             )}
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Intervals are conformal, calibrated separately by testing volume: built from this model&apos;s backtest errors and scaled by recent volatility. In
-              the backtest, the 80% interval held the observed value {formatPct(selected?.metrics.coverage_80, 0)} of the
-              time.
+              Intervals are conformal, calibrated separately by {m.key === "incidence" ? "weekly case count" : "testing volume"}:
+              built from this model&apos;s backtest errors and scaled by recent volatility. In the backtest, the 80% interval
+              held the observed value {formatPct(selected?.metrics.coverage_80, 0)} of the time.
             </p>
           </Card>
         </div>
@@ -224,16 +235,19 @@ export function PredictionCenter() {
       {fc.data?.eligible && selected && (
         <div className="grid gap-4 xl:grid-cols-2">
           <Card
-            title={`Why ${formatPct(forecastH?.point)} for the week of ${formatWeek(forecastH?.target_week)}?`}
+            title={`Why ${m.format(forecastH?.point)}${m.key === "incidence" ? " per 100k" : ""} for the week of ${formatWeek(forecastH?.target_week)}?`}
             subtitle={
               selected.kind === "baseline"
                 ? "Baselines are fixed rules, so there is nothing to explain feature by feature."
-                : "SHAP contributions on the log-odds scale, largest first. Red raises the forecast, blue lowers it."
+                : m.key === "incidence"
+                  ? "SHAP contributions to the change from this week, on the log scale (log of incidence plus one case per 100,000), largest first. Red raises the forecast, blue lowers it."
+                  : "SHAP contributions on the log-odds scale, largest first. Red raises the forecast, blue lowers it."
             }
           >
             {selected.kind === "baseline" ? (
               <p className="text-xs text-muted-foreground">
-                {selected.label} is a fixed rule, not a learned model: {BASELINE_RULES[selected.model_type] ?? ""}
+                {selected.label} is a fixed rule, not a learned model:{" "}
+                {(BASELINE_RULES[selected.model_type] ?? "").replaceAll("positivity", m.key === "incidence" ? "incidence" : "positivity")}
               </p>
             ) : explanation.error ? (
               <QueryError error={explanation.error} />
@@ -244,7 +258,9 @@ export function PredictionCenter() {
                     <ShapWaterfall data={explanation.data} />
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Average prediction {formatPct(expit(explanation.data.base_value ?? 0))} → this forecast {formatPct(explanation.data.point)}.
+                    {m.key === "incidence"
+                      ? `Starting point: this week's incidence plus the model's average change → this forecast ${m.format(explanation.data.point)} per 100k.`
+                      : `Average prediction ${formatPct(expit(explanation.data.base_value ?? 0))} → this forecast ${formatPct(explanation.data.point)}.`}
                   </p>
                 </>
               )
@@ -254,7 +270,7 @@ export function PredictionCenter() {
             {backtest.error ? (
               <QueryError error={backtest.error} />
             ) : (
-              <div className="h-80">{backtest.data && <BacktestChart data={backtest.data} />}</div>
+              <div className="h-80">{backtest.data && <BacktestChart data={backtest.data} m={m} />}</div>
             )}
           </Card>
         </div>
@@ -267,6 +283,7 @@ export function PredictionCenter() {
           horizon={h}
           countryName={countryName}
           selected={selected?.model_type}
+          m={m}
           evalStart={run.data.eval_start}
           evalEnd={run.data.eval_end}
         />
@@ -286,7 +303,7 @@ function expit(x: number) {
   return 1 / (1 + Math.exp(-x));
 }
 
-function ActiveModels({ models }: { models: ModelSummary[] }) {
+function ActiveModels({ models, m }: { models: ModelSummary[]; m: Metric }) {
   return (
     <div className="grid gap-3 md:grid-cols-3">
       {HORIZONS.map((h) => {
@@ -299,7 +316,7 @@ function ActiveModels({ models }: { models: ModelSummary[] }) {
             </div>
             <div className="mt-1 text-base font-semibold">{a?.label ?? "—"}</div>
             <div className="mt-0.5 text-xs text-muted-foreground">
-              MAE {pp(a?.metrics.mae)} · skill vs seasonal naive {signedPct(a?.metrics.skill_vs_snaive)}
+              MAE {err(m)(a?.metrics.mae)} · skill vs seasonal naive {signedPct(a?.metrics.skill_vs_snaive)}
             </div>
             {a?.selection_note && <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{a.selection_note}</p>}
           </section>
@@ -315,9 +332,11 @@ function MetricsTable({
   horizon,
   countryName,
   selected,
+  m,
   evalStart,
   evalEnd,
 }: {
+  m: Metric;
   evalStart: string | null;
   evalEnd: string | null;
   versions: ModelSummary[];
@@ -330,7 +349,7 @@ function MetricsTable({
   return (
     <Card
       title={`Backtest metrics · ${horizon}-week horizon`}
-      subtitle="All models are scored on the same country-weeks. MAE in percentage points of positivity; MASE < 1 beats each country's in-sample seasonal-naive error."
+      subtitle={`All models are scored on the same country-weeks. MAE in ${m.key === "incidence" ? "cases per 100,000 per week" : "percentage points of positivity"}; MASE < 1 beats each country's in-sample seasonal-naive error.`}
     >
       <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Backtest metrics table">
         <table className="w-full min-w-[760px] text-xs">
@@ -348,24 +367,27 @@ function MetricsTable({
             </tr>
           </thead>
           <tbody className="metric">
-            {rows.map((m) => {
-              const c = countryMetrics[`${m.model_type}:${horizon}`];
+            {rows.map((v) => {
+              const c = countryMetrics[`${v.model_type}:${horizon}`];
               return (
-                <tr key={m.id} className={cn("border-b border-border/60 last:border-0", m.model_type === selected && "bg-accent/40")}>
+                <tr key={v.id} className={cn("border-b border-border/60 last:border-0", v.model_type === selected && "bg-accent/40")}>
                   <td className="py-1.5">
-                    <Link href={`/predictions/models/${m.id}`} className="hover:text-primary">
-                      {m.label}
+                    <Link
+                      href={withParams(`/predictions/models/${v.id}`, m.key === "incidence" ? "disease=dengue" : "")}
+                      className="hover:text-primary"
+                    >
+                      {v.label}
                     </Link>
-                    {m.is_active && <span className="ml-1.5 rounded bg-status-ok/15 px-1 text-[10px] text-status-ok">active</span>}
-                    {m.kind === "baseline" && <span className="ml-1.5 text-[10px] text-muted-foreground">baseline</span>}
+                    {v.is_active && <span className="ml-1.5 rounded bg-status-ok/15 px-1 text-[10px] text-status-ok">active</span>}
+                    {v.kind === "baseline" && <span className="ml-1.5 text-[10px] text-muted-foreground">baseline</span>}
                   </td>
-                  <td className="py-1.5 text-right">{pp(m.metrics.mae)}</td>
-                  <td className="py-1.5 text-right text-muted-foreground">{pp(m.metrics.rmse)}</td>
-                  <td className="py-1.5 text-right">{num(m.metrics.mase)}</td>
-                  <td className="py-1.5 text-right">{signedPct(m.metrics.skill_vs_snaive)}</td>
-                  <td className="py-1.5 text-right text-muted-foreground">{formatPct(m.metrics.coverage_80, 0)}</td>
-                  <td className="py-1.5 text-right text-muted-foreground">{formatPct(m.metrics.coverage_95, 0)}</td>
-                  <td className="py-1.5 pl-4 text-right">{pp(c?.mae)}</td>
+                  <td className="py-1.5 text-right">{err(m)(v.metrics.mae)}</td>
+                  <td className="py-1.5 text-right text-muted-foreground">{err(m)(v.metrics.rmse)}</td>
+                  <td className="py-1.5 text-right">{num(v.metrics.mase)}</td>
+                  <td className="py-1.5 text-right">{signedPct(v.metrics.skill_vs_snaive)}</td>
+                  <td className="py-1.5 text-right text-muted-foreground">{formatPct(v.metrics.coverage_80, 0)}</td>
+                  <td className="py-1.5 text-right text-muted-foreground">{formatPct(v.metrics.coverage_95, 0)}</td>
+                  <td className="py-1.5 pl-4 text-right">{err(m)(c?.mae)}</td>
                   <td className="py-1.5 text-right">{num(c?.mase)}</td>
                 </tr>
               );

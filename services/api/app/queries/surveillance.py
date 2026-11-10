@@ -87,7 +87,9 @@ def _relative(cur: float | None, prev: float | None) -> float | None:
 
 def kpis(session: Session, ctx: DiseaseContext, w: Window, region: str | None) -> Kpis:
     if ctx.case_based:
-        return cases.kpis(session, ctx, w, region)
+        # Dengue detection (D4) fills the same three detection KPIs.
+        return cases.kpis(session, ctx, w, region).model_copy(
+            update=detection_kpis(session, ctx, w, region))
     cur = _totals(session, ctx, w, region)
     prev = _totals(session, ctx, w.previous, region)
     pp = (None if cur.positivity is None or prev.positivity is None

@@ -46,7 +46,8 @@ def _insert(s, model, rows: list[dict]) -> None:
 
 
 def _season_start_of(countries: pd.DataFrame):
-    season_type = countries.set_index("iso3")["flu_season"].to_dict()
+    column = "season_type" if "season_type" in countries else "flu_season"
+    season_type = countries.set_index("iso3")[column].to_dict()
 
     def f(iso3: str, week) -> object:
         st = season_type.get(iso3)
@@ -59,31 +60,34 @@ def _season_start_of(countries: pd.DataFrame):
     return f
 
 
-def run_detection(engine: Engine) -> dict:
+def run_detection(engine: Engine, disease: str = "influenza") -> dict:
     timings: dict[str, float] = {}
     t0 = time.perf_counter()
-    data = load_detection_data(engine)
+    data = load_detection_data(engine, disease)
+    spec = data.spec
     geo = load_geography(engine)
     timings["load"] = time.perf_counter() - t0
 
     t = time.perf_counter()
     thresholds, not_assessed = compute_thresholds(data.weekly, data.countries,
-                                                  data.reference_week, data.latest_week)
+                                                  data.reference_week, data.latest_week, spec)
     timings["thresholds"] = time.perf_counter() - t
 
     usable = {(r.iso3, r.season_start): r for r in thresholds if r.quality_note is None}
     risk = assess(load_forecasts(engine, data.disease_id), usable,
-                  _season_start_of(data.countries))
+                  _season_start_of(data.countries), spec.metric)
 
     t = time.perf_counter()
-    anomalies, anomaly_stats = compute_anomalies(data.weekly)
+    anomalies, anomaly_stats = compute_anomalies(data.weekly, spec)
     timings["anomalies"] = time.perf_counter() - t
 
     t = time.perf_counter()
-    hotspots = compute_hotspots(data.weekly, geo, data.latest_week)
+    hotspots = compute_hotspots(data.weekly, geo, data.latest_week, spec)
     timings["hotspots"] = time.perf_counter() - t
 
     run_key = f"{data.reference_week:%Y%m%d}-{datetime.now(UTC):%H%M%S}"
+    if disease != "influenza":
+        run_key = f"{disease[:3]}-{run_key}"
     with session_scope(engine) as s:
         run_id = s.execute(insert(DetectionRun).returning(DetectionRun.id).values(
             disease_id=data.disease_id, run_key=run_key, reference_week=data.reference_week,
@@ -106,7 +110,7 @@ def run_detection(engine: Engine) -> dict:
         _insert(s, RiskAssessment, [
             {**base, **{k: v for k, v in asdict(r).items() if k != "season_start"},
              "threshold_id": th_ids[(r.iso3, r.season_start)]} for r in risk])
-        _insert(s, Anomaly, [{**base, "metric": "positivity", **asdict(a)} for a in anomalies])
+        _insert(s, Anomaly, [{**base, "metric": spec.metric, **asdict(a)} for a in anomalies])
         _insert(s, HotspotResult, [{**base, "weights_spec": cfg.WEIGHTS_SPEC, **asdict(h)}
                                    for h in hotspots])
 
@@ -115,7 +119,8 @@ def run_detection(engine: Engine) -> dict:
                                             if x.iso3 == r.iso3)]
         summary = {
             "settings": {k: (str(v) if not isinstance(v, int | float | str | tuple) else v)
-                         for k, v in vars(cfg).items() if k.isupper()},
+                         for k, v in vars(cfg).items() if k.isupper() and k != "SPECS"
+                         and not isinstance(v, cfg.DetectionSpec)} | {"spec": asdict(spec)},
             "thresholds": {"rows": len(thresholds),
                            "countries_current_usable": sum(r.quality_note is None
                                                            for r in current),
@@ -135,13 +140,13 @@ def run_detection(engine: Engine) -> dict:
 
     # Alerts read the committed outputs (and the full risk history).
     t = time.perf_counter()
-    summary["alerts"] = generate_alerts(engine, data.disease_id, run_id)
+    summary["alerts"] = generate_alerts(engine, data.disease_id, run_id, spec.metric)
     summary["seconds"]["alerts"] = round(time.perf_counter() - t, 1)
     with session_scope(engine) as s:
         s.execute(update(DetectionRun).where(DetectionRun.id == run_id)
                   .values(finished_at=datetime.now(UTC), summary=summary))
 
-    return {"run_key": run_key, "reference_week": str(data.reference_week),
+    return {"disease": disease, "run_key": run_key, "reference_week": str(data.reference_week),
             "thresholds": summary["thresholds"]["rows"],
             "thresholds_current_usable": summary["thresholds"]["countries_current_usable"],
             "risk": summary["risk"], "anomalies": summary["anomalies"],

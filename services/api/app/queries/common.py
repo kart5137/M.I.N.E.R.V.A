@@ -123,12 +123,13 @@ def load_disease(session: Session, key: str) -> DiseaseContext:
 
 
 def load_lab_disease(session: Session, key: str, feature: str) -> DiseaseContext:
-    """`load_disease` for endpoints built on laboratory data (positivity, forecasts,
-    detection). Case-based diseases get a clear 422 until their phase adds the feature."""
+    """`load_disease` for endpoints built only on laboratory data (Analytics: positivity
+    against health-system indicators). Case-based diseases get a clear 422."""
     ctx = load_disease(session, key)
     if ctx.case_based:
         raise ApiError(422, "not_available",
-                       f"{feature} is not available for {ctx.name} yet (planned for phase D4).")
+                       f"{feature} uses laboratory test positivity and is available for "
+                       f"influenza only, not {ctx.name}.")
     return ctx
 
 

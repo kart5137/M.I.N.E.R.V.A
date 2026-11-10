@@ -3,6 +3,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiGet, apiPost } from "@/lib/api";
+import { DEFAULT_DISEASE } from "@/lib/diseases";
+import { forDisease, useDisease } from "@/lib/filters";
 import type {
   About,
   AlertList,
@@ -28,7 +30,9 @@ export interface AlertFilters {
 }
 
 export function useAlerts(f: AlertFilters) {
+  const disease = useDisease();
   const qs = new URLSearchParams();
+  if (disease !== DEFAULT_DISEASE) qs.set("disease", disease);
   if (f.region) qs.set("region", f.region);
   if (f.iso3) qs.set("iso3", f.iso3);
   if (f.type) qs.set("type", f.type);
@@ -39,7 +43,7 @@ export function useAlerts(f: AlertFilters) {
   qs.set("page", String(f.page ?? 1));
   qs.set("page_size", String(f.pageSize ?? 50));
   return useQuery({
-    queryKey: ["alerts", f],
+    queryKey: ["alerts", disease, f],
     queryFn: () => apiGet<AlertList>(`/alerts?${qs}`),
     placeholderData: keepPreviousData,
     staleTime: STALE,
@@ -47,10 +51,12 @@ export function useAlerts(f: AlertFilters) {
 }
 
 export function useReports(page: number, iso3?: string | null) {
+  const disease = useDisease();
   const qs = new URLSearchParams({ page: String(page), page_size: "20" });
   if (iso3) qs.set("iso3", iso3);
+  if (disease !== DEFAULT_DISEASE) qs.set("disease", disease);
   return useQuery({
-    queryKey: ["reports", page, iso3],
+    queryKey: ["reports", disease, page, iso3],
     queryFn: () => apiGet<ReportList>(`/reports?${qs}`),
     placeholderData: keepPreviousData,
   });
@@ -65,14 +71,20 @@ export function useReport(id: number | null) {
   });
 }
 
-export function useVerifyReport(id: number) {
-  return useMutation({ mutationFn: () => apiGet<Verification>(`/reports/${id}/verify`) });
+/** Verifies against the report's own disease (a report page may be opened from a link). */
+export function useVerifyReport(id: number, disease: string = DEFAULT_DISEASE) {
+  return useMutation({
+    mutationFn: () =>
+      apiGet<Verification>(`/reports/${id}/verify${disease !== DEFAULT_DISEASE ? `?disease=${disease}` : ""}`),
+  });
 }
 
 export function useGenerateReport() {
   const qc = useQueryClient();
+  const disease = useDisease();
   return useMutation({
-    mutationFn: (req: GenerateReportRequest) => apiPost<GenerateReportResponse>("/reports/generate", req),
+    mutationFn: (req: GenerateReportRequest) =>
+      apiPost<GenerateReportResponse>(forDisease("/reports/generate", disease), req),
     onSuccess: (res) => {
       qc.setQueryData(["report", res.report.id], res.report);
       void qc.invalidateQueries({ queryKey: ["reports"] });
@@ -81,5 +93,10 @@ export function useGenerateReport() {
 }
 
 export function useAbout() {
-  return useQuery({ queryKey: ["about"], queryFn: () => apiGet<About>("/about"), staleTime: STALE });
+  const disease = useDisease();
+  return useQuery({
+    queryKey: ["about", disease],
+    queryFn: () => apiGet<About>(forDisease("/about", disease)),
+    staleTime: STALE,
+  });
 }

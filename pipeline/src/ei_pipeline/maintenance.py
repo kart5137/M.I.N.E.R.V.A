@@ -2,7 +2,8 @@
 
 Each forecast run stores ~50k per-country evaluation rows and ~5k SHAP contributions
 (~10 MB). Kept forever they would fill a free-tier database within a year. `prune_runs`
-keeps everything for the latest `keep` runs (and always for the active run); older runs
+keeps everything for the latest `keep` runs of each disease (and always for the active
+run); older runs
 keep their model versions, pooled metrics (`iso3 IS NULL`) and forecasts, so their model
 pages still open, but lose the per-country metric breakdown and SHAP detail.
 """
@@ -20,10 +21,15 @@ def prune_runs(engine: Engine, keep: int = DEFAULT_KEEP) -> dict:
     with engine.begin() as c:
         old = c.execute(text("""
             WITH runs AS (
-              SELECT run_key, max(trained_at) AS trained_at, bool_or(is_active) AS active
-              FROM model_versions GROUP BY run_key)
-            SELECT run_key FROM runs WHERE NOT active
-            ORDER BY trained_at DESC OFFSET :keep"""), {"keep": max(keep - 1, 0)}).scalars().all()
+              SELECT disease_id, run_key, max(trained_at) AS trained_at,
+                     bool_or(is_active) AS active
+              FROM model_versions GROUP BY disease_id, run_key),
+            ranked AS (
+              SELECT run_key, row_number() OVER (PARTITION BY disease_id
+                                                 ORDER BY trained_at DESC) AS n
+              FROM runs WHERE NOT active)
+            SELECT run_key FROM ranked WHERE n > :keep"""),
+            {"keep": max(keep - 1, 0)}).scalars().all()
         if not old:
             return {"older_runs": 0, "evaluations_deleted": 0, "explanations_deleted": 0}
         p = {"runs": list(old)}

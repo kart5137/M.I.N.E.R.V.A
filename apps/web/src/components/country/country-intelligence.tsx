@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { AlertListCard } from "@/components/intelligence/alert-list-card";
 import { GenerateReportForm } from "@/components/intelligence/reports-view";
 
-import { CaseCoverage, CaseHistory, CaseRecentStats, LaterFeatures, hasCaseReports } from "./case-sections";
+import { CaseCoverage, CaseHistory, CaseRecentStats, hasCaseReports } from "./case-sections";
 import { WeatherPanel } from "./weather-panel";
 import { AnomalyTimeline, HotspotCard, RiskCard } from "./detection-cards";
 import { ForecastSummary } from "./forecast-summary";
@@ -110,8 +110,19 @@ export function CountryIntelligence() {
           </p>
         )}
         {p && hasCaseReports(p) && <CaseHistory iso3={iso3} p={p} info={info} />}
+        <div className="grid gap-4 md:grid-cols-3">
+          <ForecastSummary iso3={iso3} />
+          <RiskCard iso3={iso3} />
+          <HotspotCard iso3={iso3} />
+        </div>
+        {p && p.surveillance.weeks_reported > 0 && <AnomalyTimeline iso3={iso3} />}
         {p && hasCaseReports(p) && <WeatherPanel iso3={iso3} />}
-        <LaterFeatures iso3={iso3} info={info} />
+        {p && hasCaseReports(p) && (
+          <AlertListCard iso3={iso3} limit={5}>
+            <h3 className="mb-2 text-xs font-medium">Country report</h3>
+            <GenerateReportForm fixedIso3={iso3} />
+          </AlertListCard>
+        )}
         {p && (
           <div className="grid gap-4 lg:grid-cols-2">
             <Context p={p} />

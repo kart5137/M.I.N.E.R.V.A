@@ -100,6 +100,20 @@ export const CHANGE_SCALE: ClassScale = {
 export const CHANGE_LEGEND_ORDER = [4, 3, 0, 1, 2];
 export const GI_LEGEND_ORDER = [1, 2, 0, 3, 4];
 
+/** Dengue forecast change (relative, %): 0 within ±10% · 1 +10..50% · 2 ≥ +50% · 3 −10..−50% · 4 ≤ −50%. */
+export const CHANGE_SCALE_PCT: ClassScale = {
+  colors: CHANGE_SCALE.colors,
+  labels: ["Within ±10%", "+10% to +50%", "≥ +50%", "−10% to −50%", "≤ −50%"],
+};
+
+export function changeClassPct(pct: number): number {
+  if (pct >= 50) return 2;
+  if (pct >= 10) return 1;
+  if (pct <= -50) return 4;
+  if (pct <= -10) return 3;
+  return 0;
+}
+
 export function changeClass(pp: number): number {
   if (pp >= 5) return 2;
   if (pp >= 1) return 1;

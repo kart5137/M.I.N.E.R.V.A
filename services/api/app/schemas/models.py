@@ -114,7 +114,10 @@ class Contribution(BaseModel):
     feature: str
     label: str
     shap_value: float
-    feature_value: float | None
+    feature_value: float | None  # as the model saw it (model scale for level features)
+    #: Dengue level features (this week, means, peak, last year) converted back to
+    #: incidence per 100,000; null otherwise.
+    natural_value: float | None = None
     rank: int
 
 
@@ -122,10 +125,14 @@ class Explanation(BaseModel):
     forecast_id: int
     model_type: str
     horizon_weeks: int
-    base_value: float | None  # logit scale
-    prediction_logit: float
+    #: "positivity" (model scale: logit) or "incidence" (model scale: log(incidence + one
+    #: case per 100,000); the tree models learn the change from the origin week, so the
+    #: base value includes the origin week's level).
+    target: str = "positivity"
+    base_value: float | None  # model scale
+    prediction_logit: float   # the forecast on the model scale (logit for positivity)
     point: float
-    other_features: float  # sum of contributions not in the top-k (logit)
+    other_features: float  # sum of contributions not in the top-k (model scale)
     contributions: list[Contribution]
 
 
@@ -155,13 +162,16 @@ class GlobalForecastItem(BaseModel):
     who_region: str | None
     origin_week: date
     target_week: date
-    #: Observed positivity in the origin week (what the forecast starts from).
+    #: Observed value in the origin week (what the forecast starts from): positivity
+    #: (0–1) or incidence per 100,000.
     origin_value: float | None
     point: float
     lo80: float | None
     hi80: float | None
-    #: point − origin_value, in percentage points.
+    #: Positivity: point − origin_value, in percentage points.
     change_pp: float | None
+    #: Incidence: relative change from the origin week, in percent.
+    change_pct: float | None = None
 
 
 class GlobalForecasts(BaseModel):

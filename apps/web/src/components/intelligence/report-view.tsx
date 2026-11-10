@@ -8,8 +8,8 @@ import { WeeklyChart } from "@/components/charts/weekly-chart";
 import { QueryError } from "@/components/common/query-state";
 import { useReport, useVerifyReport } from "@/hooks/use-intelligence";
 import { ApiError } from "@/lib/api";
-import { formatInt, formatPct, formatWeek } from "@/lib/format";
-import type { Verification } from "@/lib/types";
+import { formatInt, formatPct, formatRate, formatWeek } from "@/lib/format";
+import type { ReportDetail, Verification } from "@/lib/types";
 
 import { MarkdownView } from "./markdown-view";
 
@@ -18,8 +18,8 @@ export function ReportView() {
   const id = Number(raw);
   const params = useSearchParams();
   const q = useReport(Number.isFinite(id) ? id : null);
-  const verify = useVerifyReport(id);
   const r = q.data;
+  const verify = useVerifyReport(id, r?.content.disease.key);
 
   if (q.error) {
     const missing = q.error instanceof ApiError && q.error.status === 404;
@@ -78,6 +78,9 @@ export function ReportView() {
           {verify.error && <QueryError error={verify.error} />}
           {verify.data && <VerifyResult v={verify.data} />}
 
+          {r.content.metric === "incidence" ? (
+            <IncidenceChart r={r} />
+          ) : (
           <section className="panel p-4">
             <h2 className="text-sm font-medium">Weekly test positivity</h2>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -87,7 +90,7 @@ export function ReportView() {
               <WeeklyChart
                 points={r.content.weekly.map((w) => ({
                   week: w.week_start,
-                  value: (w.specimens_tested ?? 0) >= 10 ? w.positivity : null,
+                  value: (w.specimens_tested ?? 0) >= 10 ? (w.positivity ?? null) : null,
                   provisional: w.provisional,
                   details: [
                     ["Detections", formatInt(w.positives)],
@@ -103,6 +106,7 @@ export function ReportView() {
               />
             </div>
           </section>
+          )}
 
           <article className="panel p-5">
             <MarkdownView md={r.rendered_md} />
@@ -114,6 +118,37 @@ export function ReportView() {
         </>
       )}
     </div>
+  );
+}
+
+/** Dengue report: weekly incidence from the stored facts (monthly reporters have no weekly
+ * values; their months are in the report's table). */
+function IncidenceChart({ r }: { r: ReportDetail }) {
+  const weekly = r.content.weekly;
+  if (!weekly.some((w) => w.incidence != null)) return null;
+  return (
+    <section className="panel p-4">
+      <h2 className="text-sm font-medium">Weekly incidence per 100,000</h2>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">
+        Reported cases per 100,000 population, from the report&apos;s stored facts; the highlighted span is the report period.
+      </p>
+      <div className="mt-2 h-48">
+        <WeeklyChart
+          points={weekly.map((w) => ({
+            week: w.week_start,
+            value: w.incidence ?? null,
+            provisional: w.provisional,
+            details: [["Reported cases", formatInt(w.cases)]],
+          }))}
+          kind="line"
+          seriesName="Incidence"
+          formatValue={(v) => `${formatRate(v)} per 100k`}
+          formatAxis={(v) => formatRate(v)}
+          highlight={{ start: r.content.period.start, end: r.content.period.end }}
+          ariaLabel="Weekly dengue incidence in the report and comparison periods"
+        />
+      </div>
+    </section>
   );
 }
 

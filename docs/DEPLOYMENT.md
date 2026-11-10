@@ -14,7 +14,7 @@ check the provider's current terms before relying on them.
 ```
 browser ──► Vercel (web) ──fetch──► Render (API) ──► Neon (PostGIS)
                                                        ▲
-GitHub Actions, Wednesdays 06:00 UTC: migrate → ingest → forecast → detect → prune → report
+GitHub Actions, Wednesdays 06:00 UTC: migrate → ingest → forecast and detect (influenza, then dengue) → prune → report
 ```
 
 ## Order of setup
@@ -30,7 +30,7 @@ GitHub Actions, Wednesdays 06:00 UTC: migrate → ingest → forecast → detect
    Plain `postgresql://…?sslmode=require` URLs work as given; the code switches them to the
    psycopg driver. The first migration runs `CREATE EXTENSION postgis`, which Neon and Supabase
    both allow. The full database is ~110 MB. Each forecast run adds ~10 MB; `ei prune` (part of
-   the weekly job) trims runs older than the latest 8 to their pooled metrics and forecasts,
+   the weekly job) trims each disease's runs older than its latest 8 to their pooled metrics and forecasts,
    which by our estimate leaves growth at a few MB a week.
 
 3. **Load the data.** In GitHub: *Settings → Secrets and variables → Actions*, add

@@ -129,9 +129,70 @@ the laboratory fields null.
 - **Map colours**: 6 amber steps (the validated positivity steps) with breaks at 0.1, 1,
   5, 20 and 50 per 100,000 per week; grey = reported but no population; land colour = no
   report. The legend notes that case definitions differ by country.
-- **Not yet for dengue** (phase D4): forecasts, anomalies, hot spots, thresholds, alerts,
-  reports and analytics. Those endpoints answer `422 not_available`; the dashboard shows a
-  "planned for a later phase" panel with a working switch back to influenza.
+- **Analytics stays influenza-only**: it compares test positivity with health-system
+  indicators and subtype mixes. `/analytics/*?disease=dengue` answers `422 not_available`
+  and the page explains why, with a working switch to influenza. Forecasts, detection,
+  alerts and reports exist for dengue since D4 (below).
+
+## Forecasting and detection (D4)
+
+Same machinery as influenza, configured per disease (`forecasting/spec.py`,
+`detection/config.py` `DetectionSpec`); influenza outputs were checked to be unchanged
+(all 11,880 backtest metrics and every threshold, anomaly and hotspot row identical before
+and after the refactor).
+
+**Forecasting** (`ei forecast run --disease dengue`; card: `docs/models/dengue-incidence.md`)
+
+- **Who:** weekly reporters in dengue tiers A/B with a World Bank population (49 of 52;
+  Guadeloupe, Martinique and Wallis and Futuna have no population). Monthly reporters are
+  not forecast.
+- **Target:** weekly incidence per 100,000. Model scale y = log(incidence + 100,000 ÷
+  population), i.e. log(cases + 1) shifted by log population: a one-case offset per
+  country, so a change is a relative change everywhere and a single case is not an
+  outbreak.
+- **Tree models learn the change** y(t + h) − y(t), not the level: trees cannot predict
+  beyond the range seen in training, and dengue reaches record levels.
+- **Evidence for both choices** (fast settings, same backtest, 2026-11-10): with
+  log(1 + incidence) and level targets no tree model beat *last value* on MASE at any
+  horizon; predicting the change cut the 1-week MAE from 2.52 to 2.20 per 100,000 but
+  MASE still lost (low-incidence countries were near-linear on that scale); with the
+  one-case offset XGBoost beat every baseline at all horizons (MASE 0.271 / 0.329 / 0.509
+  vs last value 0.283 / 0.364 / 0.554). Three variants were compared on the backtest, so
+  its scores are mildly optimistic.
+- **Features:** lagged incidence and trends, same week last year, time of year, reported
+  case volume (log 4-week mean), neighbours' incidence and its change, latitude. COVID-19
+  weeks are kept for training (dengue kept circulating). The `random_forest_weather` and
+  `xgboost_weather` models add 18 ERA5 features (`weather.md`). A weather model is active
+  only if it wins selection (lowest MASE, beats seasonal naive) **and** its paired
+  comparison with the same algorithm without weather shows a clear benefit (95% bootstrap
+  interval of the MAE change entirely below zero); otherwise its twin without weather is
+  used (`run.require_weather_benefit`). In the first full run a weather model had the
+  lowest MASE at 1 and 4 weeks by 0.001–0.01, within noise, which is why the rule exists. The card's "Does weather help?" section compares each pair on
+  the same rows with a bootstrap interval over origins and states how many rows had
+  weather.
+- **Intervals:** conformal as for influenza, Mondrian groups by reported cases per week
+  (< 10, 10–100, 100–1,000, ≥ 1,000), volatility floor 0.10 on the log scale.
+
+**Detection** (`ei detect run --disease dengue`), weekly reporters only:
+
+- **MEM thresholds** on weekly incidence with ISO calendar-year seasons, ≥ 3 usable
+  earlier years (≥ 75% of weeks reported), COVID years included. Finding: most dengue
+  series give unordered MEM levels (epidemic years like 2023–24 sit far above ordinary
+  ones), so the quality gate leaves only a few countries with usable levels and a risk
+  level (4 for the 2026 season locally). The others show the reason.
+- **Anomalies:** seasonal EWMA on log(incidence + one case per 100,000), residual floor
+  0.25 log units (≈ 28%), no COVID gap; expected value and band are reported as
+  incidence. Comparable to the endemic channel used in dengue surveillance. Most flagged
+  weeks fall in the 2023–24 epidemics (1,370 of 1,571 since 2023).
+- **Hotspots:** Gi* and Local Moran on the 4-week mean incidence (≥ 2 reported weeks),
+  statistics on log(1 + incidence). Different case definitions make this a map of high
+  *reported* incidence.
+- **Alerts:** the influenza rules on incidence, except sustained growth: incidence up 3
+  weeks in a row by ≥ 50% in total with ≥ 20 cases each week (medium when it at least
+  doubled).
+- **Reports:** dengue facts carry `"metric": "incidence"` (cases, incidence, movers by
+  relative change, monthly table for monthly reporters); influenza report facts are
+  unchanged, so stored influenza reports still verify.
 
 ## Known limitations
 

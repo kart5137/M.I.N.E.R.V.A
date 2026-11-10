@@ -10,7 +10,7 @@ dashboard, built on public WHO FluNet data.
 
 **Live:** https://m-i-n-e-r-v-a.vercel.app · API https://minerva-api-0d86.onrender.com/docs (free tier: the first request after an idle spell can take up to a minute).
 
-**Status:** MVP complete (M0–M8). Data refreshes every Wednesday via [the weekly workflow](.github/workflows/weekly.yml); hosting is described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
+**Status:** MVP complete (M0–M8); post-MVP phase P1 adds dengue with weather, forecasting, detection, alerts and reports (D1–D4, [docs/DENGUE_PLAN.md](docs/DENGUE_PLAN.md)). Data refreshes every Wednesday via [the weekly workflow](.github/workflows/weekly.yml); hosting is described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
 
 | Doc | |
 |---|---|
@@ -64,12 +64,13 @@ cd packages/ei_db
 cd ../..
 .venv\Scripts\ei ingest all
 
-# 4. Forecasts: backtest, model selection, training, SHAP (~15-20 min; writes
-#    models/ artefacts and docs/models/influenza-positivity.md)
+# 4. Forecasts: backtest, model selection, training, SHAP for influenza and dengue
+#    (writes models/ artefacts and docs/models/influenza-positivity.md and
+#    dengue-incidence.md; one disease: --disease influenza|dengue)
 .venv\Scripts\ei forecast run
 
 # 4b. Detection + alerts: MEM thresholds, risk, anomalies, hotspots, alerts
-#     (~1 min; run after 4). Reports are generated on demand in the web app
+#     for both diseases (~2 min; run after 4). Reports are generated on demand in the web app
 #     (Reports & Alerts) or with POST /api/v1/reports/generate.
 .venv\Scripts\ei detect run
 

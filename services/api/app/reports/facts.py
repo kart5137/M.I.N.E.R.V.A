@@ -4,6 +4,10 @@ Everything a report says comes from here, in a canonical form: JSON types only, 
 rounded to 6 decimals, lists in a fixed order, no timestamps. The SHA-256 of the
 canonical JSON identifies the inputs; gathering again from unchanged data gives the same
 facts, hash and Markdown.
+
+Dengue reports (D4) carry `"metric": "incidence"` and report reported cases and weekly
+incidence per 100,000 where influenza reports positivity, detections and specimens.
+Influenza facts are unchanged, so stored influenza reports still verify.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
+from app.queries import cases
 from app.queries import detection as det
 from app.queries import models as mq
 from app.queries.alerts import alerts_in_period
@@ -26,6 +31,8 @@ TEMPLATE_VERSION = "1"
 # Fixed English month names (strftime would depend on the process locale).
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 MOVERS_MIN_SPECIMENS = 50
+#: Dengue movers need this many reported cases in both periods (as the Overview).
+MOVERS_MIN_CASES = 20
 
 LIMITATIONS = [
     "Test positivity reflects who is tested and how; it is not incidence. Detections "
@@ -38,6 +45,22 @@ LIMITATIONS = [
     "Hotspots compare a country with its neighbours over 4 weeks; few pass the false "
     "discovery rate correction, and countries without data do not take part.",
 ]
+DENGUE_LIMITATIONS = [
+    "Reported dengue cases follow each country's own case definition (suspected, probable "
+    "or confirmed), so incidence compares within a country over time, not between "
+    "countries.",
+    "Recent weeks are provisional and are often revised upwards as reports arrive.",
+    "Forecasts are statistical projections with 80% intervals from backtested models; "
+    "they are not public-health guidance.",
+    "Risk levels use Moving Epidemic Method thresholds on weekly incidence, available only "
+    "where past calendar years were regular enough for MEM (few countries).",
+    "Hotspots compare a country's reported incidence with its neighbours' over 4 weeks; "
+    "monthly reporters and countries without data do not take part.",
+]
+
+
+def limitations(ctx: DiseaseContext) -> list[str]:
+    return DENGUE_LIMITATIONS if ctx.case_based else LIMITATIONS
 
 
 def canonical(obj):
@@ -98,10 +121,12 @@ def gather(session: Session, ctx: DiseaseContext, *, scope: str, iso3: str | Non
                  "sources": [{"name": s.name, "attribution": s.attribution}
                              for s in ctx.sources]},
         "runs": {"forecast": fc_run, "detection": det_run.run_key if det_run else None},
-        "limitations": LIMITATIONS,
+        "limitations": limitations(ctx),
     }
-
-    if scope == "global":
+    if ctx.case_based:
+        content["metric"] = "incidence"
+        _dengue_values(session, ctx, content, w, region, iso3, weeks)
+    elif scope == "global":
         k = kpis(session, ctx, w, region)
         content["summary"] = {
             "detections": k.detections.value, "detections_previous": k.detections.previous,
@@ -117,7 +142,9 @@ def gather(session: Session, ctx: DiseaseContext, *, scope: str, iso3: str | Non
         content["top_movers"] = [m.model_dump() for m in
                                  top_movers(session, ctx, w, region, MOVERS_MIN_SPECIMENS)]
         content["movers_min_specimens"] = MOVERS_MIN_SPECIMENS
-    else:
+    if scope == "country":
+        _outlook(session, ctx, content, iso3, fc_run)
+    if not ctx.case_based and scope == "country":
         cur = country_window(session, ctx, w, None, iso3)
         prev = country_window(session, ctx, w.previous, None, iso3)
         c, p = (cur[0] if cur else None), (prev[0] if prev else None)
@@ -135,18 +162,6 @@ def gather(session: Session, ctx: DiseaseContext, *, scope: str, iso3: str | Non
                               "positives": s.positives,
                               "specimens_tested": s.specimens_tested,
                               "provisional": s.is_provisional} for s in series]
-        levels = det.thresholds_by_season(session, ctx, iso3)
-        current = levels[max(levels)] if levels else None
-        content["thresholds"] = current.model_dump() if current else None
-        if fc_run:
-            fc, _ = mq.country_forecasts(session, ctx, fc_run, iso3)
-            content["forecasts"] = [
-                {"horizon_weeks": f.horizon_weeks, "target_week": f.target_week,
-                 "origin_week": f.origin_week, "model": f.label, "point": f.point,
-                 "lo80": f.lo80, "hi80": f.hi80}
-                for f in sorted((f for f in fc if f.is_active), key=lambda f: f.horizon_weeks)]
-        else:
-            content["forecasts"] = []
 
     anomalies = det.anomalies(session, ctx, w, region, iso3, "seasonal_ewma")
     content["anomalies"] = {
@@ -182,10 +197,76 @@ def gather(session: Session, ctx: DiseaseContext, *, scope: str, iso3: str | Non
     return canonical(content)
 
 
+def _outlook(session: Session, ctx: DiseaseContext, content: dict, iso3: str,
+             fc_run: str | None) -> None:
+    levels = det.thresholds_by_season(session, ctx, iso3)
+    current = levels[max(levels)] if levels else None
+    content["thresholds"] = current.model_dump() if current else None
+    if fc_run:
+        fc, _ = mq.country_forecasts(session, ctx, fc_run, iso3)
+        content["forecasts"] = [
+            {"horizon_weeks": f.horizon_weeks, "target_week": f.target_week,
+             "origin_week": f.origin_week, "model": f.label, "point": f.point,
+             "lo80": f.lo80, "hi80": f.hi80}
+            for f in sorted((f for f in fc if f.is_active), key=lambda f: f.horizon_weeks)]
+    else:
+        content["forecasts"] = []
+
+
+def _dengue_values(session: Session, ctx: DiseaseContext, content: dict, w: Window,
+                   region: str | None, iso3: str | None, weeks: int) -> None:
+    """Summary, weekly values and movers for a dengue report (cases and incidence)."""
+    if content["scope"] == "global":
+        k = kpis(session, ctx, w, region)
+        content["summary"] = {
+            "cases": k.cases.value, "cases_previous": k.cases.previous,
+            "incidence": k.incidence.value, "incidence_previous": k.incidence.previous,
+            "weekly_countries": k.cases.denominator,
+            "countries_reporting": k.countries_reporting.value,
+            "countries_reporting_previous": k.countries_reporting.previous,
+            "countries_with_anomaly": k.anomalies.value if k.anomalies else None,
+            "countries_in_hotspot": k.hotspots.value if k.hotspots else None,
+            "above_threshold": k.above_threshold.value if k.above_threshold else None,
+            "risk_assessed": k.above_threshold.denominator if k.above_threshold else None,
+        }
+        start = w.previous.start
+        content["weekly"] = [{"week_start": p.week_start, "cases": p.cases,
+                              "incidence": p.incidence, "provisional": p.is_provisional}
+                             for p in trend(session, ctx, w, region, 13)
+                             if start <= p.week_start <= w.end]
+        content["top_movers"] = [
+            {"iso3": m.iso3, "name": m.name, "incidence": m.incidence,
+             "previous_incidence": m.previous_incidence, "change_pct": m.change_pct}
+            for m in top_movers(session, ctx, w, region, MOVERS_MIN_CASES)]
+        content["movers_min_cases"] = MOVERS_MIN_CASES
+        return
+    cur = country_window(session, ctx, w, None, iso3)
+    prev = country_window(session, ctx, w.previous, None, iso3)
+    c, p = (cur[0] if cur else None), (prev[0] if prev else None)
+    content["summary"] = {
+        "cases": c.cases if c else None, "cases_previous": p.cases if p else None,
+        "incidence": c.incidence if c else None,
+        "incidence_previous": p.incidence if p else None,
+        "grain": c.grain if c else None,
+        "weeks_reported": c.weeks_reported if c else 0,
+        "periods_reported": c.periods_reported if c else None,
+        "tier": c.tier if c else None,
+    }
+    series, months = cases.timeseries(session, ctx, iso3,
+                                      Window(w.previous.start, w.end, 2 * weeks))
+    content["weekly"] = [{"week_start": s.week_start, "cases": s.cases,
+                          "incidence": s.incidence, "provisional": s.is_provisional}
+                         for s in series]
+    content["monthly"] = [{"month_start": m.month_start, "cases": m.cases,
+                           "incidence": m.incidence, "provisional": m.is_provisional}
+                          for m in months]
+
+
 def title_of(content: dict) -> str:
     d = date.fromisoformat(content["period"]["end"])
     end = f"{d.day} {MONTHS[d.month - 1]} {d.year}"
     weeks = content["period"]["weeks"]
     where = (content["country_name"] if content["scope"] == "country"
              else (f"WHO {content['who_region']} region" if content["who_region"] else "Global"))
-    return f"{where} influenza situation — {weeks} weeks to {end}"
+    disease = content["disease"]["name"].lower()
+    return f"{where} {disease} situation — {weeks} weeks to {end}"

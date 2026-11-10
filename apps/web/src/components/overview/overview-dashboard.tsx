@@ -18,7 +18,7 @@ import { useMediaQuery } from "@/hooks/use-element-size";
 import { usePlatformStatus } from "@/hooks/use-platform-status";
 import { useGlobalSurveillance, useOverview } from "@/hooks/use-surveillance";
 import { DISEASES } from "@/lib/diseases";
-import { type Filters, REGIONS, filterQuery, useFilters } from "@/lib/filters";
+import { type Filters, REGIONS, diseaseParam, filterQuery, useFilters, withParams } from "@/lib/filters";
 import {
   formatCompact,
   formatInt,
@@ -79,13 +79,13 @@ export function OverviewDashboard() {
         {data?.window.includes_provisional && <ProvisionalNotice />}
         <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
           <KpiTiles data={data} weeks={filters.weeks} caseBased={caseBased} />
-          {data && (caseBased ? <SignalsLater /> : <Signals kpis={data.kpis} weeks={filters.weeks} />)}
+          {data && <Signals kpis={data.kpis} weeks={filters.weeks} filters={filters} />}
         </div>
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
           <TrendCard key={filters.disease} data={data} caseBased={caseBased} />
           {caseBased ? <TopIncidenceMovers data={data} /> : <TopMovers data={data} />}
         </div>
-        {!caseBased && <AlertListCard region={filters.region} to={data?.window.end ?? null} limit={5} />}
+        <AlertListCard region={filters.region} to={data?.window.end ?? null} limit={5} />
         {data && <Provenance meta={data.meta} />}
       </Page>
     </div>
@@ -180,7 +180,7 @@ function Hero({
           </div>
           <div className="flex-1" />
           <div className="hidden w-[320px] flex-col gap-3 xl:flex">
-            {data && (info.caseBased ? <SignalsLater glass /> : <Signals kpis={data.kpis} weeks={filters.weeks} glass />)}
+            {data && <Signals kpis={data.kpis} weeks={filters.weeks} filters={filters} glass />}
             <Link href={surveillanceHref} className={cn(CTA, "h-10 px-4 text-[13px]")}>
               Explore Global Surveillance <ArrowRight className="size-4" aria-hidden />
             </Link>
@@ -385,33 +385,27 @@ function CaseKpiTiles({ data, weeks, glass }: { data: Overview; weeks: number; g
 }
 
 /** Detection signals are influenza-only until phase D4. */
-function SignalsLater({ glass }: { glass?: boolean }) {
-  return (
-    <section className={cn(glass ? "panel-glass pointer-events-auto" : "panel", "p-4")}>
-      <h2 className="eyebrow">Signals</h2>
-      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        Anomaly, hot-spot and epidemic-threshold signals for dengue are planned for a later
-        phase. They are available for influenza today.
-      </p>
-    </section>
-  );
-}
-
-function Signals({ kpis: k, weeks, glass }: { kpis: Overview["kpis"]; weeks: number; glass?: boolean }) {
+function Signals({ kpis: k, weeks, filters, glass }: {
+  kpis: Overview["kpis"];
+  weeks: number;
+  filters: Filters;
+  glass?: boolean;
+}) {
+  const d = diseaseParam(filters.disease);
   const rows: { key: string; label: string; kpi: Kpi | null; value: string; href: string }[] = [
     {
       key: "anomalies",
       label: "Countries with an anomaly",
       kpi: k.anomalies,
       value: formatInt(k.anomalies?.value),
-      href: "/hotspots",
+      href: withParams("/hotspots", d),
     },
     {
       key: "hotspots",
       label: "Countries in a Gi* hot spot",
       kpi: k.hotspots,
       value: formatInt(k.hotspots?.value),
-      href: "/hotspots",
+      href: withParams("/hotspots", d),
     },
     {
       key: "above_threshold",
@@ -420,7 +414,7 @@ function Signals({ kpis: k, weeks, glass }: { kpis: Overview["kpis"]; weeks: num
       value: k.above_threshold
         ? `${formatInt(k.above_threshold.value)} of ${formatInt(k.above_threshold.denominator)}`
         : "—",
-      href: "/surveillance?fill=risk",
+      href: withParams("/surveillance?fill=risk", d),
     },
   ];
   return (

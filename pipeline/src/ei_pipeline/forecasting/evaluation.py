@@ -98,7 +98,9 @@ def select(evals: pd.DataFrame) -> dict[int, Selection]:
                 strongest = baselines["mae"].idxmin()
                 gain = 1 - m.loc[best, "mae"] / baselines.loc[strongest, "mae"]
                 note += (f" Against the strongest baseline ({strongest.replace('_', ' ')}) "
-                         f"the MAE is {gain:.1%} lower.")
+                         f"the MAE is {abs(gain):.1%} {'lower' if gain >= 0 else 'higher'}"
+                         + (" (selection uses MASE, which weights every country equally)."
+                            if gain < 0 else "."))
             out[h] = Selection(h, best, note)
         else:
             out[h] = Selection(h, cfg.REFERENCE_BASELINE,

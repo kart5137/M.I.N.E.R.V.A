@@ -17,7 +17,7 @@ from sqlalchemy import Engine
 
 from app.core.db import get_engine
 from app.core.errors import ApiError
-from app.queries.common import load_lab_disease
+from app.queries.common import load_disease
 from app.reports import service
 from app.schemas.intelligence import GenerateRequest
 from ei_db import make_session_factory
@@ -38,7 +38,7 @@ def main(argv: list[str] | None = None, engine: Engine | None = None) -> int:
                           weeks=args.weeks)
     with make_session_factory(engine or get_engine())() as session:
         try:
-            ctx = load_lab_disease(session, args.disease, "Intelligence reports")
+            ctx = load_disease(session, args.disease)
             report, reused = service.generate(session, ctx, req)
         except ApiError as e:
             print(f"error: {e.code}: {e.message}", file=sys.stderr)

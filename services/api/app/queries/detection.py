@@ -30,11 +30,33 @@ ANOMALY_NOTE = (
     "residual signals. Isolation Forest flags are a secondary signal and never trigger "
     "alerts."
 )
+DENGUE_ANOMALY_NOTE = (
+    "Seasonal EWMA on weekly incidence: above the 90th percentile of the same ISO week ±1 "
+    "in the latest 5 years (on the log scale, with one case per 100,000 added), and an EWMA "
+    "control chart (λ 0.3, L 3) on the standardised residual signals. Comparable to the "
+    "endemic channel used in dengue surveillance. Isolation Forest flags are a secondary "
+    "signal and never trigger alerts."
+)
 RISK_RULE = (
     "Active 2-week-ahead forecast vs the season's Moving Epidemic Method levels: below the "
     "epidemic threshold = low; from the epidemic threshold up to high intensity = moderate; "
     "at or above high intensity = high."
 )
+DENGUE_RISK_RULE = (
+    "Active 2-week-ahead incidence forecast vs the calendar year's Moving Epidemic Method "
+    "levels (from earlier years' weekly incidence): below the epidemic threshold = low; up "
+    "to high intensity = moderate; at or above high intensity = high. Most countries' "
+    "dengue years are too irregular for MEM (epidemic years far above ordinary ones), so "
+    "only a few countries are assessed."
+)
+
+
+def anomaly_note(ctx: DiseaseContext) -> str:
+    return DENGUE_ANOMALY_NOTE if ctx.case_based else ANOMALY_NOTE
+
+
+def risk_rule(ctx: DiseaseContext) -> str:
+    return DENGUE_RISK_RULE if ctx.case_based else RISK_RULE
 _REGION = "(CAST(:region AS text) IS NULL OR c.who_region = :region)"
 
 
@@ -234,21 +256,24 @@ def risk(session: Session, ctx: DiseaseContext, region: str | None,
 
 
 def not_assessed(session: Session, summary: dict | None, region: str | None,
-                 assessed: set[str]) -> list[NotAssessed]:
+                 assessed: set[str], ctx: DiseaseContext | None = None) -> list[NotAssessed]:
     reasons: dict[str, str] = dict((summary or {}).get("thresholds", {}).get("not_assessed", {}))
-    # Countries with usable thresholds but no forecast this week.
+    # Countries in scope (influenza: a FluNet season type; dengue: weekly reporting) that
+    # were not assessed, e.g. usable thresholds but no forecast this week.
+    scope = ("EXISTS (SELECT 1 FROM surveillance_weekly s WHERE s.disease_id = :d "
+             "AND s.iso3 = c.iso3)" if ctx is not None and ctx.case_based
+             else "c.flu_season IS NOT NULL")
     rows = session.execute(text(f"""
-        SELECT c.iso3, c.name, c.flu_season FROM countries c
-        WHERE c.flu_season IS NOT NULL AND {_REGION} ORDER BY c.name
-    """), {"region": region}).all()
-    out = []
-    for iso3, name, _ in rows:
-        if iso3 in assessed:
-            continue
-        out.append(NotAssessed(iso3=iso3, name=name, reason=reasons.get(
-            iso3, "no forecast this week (forecasts need a Tier A/B series with a value in "
-                  "the reference week)")))
-    return out
+        SELECT c.iso3, c.name FROM countries c
+        WHERE {scope} AND {_REGION} ORDER BY c.name
+    """), {"region": region, "d": ctx.id if ctx is not None else None}).all()
+    fallback = ("no forecast this week (forecasts need a weekly Tier A/B series with "
+                "population and cases in the reference week)"
+                if ctx is not None and ctx.case_based else
+                "no forecast this week (forecasts need a Tier A/B series with a value in "
+                "the reference week)")
+    return [NotAssessed(iso3=iso3, name=name, reason=reasons.get(iso3, fallback))
+            for iso3, name in rows if iso3 not in assessed]
 
 
 def above_threshold_count(session: Session, ctx: DiseaseContext, region: str | None

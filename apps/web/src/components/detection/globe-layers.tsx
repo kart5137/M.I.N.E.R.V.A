@@ -8,6 +8,8 @@ import {
   ANOMALY_RING,
   CHANGE_LEGEND_ORDER,
   CHANGE_SCALE,
+  CHANGE_SCALE_PCT,
+  changeClassPct,
   changeClass,
   type ClassScale,
   GI_LABEL,
@@ -23,7 +25,8 @@ import {
   SEVERITY_RADIUS,
 } from "@/lib/detection-scale";
 import type { Filters } from "@/lib/filters";
-import { formatPct, formatSigned, formatWeek } from "@/lib/format";
+import { formatSigned, formatWeek } from "@/lib/format";
+import { type Metric, metricFor } from "@/lib/metric";
 import type { Severity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +68,7 @@ function pText(p: number): string {
  * and anomalies follow the time filter; risk and forecast change are the latest run.
  */
 export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filters: Filters): DetectionLayers {
+  const m = metricFor(filters.disease);
   const spatial = mode === "hotspots" || mode === "moran";
   const hotspots = useHotspots({ to: filters.to, region: filters.region }, spatial);
   const risk = useRisk(filters.region, mode === "risk");
@@ -91,7 +95,7 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
       );
     };
     const anomalyLegend = showAnomalies ? (
-      <AnomalyLegend weeks={anomalies.data?.window.weeks ?? filters.weeks} count={anomalyBy.size} />
+      <AnomalyLegend weeks={anomalies.data?.window.weeks ?? filters.weeks} count={anomalyBy.size} m={m} />
     ) : null;
     const base = { rings, error: (anomalies.error as Error | null) ?? null };
 
@@ -109,7 +113,7 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
         error: (hotspots.error as Error | null) ?? base.error,
         fill,
         note: w
-          ? `4-week pooled positivity, ${formatWeek(w.start)} – ${formatWeek(w.end)} · ${items.length} countries`
+          ? `${m.key === "incidence" ? "4-week mean incidence per 100,000" : "4-week pooled positivity"}, ${formatWeek(w.start)} – ${formatWeek(w.end)} · ${items.length} countries`
           : hotspots.data
             ? `Hotspots are computed for windows ending ${formatWeek(hotspots.data.available_from)} – ${formatWeek(hotspots.data.available_to)}.`
             : null,
@@ -120,7 +124,7 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
               <div className="mt-1.5 space-y-0.5">
                 {h ? (
                   <>
-                    <Row k="4-week positivity" v={formatPct(h.value)} />
+                    <Row k={`4-week ${m.noun === "test positivity" ? "positivity" : "incidence"}`} v={valueText(h.value, m)} />
                     {isGi ? (
                       <>
                         <Row k="Gi*" v={GI_LABEL[h.gi_star.classification]} />
@@ -146,12 +150,12 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
         legend: (
           <>
             <ClassLegend
-              title={isGi ? "Getis-Ord Gi* (4-week positivity)" : "Local Moran's I (FDR < 0.05)"}
+              title={isGi ? `Getis-Ord Gi* (4-week ${m.key === "incidence" ? "incidence" : "positivity"})` : "Local Moran's I (FDR < 0.05)"}
               scale={isGi ? GI_SCALE : MORAN_SCALE}
               order={isGi ? GI_LEGEND_ORDER : [1, 2, 3, 0]}
               footnote={
                 isGi
-                  ? "Gi* describes a country together with its neighbours. 999 permutations; Benjamini–Hochberg FDR."
+                  ? `Gi* describes a country together with its neighbours. 999 permutations; Benjamini–Hochberg FDR.${m.key === "incidence" ? " Dengue: reported incidence on a log scale; case definitions differ between countries." : ""}`
                   : "Clusters: country and neighbours alike. Outliers: country unlike its neighbours."
               }
             />
@@ -180,9 +184,9 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
                 {r ? (
                   <>
                     <Row k="Risk" v={RISK_SCALE.labels[RISK_INDEX[r.risk_level]]} />
-                    <Row k="2-week forecast" v={`${formatPct(r.forecast_point)} (${formatPct(r.forecast_lo80, 0)}–${formatPct(r.forecast_hi80, 0)})`} />
-                    <Row k="Epidemic threshold" v={formatPct(r.thresholds.epidemic_threshold)} />
-                    <Row k="High intensity" v={formatPct(r.thresholds.high)} />
+                    <Row k="2-week forecast" v={`${valueText(r.forecast_point, m)} (${m.formatBound(r.forecast_lo80)}–${m.formatBound(r.forecast_hi80)})`} />
+                    <Row k="Epidemic threshold" v={valueText(r.thresholds.epidemic_threshold, m)} />
+                    <Row k="High intensity" v={valueText(r.thresholds.high, m)} />
                   </>
                 ) : (
                   <div className="text-muted-foreground">Not assessed</div>
@@ -199,7 +203,11 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
               scale={RISK_SCALE}
               order={[0, 1, 2]}
               noData="Not assessed"
-              footnote="Temperate countries with ≥ 3 usable past seasons only."
+              footnote={
+                m.key === "incidence"
+                  ? "Only countries whose past years give usable MEM levels (few for dengue)."
+                  : "Temperate countries with ≥ 3 usable past seasons only."
+              }
             />
             {anomalyLegend}
           </>
@@ -215,7 +223,12 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
         ...base,
         error: (change.error as Error | null) ?? base.error,
         fill: {
-          byIso3: new Map(items.filter((f) => f.change_pp != null).map((f) => [f.iso3, changeClass(f.change_pp!)])),
+          byIso3: new Map(
+            items.flatMap((f) => {
+              const c = m.change(f);
+              return c == null ? [] : [[f.iso3, m.key === "incidence" ? changeClassPct(c) : changeClass(c)] as const];
+            }),
+          ),
           colors: CHANGE_SCALE.colors,
         },
         note: first
@@ -228,10 +241,10 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
               <div className="mt-1.5 space-y-0.5">
                 {f ? (
                   <>
-                    <Row k={`Observed ${formatWeek(f.origin_week)}`} v={formatPct(f.origin_value)} />
-                    <Row k={`Forecast ${formatWeek(f.target_week)}`} v={formatPct(f.point)} />
-                    <Row k="80% interval" v={`${formatPct(f.lo80, 0)}–${formatPct(f.hi80, 0)}`} />
-                    <Row k="Change" v={f.change_pp == null ? "—" : formatSigned(f.change_pp, 1, " pp")} />
+                    <Row k={`Observed ${formatWeek(f.origin_week)}`} v={valueText(f.origin_value, m)} />
+                    <Row k={`Forecast ${formatWeek(f.target_week)}`} v={valueText(f.point, m)} />
+                    <Row k="80% interval" v={`${m.formatBound(f.lo80)}–${m.formatBound(f.hi80)}`} />
+                    <Row k="Change" v={m.change(f) == null ? "—" : m.formatChange(m.change(f)!)} />
                   </>
                 ) : (
                   <div className="text-muted-foreground">No forecast</div>
@@ -244,11 +257,15 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
         legend: (
           <>
             <ClassLegend
-              title="Forecast change, 2 weeks ahead (pp)"
-              scale={CHANGE_SCALE}
+              title={`Forecast change, 2 weeks ahead (${m.changeUnit})`}
+              scale={m.key === "incidence" ? CHANGE_SCALE_PCT : CHANGE_SCALE}
               order={CHANGE_LEGEND_ORDER}
               noData="No forecast"
-              footnote="Point forecast minus the observed positivity in the origin week."
+              footnote={
+                m.key === "incidence"
+                  ? "Point forecast relative to the observed incidence in the origin week."
+                  : "Point forecast minus the observed positivity in the origin week."
+              }
             />
             {anomalyLegend}
           </>
@@ -263,7 +280,7 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
       hoverDetail: (iso3) => anomalyLine(iso3),
       legend: anomalyLegend,
     };
-  }, [mode, spatial, showAnomalies, hotspots.data, hotspots.error, risk.data, risk.error, change.data, change.error, anomalies.data, anomalies.error, filters.weeks]);
+  }, [mode, spatial, showAnomalies, hotspots.data, hotspots.error, risk.data, risk.error, change.data, change.error, anomalies.data, anomalies.error, filters.weeks, m]);
 }
 
 export function ClassLegend({
@@ -301,7 +318,13 @@ export function ClassLegend({
   );
 }
 
-function AnomalyLegend({ weeks, count }: { weeks: number; count: number }) {
+/** A value with its unit (incidence gets "per 100k"). */
+function valueText(v: number | null | undefined, m: Metric): string {
+  const s = m.format(v);
+  return m.key === "incidence" && v != null ? `${s} per 100k` : s;
+}
+
+function AnomalyLegend({ weeks, count, m }: { weeks: number; count: number; m: Metric }) {
   const sizes: Severity[] = ["moderate", "high", "severe"];
   return (
     <figure className="mt-2 space-y-1.5 border-t border-border pt-2 text-[11px]" aria-label="Anomaly legend">
@@ -320,7 +343,8 @@ function AnomalyLegend({ weeks, count }: { weeks: number; count: number }) {
         ))}
       </div>
       <p className="text-[10.5px] leading-snug text-subtle-foreground">
-        Ring size = highest severity: positivity above the seasonal upper band with an EWMA signal.
+        Ring size = highest severity: {m.key === "incidence" ? "incidence" : "positivity"} above the seasonal upper band with
+        an EWMA signal.
       </p>
     </figure>
   );

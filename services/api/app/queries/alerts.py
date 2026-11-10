@@ -20,6 +20,21 @@ ALERT_RULES = {
     "sustained_growth": "Positivity up in 3 consecutive weeks by ≥ 5 pp in total "
                         "(≥ 50 specimens each week).",
 }
+#: Mirrors the dengue rules in the pipeline (D4): incidence instead of positivity, and a
+#: relative growth rule.
+DENGUE_ALERT_RULES = {
+    "new_anomaly": ALERT_RULES["new_anomaly"],
+    "new_hotspot": ALERT_RULES["new_hotspot"],
+    "risk_escalation": ALERT_RULES["risk_escalation"],
+    "sustained_growth": "Incidence up in 3 consecutive weeks by ≥ 50% in total (≥ 20 "
+                        "reported cases each week).",
+}
+
+
+def alert_rules(ctx: DiseaseContext) -> dict[str, str]:
+    return DENGUE_ALERT_RULES if ctx.case_based else ALERT_RULES
+
+
 SEVERITY_ORDER = "CASE a.severity WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END"
 
 _FILTER = """

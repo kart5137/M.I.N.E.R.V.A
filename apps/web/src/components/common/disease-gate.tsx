@@ -7,8 +7,8 @@ import { DISEASES, type Feature, FEATURE_LABELS } from "@/lib/diseases";
 import { useFilters } from "@/lib/filters";
 
 /**
- * Renders a page only when the selected disease has `feature`. Otherwise explains that it
- * is planned and offers a working switch back to influenza. Must sit under <Suspense>.
+ * Renders a page only when the selected disease has `feature`. Otherwise explains why
+ * and offers a working switch back to influenza. Must sit under <Suspense>.
  */
 export function DiseaseGate({
   feature,
@@ -29,12 +29,11 @@ export function DiseaseGate({
         <CalendarClock className="mt-0.5 size-5 shrink-0 text-teal" aria-hidden />
         <div>
           <h2 className="text-sm font-semibold">
-            {FEATURE_LABELS[feature]} for {info.label.toLowerCase()} is planned for a later phase
+            {FEATURE_LABELS[feature]} is not available for {info.label.toLowerCase()}
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {info.label} data is loaded and shown on the Overview, Global Surveillance,
-            Countries and country pages. {FEATURE_LABELS[feature]} needs models and validation
-            that are built in phase D4 of the dengue plan.
+            {info.unavailable?.[feature] ??
+              `${info.label} data is shown on the Overview, Global Surveillance, Countries and country pages.`}
           </p>
           <button
             type="button"

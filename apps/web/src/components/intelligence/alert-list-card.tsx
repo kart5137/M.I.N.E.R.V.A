@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { QueryError } from "@/components/common/query-state";
 import { useAlerts } from "@/hooks/use-intelligence";
+import { diseaseParam, useDisease, withParams } from "@/lib/filters";
 import { formatWeek } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ export function AlertListCard({
   children?: React.ReactNode;
 }) {
   const q = useAlerts({ region, iso3, to, status: "active", pageSize: limit });
+  const dp = diseaseParam(useDisease());
   const d = q.data;
   return (
     <section className={cn("flex flex-col panel", className)}>
@@ -38,7 +40,7 @@ export function AlertListCard({
           </p>
         </div>
         <Link
-          href={iso3 ? `/reports?iso3=${iso3}` : `/reports${region ? `?region=${region}` : ""}`}
+          href={withParams(iso3 ? `/reports?iso3=${iso3}` : `/reports${region ? `?region=${region}` : ""}`, dp)}
           className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           All alerts <ArrowRight className="size-3.5" />
@@ -61,7 +63,7 @@ export function AlertListCard({
                 alertText(a.title, a.name)
               ) : (
                 <>
-                  <Link href={`/countries/${a.iso3}`} className="text-foreground underline decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground">{a.name}</Link>
+                  <Link href={withParams(`/countries/${a.iso3}`, dp)} className="text-foreground underline decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground">{a.name}</Link>
                   {": "}
                   {alertText(a.title, a.name)}
                 </>
