@@ -66,15 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Wordmark className="hidden sm:block" />
           <span className="hidden h-7 w-px bg-border sm:block" aria-hidden />
 
-          <div className="hidden items-center gap-2 text-xs md:flex">
-            <span className="eyebrow">Disease</span>
-            <span className="flex h-8 items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-3 font-medium text-primary">
-              <span className="size-1.5 rounded-full bg-primary" aria-hidden />
-              Influenza
-            </span>
-          </div>
-
-          {/* Phones: filters take their own row under the menu, logo and status. */}
+          {/* Phones: disease and filters take their own row under the menu, logo and status. */}
           <div className="order-last w-full sm:order-none sm:w-auto">
             {/* useSearchParams needs a Suspense boundary under Cache Components. */}
             <Suspense fallback={null}>

@@ -108,6 +108,31 @@ The case-volume condition exists because 37 otherwise-complete weekly series rep
 cases in most weeks (sporadic or imported cases only; Canada reported none in the whole
 window). They cannot support a meaningful forecast and are shown as map and trends only.
 
+## Dashboard values (D2)
+
+Implemented in `services/api/app/queries/cases.py`. The same endpoints serve influenza and
+dengue (`?disease=dengue`); dengue responses fill `cases` / `incidence` fields and leave
+the laboratory fields null.
+
+- **Incidence** = reported cases per 100,000 population per week, over reported periods
+  only (gaps are not zeros). Population: latest World Bank value up to the window's year.
+  No population → cases are shown, the rate is not.
+- **One grain per country per window.** A country's weekly reports in the window are used
+  when it has any; otherwise the calendar months overlapping the window. Weekly and
+  monthly values are never added together, so a country that switched grain (e.g.
+  Bangladesh) shows weekly values for 2023 windows and monthly ones for 2026.
+- **Totals, trend and largest changes use weekly reports only.** A calendar month does not
+  fit a weekly window. "Countries reporting" counts weekly and monthly reporters and says
+  how many of each. The dashboard states this next to the totals.
+- **Largest changes** rank weekly reporters with ≥ 50 cases in both windows by the size of
+  the relative change in incidence, symmetric for rises and falls (|ln(current/previous)|).
+- **Map colours**: 6 amber steps (the validated positivity steps) with breaks at 0.1, 1,
+  5, 20 and 50 per 100,000 per week; grey = reported but no population; land colour = no
+  report. The legend notes that case definitions differ by country.
+- **Not yet for dengue** (phase D4): forecasts, anomalies, hot spots, thresholds, alerts,
+  reports and analytics. Those endpoints answer `422 not_available`; the dashboard shows a
+  "planned for a later phase" panel with a working switch back to influenza.
+
 ## Known limitations
 
 - **Different case definitions** between countries; no cross-country comparison of

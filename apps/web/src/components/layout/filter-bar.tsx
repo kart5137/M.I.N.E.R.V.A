@@ -2,6 +2,8 @@
 
 import { ChevronDown } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+import { DISEASE_KEYS, DISEASES, isDiseaseKey } from "@/lib/diseases";
 import { PERIODS, REGIONS, useFilters } from "@/lib/filters";
 
 function Select({
@@ -10,12 +12,15 @@ function Select({
   value,
   onChange,
   children,
+  accent = false,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   children: React.ReactNode;
+  /** The disease selector: amber, the dashboard's primary switch. */
+  accent?: boolean;
 }) {
   return (
     <label htmlFor={id} className="flex items-center gap-2 text-xs">
@@ -26,21 +31,45 @@ function Select({
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 appearance-none rounded-full border border-input bg-card pl-3 pr-8 font-medium text-foreground outline-none transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring/50"
+          className={cn(
+            "h-8 appearance-none rounded-full border pl-3 pr-8 font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
+            accent
+              ? "border-primary/40 bg-primary/10 text-primary hover:border-primary/70"
+              : "border-input bg-card text-foreground hover:border-primary/40",
+          )}
         >
           {children}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-2.5 top-2 size-4 text-muted-foreground" aria-hidden />
+        <ChevronDown
+          className={cn(
+            "pointer-events-none absolute right-2.5 top-2 size-4",
+            accent ? "text-primary" : "text-muted-foreground",
+          )}
+          aria-hidden
+        />
       </span>
     </label>
   );
 }
 
-/** Region and period filters, stored in the URL and shared by every surveillance page. */
+/** Disease, region and period, stored in the URL and shared by every page. */
 export function FilterBar() {
   const [filters, setFilters] = useFilters();
   return (
-    <div className="flex items-center gap-2 sm:gap-3">
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <Select
+        id="filter-disease"
+        label="Disease"
+        value={filters.disease}
+        onChange={(v) => isDiseaseKey(v) && setFilters({ disease: v })}
+        accent
+      >
+        {DISEASE_KEYS.map((k) => (
+          <option key={k} value={k}>
+            {DISEASES[k].label}
+          </option>
+        ))}
+      </Select>
       <Select
         id="filter-region"
         label="Region"

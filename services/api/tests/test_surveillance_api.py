@@ -95,7 +95,9 @@ def test_country_profile(api: TestClient):
     assert body["population"] == {"year": 2023, "value": 1000, "source": "World Bank WDI"}
     assert body["coverage"]["tier"] == "A"
     assert body["surveillance"] == {"first_week": "2024-01-01",
-                                    "last_reported_week": "2024-02-19", "weeks_reported": 8}
+                                    "last_reported_week": "2024-02-19", "weeks_reported": 8,
+                                    "first_month": None, "last_reported_month": None,
+                                    "months_reported": 0}
     ccc = api.get(f"{V1}/countries/CCC").json()
     assert ccc["population"] is None and ccc["coverage"] is None  # shown as "not available"
 
@@ -110,7 +112,8 @@ def test_timeseries_marks_gaps_instead_of_zero_filling(api: TestClient):
     assert pts["2024-02-12"]["positives"] == 4 and pts["2024-02-12"]["reported"] is False
     assert pts["2024-02-19"] == {"week_start": "2024-02-19", "reported": False,
                                  "specimens_tested": None, "positives": None,
-                                 "positivity": None, "is_provisional": True}
+                                 "positivity": None, "is_provisional": True,
+                                 "cases": None, "incidence": None}
 
 
 def test_country_list_search_and_pagination(api: TestClient):
@@ -125,7 +128,10 @@ def test_country_list_search_and_pagination(api: TestClient):
 
 @pytest.mark.parametrize(("url", "status", "code"), [
     ("/overview?disease=measles", 404, "unknown_disease"),
-    ("/overview?disease=dengue", 404, "no_data"),
+    ("/overview?disease=mpox", 404, "no_data"),
+    ("/analytics/trends?disease=dengue&series=global", 422, "not_available"),
+    ("/forecasts?disease=dengue&iso3=AAA", 422, "not_available"),
+    ("/anomalies?disease=dengue", 422, "not_available"),
     ("/overview?region=XYZ", 422, "invalid_region"),
     ("/overview?to=2023-12-01", 422, "out_of_range"),
     ("/countries/ZZZ", 404, "unknown_country"),
@@ -138,4 +144,4 @@ def test_errors(api: TestClient, url: str, status: int, code: str):
 
 
 def test_diseases(api: TestClient):
-    assert [d["key"] for d in api.get(f"{V1}/diseases").json()] == ["dengue", "influenza"]
+    assert [d["key"] for d in api.get(f"{V1}/diseases").json()] == ["dengue", "influenza", "mpox"]

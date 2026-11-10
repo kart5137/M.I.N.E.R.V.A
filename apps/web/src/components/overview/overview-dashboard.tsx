@@ -12,26 +12,41 @@ import { Globe } from "@/components/globe";
 import { PageHeader } from "@/components/layout/page-header";
 import { AlertListCard } from "@/components/intelligence/alert-list-card";
 import { PlatformStatusPanel } from "@/components/overview/platform-status-panel";
+import { IncidenceLegend } from "@/components/surveillance/incidence-legend";
 import { PositivityLegend } from "@/components/surveillance/positivity-legend";
 import { useMediaQuery } from "@/hooks/use-element-size";
 import { usePlatformStatus } from "@/hooks/use-platform-status";
 import { useGlobalSurveillance, useOverview } from "@/hooks/use-surveillance";
+import { DISEASES } from "@/lib/diseases";
 import { type Filters, REGIONS, filterQuery, useFilters } from "@/lib/filters";
-import { formatCompact, formatInt, formatPct, formatSigned, formatWeek, windowLabel } from "@/lib/format";
+import {
+  formatCompact,
+  formatInt,
+  formatPct,
+  formatRate,
+  formatSigned,
+  formatWeek,
+  windowLabel,
+} from "@/lib/format";
 import type { Kpi, Overview, TrendPoint } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const INTRO = "Global influenza surveillance from WHO FluNet laboratory data.";
+const INTRO = {
+  influenza: "Global influenza surveillance from WHO FluNet laboratory data.",
+  dengue: "Global dengue surveillance from cases reported to WHO.",
+} as const;
 
 export function OverviewDashboard() {
   const platform = usePlatformStatus();
   const [filters, setFilters] = useFilters();
   const overview = useOverview(filters);
+  const caseBased = DISEASES[filters.disease].caseBased;
+  const intro = INTRO[filters.disease];
 
   if (platform.kind !== "ready") {
     return (
       <Page>
-        <PageHeader title="Overview" description={INTRO} />
+        <PageHeader title="Overview" eyebrow={`${DISEASES[filters.disease].label} surveillance`} description={intro} />
         <div className="max-w-md">
           <PlatformStatusPanel />
         </div>
@@ -41,7 +56,7 @@ export function OverviewDashboard() {
   if (overview.error) {
     return (
       <Page>
-        <PageHeader title="Overview" description={INTRO} />
+        <PageHeader title="Overview" eyebrow={`${DISEASES[filters.disease].label} surveillance`} description={intro} />
         <QueryError error={overview.error} />
       </Page>
     );
@@ -63,14 +78,14 @@ export function OverviewDashboard() {
       <Page>
         {data?.window.includes_provisional && <ProvisionalNotice />}
         <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
-          <KpiTiles data={data} weeks={filters.weeks} />
-          {data && <Signals kpis={data.kpis} weeks={filters.weeks} />}
+          <KpiTiles data={data} weeks={filters.weeks} caseBased={caseBased} />
+          {data && (caseBased ? <SignalsLater /> : <Signals kpis={data.kpis} weeks={filters.weeks} />)}
         </div>
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-          <TrendCard data={data} />
-          <TopMovers data={data} />
+          <TrendCard key={filters.disease} data={data} caseBased={caseBased} />
+          {caseBased ? <TopIncidenceMovers data={data} /> : <TopMovers data={data} />}
         </div>
-        <AlertListCard region={filters.region} to={data?.window.end ?? null} limit={5} />
+        {!caseBased && <AlertListCard region={filters.region} to={data?.window.end ?? null} limit={5} />}
         {data && <Provenance meta={data.meta} />}
       </Page>
     </div>
@@ -113,6 +128,7 @@ function Hero({
   // Keep the globe centred in the space the floating panels leave free.
   const insets = { top: lg ? 0 : 96, left: lg ? 320 : 0, right: xl ? 344 : 0, bottom: lg ? 0 : 88 };
   const surveillanceHref = `/surveillance?${filterQuery(filters)}`;
+  const info = DISEASES[filters.disease];
 
   return (
     <section
@@ -124,6 +140,7 @@ function Hero({
         insets={insets}
         values={global.data?.countries}
         windowWeeks={global.data?.window.weeks}
+        measure={info.caseBased ? "incidence" : "positivity"}
         onCountryClick={(c) => router.push(`${surveillanceHref}&country=${c.iso3}`)}
       />
       {/* Edge vignette so the floating panels read against the globe. */}
@@ -139,7 +156,7 @@ function Hero({
       <div className="pointer-events-none absolute inset-0 flex flex-col gap-4 p-4 lg:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="pointer-events-auto max-w-sm">
-            <div className="eyebrow text-teal">Influenza surveillance</div>
+            <div className="eyebrow text-teal">{info.label} surveillance</div>
             <h1 className="mt-1.5 text-2xl font-semibold tracking-tight lg:text-[30px]">Global overview</h1>
             <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>
             {onLatest && (
@@ -159,11 +176,11 @@ function Hero({
 
         <div className="flex min-h-0 flex-1 gap-4">
           <div className="hidden w-[280px] flex-col gap-3 lg:flex">
-            <KpiTiles data={data} weeks={filters.weeks} glass />
+            <KpiTiles data={data} weeks={filters.weeks} caseBased={info.caseBased} glass />
           </div>
           <div className="flex-1" />
           <div className="hidden w-[320px] flex-col gap-3 xl:flex">
-            {data && <Signals kpis={data.kpis} weeks={filters.weeks} glass />}
+            {data && (info.caseBased ? <SignalsLater glass /> : <Signals kpis={data.kpis} weeks={filters.weeks} glass />)}
             <Link href={surveillanceHref} className={cn(CTA, "h-10 px-4 text-[13px]")}>
               Explore Global Surveillance <ArrowRight className="size-4" aria-hidden />
             </Link>
@@ -173,7 +190,7 @@ function Hero({
         <div className="flex items-end justify-between gap-3">
           {/* lg+: sit beside the KPI column (280px + 16px gap), not under it. */}
           <div className="panel-glass pointer-events-auto w-64 rounded-xl p-3 lg:ml-[296px]">
-            <PositivityLegend />
+            {info.caseBased ? <IncidenceLegend disease={info.label} /> : <PositivityLegend />}
           </div>
           {global.error && <QueryError error={global.error} className="pointer-events-auto text-xs text-status-error" />}
         </div>
@@ -261,7 +278,17 @@ function StatTile({
   );
 }
 
-function KpiTiles({ data, weeks, glass }: { data: Overview | undefined; weeks: number; glass?: boolean }) {
+function KpiTiles({
+  data,
+  weeks,
+  caseBased,
+  glass,
+}: {
+  data: Overview | undefined;
+  weeks: number;
+  caseBased: boolean;
+  glass?: boolean;
+}) {
   if (!data) {
     return [0, 1, 2].map((i) => (
       <div key={i} className={cn(glass ? "panel-glass" : "panel", "h-[118px] animate-pulse")} />
@@ -269,6 +296,9 @@ function KpiTiles({ data, weeks, glass }: { data: Overview | undefined; weeks: n
   }
   const k = data.kpis;
   const trend = data.trend;
+  if (caseBased || !k.detections || !k.positivity) {
+    return <CaseKpiTiles data={data} weeks={weeks} glass={glass} />;
+  }
   return (
     <>
       <StatTile
@@ -302,6 +332,68 @@ function KpiTiles({ data, weeks, glass }: { data: Overview | undefined; weeks: n
         glass={glass}
       />
     </>
+  );
+}
+
+function CaseKpiTiles({ data, weeks, glass }: { data: Overview; weeks: number; glass?: boolean }) {
+  const k = data.kpis;
+  const trend = data.trend;
+  const weekly = k.cases?.denominator;
+  const monthly = weekly != null && k.countries_reporting.value != null
+    ? k.countries_reporting.value - weekly
+    : null;
+  return (
+    <>
+      <StatTile
+        label="Reported cases"
+        value={formatCompact(k.cases?.value)}
+        kpi={k.cases ?? undefined}
+        weeks={weeks}
+        previous={formatInt(k.cases?.previous)}
+        hint={k.cases?.note ?? "Reported cases"}
+        trend={trend.map((p) => p.cases ?? null)}
+        glass={glass}
+      />
+      <StatTile
+        label="Cases per 100k / week"
+        value={formatRate(k.incidence?.value)}
+        kpi={k.incidence ?? undefined}
+        weeks={weeks}
+        previous={formatRate(k.incidence?.previous)}
+        hint={k.incidence?.note ?? "Cases per 100,000 per week"}
+        trend={trend.map((p) => p.incidence ?? null)}
+        glass={glass}
+      />
+      <StatTile
+        label="Countries reporting"
+        value={formatInt(k.countries_reporting.value)}
+        kpi={k.countries_reporting}
+        weeks={weeks}
+        previous={formatInt(k.countries_reporting.previous)}
+        hint="Countries with a weekly report in the period, or a monthly report overlapping it."
+        trend={trend.map((p) => p.countries_reporting)}
+        glass={glass}
+      />
+      {weekly != null && (
+        <p className={cn("text-[10.5px] leading-snug text-subtle-foreground", glass && "pointer-events-auto")}>
+          Case totals and rates cover the {weekly} weekly-reporting countries
+          {monthly ? `; the ${monthly} monthly reporters appear on the map and in Countries` : ""}.
+        </p>
+      )}
+    </>
+  );
+}
+
+/** Detection signals are influenza-only until phase D4. */
+function SignalsLater({ glass }: { glass?: boolean }) {
+  return (
+    <section className={cn(glass ? "panel-glass pointer-events-auto" : "panel", "p-4")}>
+      <h2 className="eyebrow">Signals</h2>
+      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        Anomaly, hot-spot and epidemic-threshold signals for dengue are planned for a later
+        phase. They are available for influenza today.
+      </p>
+    </section>
   );
 }
 
@@ -405,12 +497,12 @@ function TopMovers({ data }: { data: Overview | undefined }) {
                 </td>
                 <td className="px-2 py-2 text-right">
                   <span className="inline-flex items-center gap-0.5">
-                    {m.change_pp > 0 ? (
+                    {(m.change_pp ?? 0) > 0 ? (
                       <ArrowUpRight className="size-3.5 text-muted-foreground" aria-hidden />
                     ) : (
                       <ArrowDownRight className="size-3.5 text-muted-foreground" aria-hidden />
                     )}
-                    {formatSigned(m.change_pp, 1, " pp")}
+                    {m.change_pp == null ? "—" : formatSigned(m.change_pp, 1, " pp")}
                   </span>
                 </td>
                 <td className="px-4 py-2 text-right text-muted-foreground">{formatInt(m.specimens_tested)}</td>
@@ -423,9 +515,97 @@ function TopMovers({ data }: { data: Overview | undefined }) {
   );
 }
 
+function TopIncidenceMovers({ data }: { data: Overview | undefined }) {
+  return (
+    <section className="panel flex flex-col overflow-hidden">
+      <header className="border-b border-border p-4 pb-3">
+        <h2 className="text-base font-semibold">Largest changes in reported incidence</h2>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          {data
+            ? `${windowLabel(data.window)} vs ${windowLabel(data.previous_window)} · weekly reporters with ≥ ${data.movers_min_cases ?? 50} cases in both periods`
+            : "Loading…"}
+        </p>
+      </header>
+      {data && data.top_movers.length === 0 && (
+        <p className="p-4 text-xs text-muted-foreground">No country met the minimum case count in both periods.</p>
+      )}
+      {data && data.top_movers.length > 0 && (
+        <table className="w-full text-xs">
+          <thead className="text-[11px] text-muted-foreground">
+            <tr>
+              <th className="px-4 py-2 text-left font-normal">Country</th>
+              <th className="px-2 py-2 text-right font-normal">Per 100k / wk</th>
+              <th className="px-2 py-2 text-right font-normal">Change</th>
+              <th className="px-4 py-2 text-right font-normal">Cases</th>
+            </tr>
+          </thead>
+          <tbody className="metric">
+            {data.top_movers.map((m) => (
+              <tr key={m.iso3} className="border-t border-border/60 hover:bg-accent/40">
+                <td className="px-4 py-2">
+                  <Link href={`/countries/${m.iso3}?disease=dengue`} className="hover:text-primary">
+                    {m.name}
+                  </Link>
+                </td>
+                <td className="px-2 py-2 text-right">
+                  {formatRate(m.incidence)}
+                  <div className="text-[10.5px] text-muted-foreground">from {formatRate(m.previous_incidence)}</div>
+                </td>
+                <td className="px-2 py-2 text-right">
+                  <span className="inline-flex items-center gap-0.5">
+                    {(m.change_pct ?? 0) > 0 ? (
+                      <ArrowUpRight className="size-3.5 text-muted-foreground" aria-hidden />
+                    ) : (
+                      <ArrowDownRight className="size-3.5 text-muted-foreground" aria-hidden />
+                    )}
+                    {m.change_pct == null ? "—" : formatSigned(m.change_pct, 0, "%")}
+                  </span>
+                </td>
+                <td className="px-4 py-2 text-right text-muted-foreground">{formatInt(m.cases)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
 /* ---------- Trend ---------- */
 
-const METRICS = {
+interface Metric {
+  label: string;
+  kind: "line" | "bar";
+  get: (p: TrendPoint) => number | null | undefined;
+  value: (v: number) => string;
+  axis: (v: number) => string;
+}
+
+const CASE_METRICS: Record<string, Metric> = {
+  cases: {
+    label: "Reported cases",
+    kind: "bar",
+    get: (p) => p.cases,
+    value: (v) => formatInt(v),
+    axis: (v) => formatCompact(v),
+  },
+  incidence: {
+    label: "Cases per 100k",
+    kind: "line",
+    get: (p) => p.incidence,
+    value: (v) => formatRate(v),
+    axis: (v) => formatRate(v),
+  },
+  countries: {
+    label: "Countries reporting",
+    kind: "bar",
+    get: (p) => p.countries_reporting,
+    value: (v) => formatInt(v),
+    axis: (v) => formatInt(v),
+  },
+};
+
+const METRICS: Record<string, Metric> = {
   positivity: {
     label: "Test positivity",
     kind: "line",
@@ -447,17 +627,17 @@ const METRICS = {
     value: (v: number) => formatInt(v),
     axis: (v: number) => formatCompact(v),
   },
-} as const;
-type MetricKey = keyof typeof METRICS;
+};
 
-function TrendCard({ data }: { data: Overview | undefined }) {
-  const [metric, setMetric] = useState<MetricKey>("positivity");
-  const m = METRICS[metric];
+function TrendCard({ data, caseBased }: { data: Overview | undefined; caseBased: boolean }) {
+  const metrics = caseBased ? CASE_METRICS : METRICS;
+  const [metric, setMetric] = useState<string>(Object.keys(metrics)[0]);
+  const m = metrics[metric] ?? Object.values(metrics)[0];
   const points = useMemo<WeeklyPoint[]>(
     () =>
       (data?.trend ?? []).map((p) => ({
         week: p.week_start,
-        value: m.get(p),
+        value: m.get(p) ?? null,
         provisional: p.is_provisional,
         details: [["Countries reporting", formatInt(p.countries_reporting)]],
       })),
@@ -470,12 +650,12 @@ function TrendCard({ data }: { data: Overview | undefined }) {
         <div>
           <h2 className="text-base font-semibold">Weekly {m.label.toLowerCase()}</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Pooled across reporting countries
+            {caseBased ? "Weekly-reporting countries" : "Pooled across reporting countries"}
             {data?.region ? ` in ${data.region}` : ""} · selected period highlighted · dashed / faded = provisional (reporting incomplete)
           </p>
         </div>
         <div className="grid grid-cols-3 gap-1 rounded-full border border-border bg-muted p-1 text-xs" role="radiogroup" aria-label="Trend metric">
-          {(Object.keys(METRICS) as MetricKey[]).map((k) => (
+          {Object.keys(metrics).map((k) => (
             <button
               key={k}
               type="button"
@@ -487,7 +667,7 @@ function TrendCard({ data }: { data: Overview | undefined }) {
                 metric === k ? "bg-primary font-medium text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {METRICS[k].label}
+              {metrics[k].label}
             </button>
           ))}
         </div>

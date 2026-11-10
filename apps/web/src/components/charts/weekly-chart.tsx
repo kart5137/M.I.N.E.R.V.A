@@ -25,6 +25,8 @@ export interface WeeklyChartProps {
   ariaLabel: string;
   compact?: boolean;
   className?: string;
+  /** Points are weeks (default) or calendar months (monthly reporters). */
+  period?: "week" | "month";
 }
 
 /** One measure per chart, one y-axis. Provisional weeks are shaded and drawn dashed (line) or faded (bars). */
@@ -38,6 +40,7 @@ export function WeeklyChart({
   ariaLabel,
   compact = false,
   className,
+  period = "week",
 }: WeeklyChartProps) {
   const option = useMemo<EChartsOption>(() => {
     const firstProv = points.find((p) => p.provisional)?.week;
@@ -75,7 +78,9 @@ export function WeeklyChart({
             ...(p.details ?? []),
           ];
           return [
-            `<div style="font-weight:600;margin-bottom:4px">${formatWeek(p.week)} <span style="color:${CHART.muted};font-weight:400">${isoWeekLabel(p.week)}</span></div>`,
+            period === "month"
+              ? `<div style="font-weight:600;margin-bottom:4px">${new Date(`${p.week}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })}</div>`
+              : `<div style="font-weight:600;margin-bottom:4px">${formatWeek(p.week)} <span style="color:${CHART.muted};font-weight:400">${isoWeekLabel(p.week)}</span></div>`,
             ...rows.map(
               ([k, v]) =>
                 `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:${CHART.muted}">${k}</span><span style="font-variant-numeric:tabular-nums">${v}</span></div>`,
@@ -100,7 +105,7 @@ export function WeeklyChart({
             new Date(`${v}T00:00:00Z`).toLocaleDateString(
               "en-GB",
               // Short series: day + month, otherwise month labels repeat.
-              points.length <= 30
+              points.length <= 30 && period === "week"
                 ? { day: "numeric", month: "short", timeZone: "UTC" }
                 : { month: "short", year: "2-digit", timeZone: "UTC" },
             ),
@@ -141,7 +146,7 @@ export function WeeklyChart({
         },
       ],
     };
-  }, [points, kind, seriesName, formatValue, formatAxis, highlight, compact]);
+  }, [points, kind, seriesName, formatValue, formatAxis, highlight, compact, period]);
 
   return <EChart option={option} ariaLabel={ariaLabel} className={className} />;
 }

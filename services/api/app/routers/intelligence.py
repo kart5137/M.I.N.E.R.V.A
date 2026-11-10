@@ -11,7 +11,7 @@ from app.core.db import get_session
 from app.queries import detection as det
 from app.queries import models as mq
 from app.queries.alerts import ALERT_RULES, list_alerts
-from app.queries.common import check_region, load_disease
+from app.queries.common import check_region, load_disease, load_lab_disease
 from app.queries.countries import country_row
 from app.reports import service
 from app.reports.facts import LIMITATIONS
@@ -68,7 +68,7 @@ def alerts(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> AlertList:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Alerting")
     code = country_row(session, iso3)["iso3"] if iso3 else None
     total, by_type, by_sev, items = list_alerts(
         session, ctx, region=check_region(region), iso3=code, alert_type=alert_type,
@@ -87,7 +87,7 @@ def reports(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ReportList:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Intelligence reports")
     total, items = service.list_reports(session, ctx, scope, iso3, page, page_size)
     return ReportList(total=total, page=page, page_size=page_size, items=items)
 
@@ -98,7 +98,7 @@ def generate_report(req: GenerateRequest, request: Request,
                     session: Session = Depends(get_session),
                     disease: Disease = "influenza") -> GenerateResponse:
     service.check_rate(request.client.host if request.client else "unknown")
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Intelligence reports")
     report, reused = service.generate(session, ctx, req)
     return GenerateResponse(report=report, reused=reused)
 
@@ -112,7 +112,7 @@ def report(report_id: int, session: Session = Depends(get_session)) -> ReportDet
             summary="Regenerate from current stored data and compare with the stored report")
 def verify_report(report_id: int, session: Session = Depends(get_session),
                   disease: Disease = "influenza") -> Verification:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Intelligence reports")
     return service.verify(session, ctx, report_id)
 
 

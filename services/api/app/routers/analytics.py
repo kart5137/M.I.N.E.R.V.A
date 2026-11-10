@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_session
 from app.core.errors import ApiError
 from app.queries import analytics as q
-from app.queries.common import MIN_SPECIMENS_FOR_RATE, WEEK, load_disease, monday
+from app.queries.common import MIN_SPECIMENS_FOR_RATE, WEEK, load_lab_disease, monday
 from app.schemas.analytics import Heatmap, Trends
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -31,7 +31,7 @@ def trends(
     from_: Annotated[date | None, Query(alias="from")] = None,
     to: date | None = None,
 ) -> Trends:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Analytics")
     specs = q.parse_series(session, series.split(","))
     end = min(monday(to), ctx.latest_week) if to else ctx.latest_week
     default_span = {"week": 103, "month": 260, "year": 520}[granularity]
@@ -55,7 +55,7 @@ def heatmap(
     disease: Disease = "influenza",
     years: Annotated[int, Query(ge=1, le=32)] = 10,
 ) -> Heatmap:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Analytics")
     if "," in series:
         raise ApiError(422, "invalid_series", "The heatmap takes exactly one series.")
     spec = q.parse_series(session, [series])[0]

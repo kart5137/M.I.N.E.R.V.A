@@ -60,6 +60,16 @@ export interface CountryWindowValue {
   weeks_reported: number;
   provisional_weeks: number;
   tier: string | null;
+  /** Case-based diseases (dengue). `grain` says whether the value comes from weekly
+   *  reports in the window or from the calendar months overlapping it. */
+  cases?: number | null;
+  /** Cases per 100,000 population per week. */
+  incidence?: number | null;
+  population?: number | null;
+  grain?: "week" | "month" | null;
+  periods_reported?: number | null;
+  period_start?: string | null;
+  period_end?: string | null;
 }
 
 export interface GlobalSurveillance {
@@ -91,15 +101,22 @@ export interface TrendPoint {
   positivity: number | null;
   countries_reporting: number;
   is_provisional: boolean;
+  cases?: number | null;
+  incidence?: number | null;
 }
 
+/** Influenza: positivity change (pp). Case-based: relative incidence change (%). */
 export interface Mover {
   iso3: string;
   name: string;
-  positivity: number;
-  previous_positivity: number;
-  change_pp: number;
-  specimens_tested: number;
+  positivity: number | null;
+  previous_positivity: number | null;
+  change_pp: number | null;
+  specimens_tested: number | null;
+  incidence?: number | null;
+  previous_incidence?: number | null;
+  change_pct?: number | null;
+  cases?: number | null;
 }
 
 export interface Overview {
@@ -108,9 +125,13 @@ export interface Overview {
   previous_window: WindowInfo;
   region: string | null;
   kpis: {
-    detections: Kpi;
-    positivity: Kpi;
+    /** Influenza only. */
+    detections: Kpi | null;
+    positivity: Kpi | null;
     countries_reporting: Kpi;
+    /** Case-based diseases only. */
+    cases?: Kpi | null;
+    incidence?: Kpi | null;
     anomalies: Kpi | null;
     hotspots: Kpi | null;
     above_threshold: Kpi | null;
@@ -119,6 +140,7 @@ export interface Overview {
   trend: TrendPoint[];
   top_movers: Mover[];
   movers_min_specimens: number;
+  movers_min_cases?: number | null;
 }
 
 export interface CountryProfile {
@@ -138,11 +160,16 @@ export interface CountryProfile {
     longest_gap: number;
     median_tests: number | null;
     weeks_since_last: number | null;
+    /** Unit of completeness and longest_gap. */
+    grain?: "week" | "month";
   } | null;
   surveillance: {
     first_week: string | null;
     last_reported_week: string | null;
     weeks_reported: number;
+    first_month?: string | null;
+    last_reported_month?: string | null;
+    months_reported?: number;
   };
   flu_season: SeasonType | null;
   health: HealthValue[];
@@ -174,6 +201,10 @@ export interface CountryListItem {
   positivity: number | null;
   positives: number | null;
   specimens_tested: number | null;
+  cases?: number | null;
+  incidence?: number | null;
+  grain?: "week" | "month" | null;
+  last_reported_month?: string | null;
 }
 
 export type CountrySort =
@@ -182,7 +213,9 @@ export type CountrySort =
   | "positivity"
   | "specimens_tested"
   | "positives"
-  | "last_reported_week";
+  | "last_reported_week"
+  | "cases"
+  | "incidence";
 
 export interface CountryList {
   meta: ResponseMeta;
@@ -288,6 +321,16 @@ export interface SeriesPoint {
   positives: number | null;
   positivity: number | null;
   is_provisional: boolean;
+  cases?: number | null;
+  incidence?: number | null;
+}
+
+export interface MonthPoint {
+  month_start: string;
+  cases: number | null;
+  /** Cases per 100,000 per week (month total / weeks in the month). */
+  incidence: number | null;
+  is_provisional: boolean;
 }
 
 export interface CountryTimeseries {
@@ -295,6 +338,7 @@ export interface CountryTimeseries {
   iso3: string;
   window: WindowInfo;
   points: SeriesPoint[];
+  monthly?: MonthPoint[];
 }
 
 /* ---------- Forecasting (M5) ---------- */

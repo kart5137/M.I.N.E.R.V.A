@@ -11,7 +11,8 @@ import { QueryError } from "@/components/common/query-state";
 import { SEASON_LABEL, TierBadge } from "@/components/countries/countries-table";
 import { useCountryProfile, useCountrySeasons, useCountryTimeseries } from "@/hooks/use-surveillance";
 import { ApiError } from "@/lib/api";
-import { REGIONS } from "@/lib/filters";
+import { DISEASES, type DiseaseInfo } from "@/lib/diseases";
+import { REGIONS, diseaseParam, useFilters, withParams } from "@/lib/filters";
 import { addWeeks, formatCompact, formatInt, formatPct, formatWeek, windowLabel } from "@/lib/format";
 import { MIN_SPECIMENS } from "@/lib/positivity-scale";
 import type { CountryProfile, HealthValue, ThresholdLevels } from "@/lib/types";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { AlertListCard } from "@/components/intelligence/alert-list-card";
 import { GenerateReportForm } from "@/components/intelligence/reports-view";
 
+import { CaseCoverage, CaseHistory, CaseRecentStats, LaterFeatures, hasCaseReports } from "./case-sections";
 import { AnomalyTimeline, HotspotCard, RiskCard } from "./detection-cards";
 import { ForecastSummary } from "./forecast-summary";
 import { SeasonChart, SeasonTable } from "./season-chart";
@@ -74,7 +76,9 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
 export function CountryIntelligence() {
   const { iso3: raw } = useParams<{ iso3: string }>();
   const iso3 = raw.toUpperCase();
-  const profile = useCountryProfile(iso3);
+  const [filters] = useFilters();
+  const info = DISEASES[filters.disease];
+  const profile = useCountryProfile(iso3, info.key);
   const p = profile.data;
 
   if (profile.error) {
@@ -92,10 +96,35 @@ export function CountryIntelligence() {
     );
   }
 
+  if (info.caseBased) {
+    return (
+      <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6">
+        <BackLink info={info} />
+        <Header iso3={iso3} p={p} info={info} />
+        {p && <CaseRecentStats p={p} />}
+        {p && !hasCaseReports(p) && (
+          <p className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+            <TriangleAlert className="size-4 shrink-0" aria-hidden />
+            This area has no {info.label.toLowerCase()} cases reported to WHO. Context indicators are shown where available.
+          </p>
+        )}
+        {p && hasCaseReports(p) && <CaseHistory iso3={iso3} p={p} info={info} />}
+        <LaterFeatures iso3={iso3} info={info} />
+        {p && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Context p={p} />
+            <CaseCoverage p={p} />
+          </div>
+        )}
+        {p && <Provenance meta={p.meta} />}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6">
-      <BackLink />
-      <Header iso3={iso3} p={p} />
+      <BackLink info={info} />
+      <Header iso3={iso3} p={p} info={info} />
       {p && <RecentStats p={p} />}
       {p && p.surveillance.weeks_reported === 0 && (
         <p className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
@@ -132,25 +161,26 @@ export function CountryIntelligence() {
   );
 }
 
-function BackLink() {
+function BackLink({ info }: { info?: DiseaseInfo }) {
   return (
-    <Link href="/countries" className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+    <Link href={withParams("/countries", info ? diseaseParam(info.key) : "")} className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
       <ArrowLeft className="size-3.5" aria-hidden />
       Countries
     </Link>
   );
 }
 
-function Header({ iso3, p }: { iso3: string; p: CountryProfile | undefined }) {
+function Header({ iso3, p, info }: { iso3: string; p: CountryProfile | undefined; info: DiseaseInfo }) {
   const region = REGIONS.find((r) => r.code === p?.who_region);
   return (
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-lg font-semibold tracking-tight">{p?.name ?? iso3}</h1>
+        <div className="eyebrow text-teal">{info.label} intelligence</div>
+        <h1 className="mt-1 text-lg font-semibold tracking-tight">{p?.name ?? iso3}</h1>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span className="font-mono">{iso3}</span>
           {region && <span>· {region.label} ({region.code})</span>}
-          {p?.flu_season && <span>· {SEASON_LABEL[p.flu_season]} season pattern</span>}
+          {!info.caseBased && p?.flu_season && <span>· {SEASON_LABEL[p.flu_season]} season pattern</span>}
           {p?.coverage && (
             <span className="flex items-center gap-1">
               · <TierBadge tier={p.coverage.tier} /> coverage tier
@@ -161,7 +191,7 @@ function Header({ iso3, p }: { iso3: string; p: CountryProfile | undefined }) {
       </div>
       {p?.has_geometry && (
         <Link
-          href={`/surveillance?country=${iso3}`}
+          href={withParams(`/surveillance?country=${iso3}`, diseaseParam(info.key))}
           className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <Globe2 className="size-3.5" aria-hidden />

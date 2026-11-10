@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.queries import cases
 from app.queries import detection as det
 from app.queries.common import WEEK, DiseaseContext, Window
 from app.schemas.surveillance import (
@@ -54,6 +55,8 @@ _COUNTRY_WINDOW = text(f"""
 
 def country_window(session: Session, ctx: DiseaseContext, w: Window,
                    region: str | None, iso3: str | None = None) -> list[CountryWindowValue]:
+    if ctx.case_based:
+        return cases.country_window(session, ctx, w, region, iso3)
     rows = session.execute(
         _COUNTRY_WINDOW,
         {"d": ctx.id, "start": w.start, "end": w.end, "region": region, "iso3": iso3},
@@ -83,6 +86,8 @@ def _relative(cur: float | None, prev: float | None) -> float | None:
 
 
 def kpis(session: Session, ctx: DiseaseContext, w: Window, region: str | None) -> Kpis:
+    if ctx.case_based:
+        return cases.kpis(session, ctx, w, region)
     cur = _totals(session, ctx, w, region)
     prev = _totals(session, ctx, w.previous, region)
     pp = (None if cur.positivity is None or prev.positivity is None
@@ -150,6 +155,8 @@ _TREND = text(f"""
 def trend(session: Session, ctx: DiseaseContext, w: Window, region: str | None,
           weeks: int) -> list[TrendPoint]:
     """Weekly pooled series up to the latest week, long enough to include both windows."""
+    if ctx.case_based:
+        return cases.trend(session, ctx, w, region, weeks)
     start = max(ctx.first_week, min(ctx.latest_week - WEEK * (weeks - 1), w.previous.start))
     rows = session.execute(
         _TREND, {"d": ctx.id, "start": start, "end": ctx.latest_week, "region": region}
@@ -182,7 +189,9 @@ _MOVERS = text(f"""
 
 
 def top_movers(session: Session, ctx: DiseaseContext, w: Window, region: str | None,
-               min_tests: int, limit: int = 8) -> list[Mover]:
+               min_tests: int, limit: int = 8, min_cases: int = 50) -> list[Mover]:
+    if ctx.case_based:
+        return cases.top_movers(session, ctx, w, region, min_cases, limit)
     rows = session.execute(_MOVERS, {
         "d": ctx.id, "start": w.start, "end": w.end, "pstart": w.previous.start,
         "region": region, "min_tests": min_tests, "limit": limit,

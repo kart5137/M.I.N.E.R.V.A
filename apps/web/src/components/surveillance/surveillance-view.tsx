@@ -12,11 +12,13 @@ import { Globe, type GlobeLayers } from "@/components/globe";
 import { Switch } from "@/components/ui/switch";
 import { useElementHeight, useMediaQuery } from "@/hooks/use-element-size";
 import { globalQueryOptions, useGlobalSurveillance } from "@/hooks/use-surveillance";
+import { DISEASES } from "@/lib/diseases";
 import { useFilters } from "@/lib/filters";
 import { formatInt, windowLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import { CountryPanel } from "./country-panel";
+import { IncidenceLegend } from "./incidence-legend";
 import { PositivityLegend } from "./positivity-legend";
 import { TimeSlider } from "./time-slider";
 
@@ -81,8 +83,21 @@ export function SurveillanceView() {
     setFillModeState(m);
     setParam(FILL_PARAM, m === "positivity" ? null : m);
   };
-  const layers: GlobeLayers = { positivity: fillMode === "positivity", detections };
-  const detection = useDetectionLayers(fillMode === "none" ? "positivity" : fillMode, showAnomalies, filters);
+  const info = DISEASES[filters.disease];
+  // Case-based diseases (dengue) have only their primary fill until detection exists for
+  // them; the detection hooks are kept idle so no influenza data is drawn.
+  const caseBased = info.caseBased;
+  const activeFill: FillMode | "none" = caseBased && fillMode !== "none" ? "positivity" : fillMode;
+  const fillOptions: { key: FillMode | "none"; label: string }[] = caseBased
+    ? [{ key: "positivity", label: "Cases per 100,000" }, { key: "none", label: "None" }]
+    : [...FILL_MODES, { key: "none", label: "None" }];
+  const anomaliesOn = showAnomalies && info.features.detection;
+  const layers: GlobeLayers = { positivity: activeFill === "positivity", detections };
+  const detection = useDetectionLayers(
+    activeFill === "none" ? "positivity" : activeFill,
+    anomaliesOn,
+    filters,
+  );
 
   const queryClient = useQueryClient();
   const global = useGlobalSurveillance(filters);
@@ -115,6 +130,7 @@ export function SurveillanceView() {
         autoRotate={autoRotate}
         values={data?.countries}
         windowWeeks={data?.window.weeks}
+        measure={caseBased ? "incidence" : "positivity"}
         layers={layers}
         fill={detection.fill}
         rings={detection.rings}
@@ -126,7 +142,7 @@ export function SurveillanceView() {
         }}
       />
 
-      <h1 className="sr-only">Global surveillance</h1>
+      <h1 className="sr-only">Global {info.label.toLowerCase()} surveillance</h1>
       <button
         type="button"
         onClick={() => setControlsOpen((o) => !o)}
@@ -170,26 +186,26 @@ export function SurveillanceView() {
         <section className="space-y-2 border-t border-border pt-3">
           <SectionTitle>Country fill</SectionTitle>
           <div className="space-y-0.5" role="radiogroup" aria-label="Country fill">
-            {[...FILL_MODES, { key: "none" as const, label: "None" }].map((m) => (
+            {fillOptions.map((m) => (
               <button
                 key={m.key}
                 type="button"
                 role="radio"
-                aria-checked={fillMode === m.key}
+                aria-checked={activeFill === m.key}
                 onClick={() => setFillMode(m.key)}
                 className={cn(
                   "flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs transition-colors",
-                  fillMode === m.key ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+                  activeFill === m.key ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 <span
                   className={cn(
                     "grid size-3 place-items-center rounded-full border",
-                    fillMode === m.key ? "border-primary" : "border-muted-foreground/50",
+                    activeFill === m.key ? "border-primary" : "border-muted-foreground/50",
                   )}
                   aria-hidden
                 >
-                  {fillMode === m.key && <span className="size-1.5 rounded-full bg-primary" />}
+                  {activeFill === m.key && <span className="size-1.5 rounded-full bg-primary" />}
                 </span>
                 {m.label}
               </button>
@@ -200,30 +216,48 @@ export function SurveillanceView() {
           </div>
           <Toggle
             id="layer-detections"
-            label="Detections (3D columns)"
+            label={caseBased ? "Reported cases (3D columns)" : "Detections (3D columns)"}
             checked={detections}
             onChange={setDetections}
             swatch={<span className="h-3 w-1.5 rounded-t-[2px] bg-[#4fcfbd]" />}
           />
-          <Toggle
-            id="layer-anomalies"
-            label="Anomalies (rings)"
-            checked={showAnomalies}
-            onChange={(v) => {
-              setShowAnomalies(v);
-              setParam("anomalies", v ? "1" : null);
-            }}
-            swatch={<span className="size-2.5 rounded-full border-2 border-[#f6f0e3]" />}
-          />
+          {info.features.detection ? (
+            <Toggle
+              id="layer-anomalies"
+              label="Anomalies (rings)"
+              checked={showAnomalies}
+              onChange={(v) => {
+                setShowAnomalies(v);
+                setParam("anomalies", v ? "1" : null);
+              }}
+              swatch={<span className="size-2.5 rounded-full border-2 border-[#f6f0e3]" />}
+            />
+          ) : (
+            <p className="text-[10.5px] leading-snug text-muted-foreground">
+              Anomaly and hot-spot layers for {info.label.toLowerCase()} are planned for a later phase.
+            </p>
+          )}
         </section>
 
         <section className="max-h-[34vh] overflow-y-auto border-t border-border pt-3">
-          {fillMode === "positivity" && <PositivityLegend showDetections={detections} />}
-          {fillMode !== "positivity" && detections && <PositivityLegend showDetections hideScale className="mb-2" />}
+          {caseBased ? (
+            activeFill === "positivity" ? (
+              <IncidenceLegend disease={info.label} showColumns={detections} />
+            ) : (
+              detections && (
+                <p className="text-[11px] text-muted-foreground">Column height ∝ √ weekly average reported cases</p>
+              )
+            )
+          ) : (
+            <>
+              {fillMode === "positivity" && <PositivityLegend showDetections={detections} />}
+              {fillMode !== "positivity" && detections && <PositivityLegend showDetections hideScale className="mb-2" />}
+            </>
+          )}
           {detection.legend}
           {detection.note && <p className="mt-2 text-[10.5px] leading-snug text-muted-foreground">{detection.note}</p>}
           {detection.error && <QueryError error={detection.error} className="mt-2 text-[11px] text-status-error" />}
-          {fillMode === "none" && !detections && !showAnomalies && (
+          {activeFill === "none" && !detections && !anomaliesOn && (
             <p className="text-[11px] text-muted-foreground">All data layers are hidden.</p>
           )}
         </section>
@@ -241,6 +275,7 @@ export function SurveillanceView() {
           <CountryPanel
             key={selected}
             iso3={selected}
+            disease={filters.disease}
             window={data.window}
             value={valueByIso3.get(selected)}
             onClose={() => setSelected(null)}

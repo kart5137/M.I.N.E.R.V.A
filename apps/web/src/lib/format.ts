@@ -17,6 +17,16 @@ export function formatPct(v: number | null | undefined, digits = 1): string {
   return v == null ? DASH : `${(v * 100).toFixed(digits)}%`;
 }
 
+/** Cases per 100,000 per week: "<0.01", "0.42", "9.2", "276". */
+export function formatRate(v: number | null | undefined): string {
+  if (v == null) return DASH;
+  if (v === 0) return "0";
+  if (v < 0.01) return "<0.01";
+  if (v < 1) return v.toFixed(2);
+  if (v < 100) return v.toFixed(1);
+  return Math.round(v).toLocaleString("en-US");
+}
+
 /** Signed value with a true minus sign: +1.2 / −0.4 / ±0.0 */
 export function formatSigned(v: number, digits = 1, suffix = ""): string {
   const abs = Math.abs(v).toFixed(digits);

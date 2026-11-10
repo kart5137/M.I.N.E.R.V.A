@@ -6,6 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
+from app.queries import cases
 from app.queries.common import MIN_SPECIMENS_FOR_RATE, DiseaseContext, Window
 from app.queries.surveillance import country_window
 from app.schemas.countries import (
@@ -24,7 +25,13 @@ _LIST_WHERE = """
 """
 
 SORT_KEYS = ("name", "tier", "positivity", "specimens_tested", "positives",
-             "last_reported_week")
+             "last_reported_week", "cases", "incidence")
+
+_LAB_STATS = """
+    SELECT iso3, max(week_start) AS last_reported_week, count(*) AS weeks_reported
+    FROM surveillance_weekly WHERE disease_id = :d AND specimens_tested > 0
+    GROUP BY iso3
+"""
 
 
 def list_countries(session: Session, ctx: DiseaseContext, w: Window, region: str | None,
@@ -33,12 +40,9 @@ def list_countries(session: Session, ctx: DiseaseContext, w: Window, region: str
     """All matching countries with their recent-window values; sorted in Python (≤ ~250
     rows). Missing values always sort last, whatever the order."""
     params = {"d": ctx.id, "region": region, "q": q or None}
+    stats = cases.LIST_STATS if ctx.case_based else _LAB_STATS
     rows = session.execute(text(f"""
-        WITH stats AS (
-          SELECT iso3, max(week_start) AS last_reported_week, count(*) AS weeks_reported
-          FROM surveillance_weekly WHERE disease_id = :d AND specimens_tested > 0
-          GROUP BY iso3
-        ), latest_profile AS (
+        WITH stats AS ({stats}), latest_profile AS (
           SELECT iso3, tier FROM coverage_profiles
           WHERE disease_id = :d AND reference_week =
             (SELECT max(reference_week) FROM coverage_profiles WHERE disease_id = :d)
@@ -51,6 +55,8 @@ def list_countries(session: Session, ctx: DiseaseContext, w: Window, region: str
         WHERE {_LIST_WHERE}
     """), params).mappings().all()
     values = {v.iso3: v for v in country_window(session, ctx, w, region)}
+    last_month = (dict(session.execute(cases.LAST_MONTHS, {"d": ctx.id}).all())
+                  if ctx.case_based else {})
 
     items = []
     for r in rows:
@@ -60,6 +66,10 @@ def list_countries(session: Session, ctx: DiseaseContext, w: Window, region: str
             positivity=v.positivity if v else None,
             positives=v.positives if v else None,
             specimens_tested=v.specimens_tested if v else None,
+            cases=v.cases if v else None,
+            incidence=v.incidence if v else None,
+            grain=v.grain if v else None,
+            last_reported_month=last_month.get(r["iso3"]),
         ))
 
     def key(item: CountryListItem):
@@ -123,7 +133,8 @@ def population(session: Session, iso3: str) -> Population | None:
 
 def coverage(session: Session, ctx: DiseaseContext, iso3: str) -> Coverage | None:
     row = session.execute(text("""
-        SELECT reference_week, tier, completeness, longest_gap, median_tests, weeks_since_last
+        SELECT reference_week, tier, completeness, longest_gap, median_tests, weeks_since_last,
+          grain
         FROM coverage_profiles WHERE disease_id = :d AND iso3 = :iso3
         ORDER BY reference_week DESC LIMIT 1
     """), {"d": ctx.id, "iso3": iso3}).mappings().one_or_none()
@@ -131,6 +142,8 @@ def coverage(session: Session, ctx: DiseaseContext, iso3: str) -> Coverage | Non
 
 
 def surveillance_summary(session: Session, ctx: DiseaseContext, iso3: str) -> SurveillanceSummary:
+    if ctx.case_based:
+        return cases.surveillance_summary(session, ctx, iso3)
     row = session.execute(text("""
         SELECT min(week_start) AS first_week,
           max(week_start) FILTER (WHERE specimens_tested > 0) AS last_reported_week,

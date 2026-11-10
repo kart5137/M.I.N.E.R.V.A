@@ -3,6 +3,8 @@
 import { useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
 
+import { DEFAULT_DISEASE, type DiseaseKey, isDiseaseKey } from "@/lib/diseases";
+
 /**
  * Dashboard filters live in the URL query string, so every view is shareable and
  * back-button safe. Components using this must sit under a <Suspense> boundary.
@@ -20,6 +22,7 @@ export const PERIODS = [1, 4, 8, 13, 26, 52] as const;
 export const DEFAULT_WEEKS = 4;
 
 export interface Filters {
+  disease: DiseaseKey;
   region: string | null;
   weeks: number;
   /** Last week of the window; null = the reference week. */
@@ -35,7 +38,9 @@ export function useFilters(): [Filters, (patch: Partial<Filters>) => void] {
     const region = params.get("region")?.toUpperCase() ?? null;
     const weeks = Number(params.get("weeks"));
     const to = params.get("to");
+    const disease = params.get("disease");
     return {
+      disease: isDiseaseKey(disease) ? disease : DEFAULT_DISEASE,
       region: REGIONS.some((r) => r.code === region) ? region : null,
       weeks: (PERIODS as readonly number[]).includes(weeks) ? weeks : DEFAULT_WEEKS,
       to: to && ISO_DATE.test(to) ? to : null,
@@ -43,8 +48,14 @@ export function useFilters(): [Filters, (patch: Partial<Filters>) => void] {
   }, [params]);
 
   const update = useCallback((patch: Partial<Filters>) => {
-    const weeks = patch.weeks === DEFAULT_WEEKS ? null : patch.weeks;
-    updateSearchParams({ ...patch, ...("weeks" in patch ? { weeks } : {}) });
+    const next: Record<string, string | number | null | undefined> = { ...patch };
+    if ("weeks" in patch) next.weeks = patch.weeks === DEFAULT_WEEKS ? null : patch.weeks;
+    if ("disease" in patch) {
+      next.disease = patch.disease === DEFAULT_DISEASE ? null : patch.disease;
+      // Each disease has its own data range: a chosen end week may not exist for the other.
+      if (!("to" in patch)) next.to = null;
+    }
+    updateSearchParams(next);
   }, []);
 
   return [filters, update];
@@ -62,8 +73,21 @@ export function updateSearchParams(patch: Record<string, string | number | null 
   window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
 }
 
+/** The `disease` query parameter for API paths that do not take the full filter set. */
+export function diseaseParam(disease: DiseaseKey): string {
+  return disease === DEFAULT_DISEASE ? "" : `disease=${disease}`;
+}
+
+/** Append query parameters to a path that may already have some. */
+export function withParams(path: string, ...params: string[]): string {
+  const qs = params.filter(Boolean).join("&");
+  if (!qs) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}${qs}`;
+}
+
 export function filterQuery(f: Filters): string {
   const p = new URLSearchParams({ weeks: String(f.weeks) });
+  if (f.disease !== DEFAULT_DISEASE) p.set("disease", f.disease);
   if (f.region) p.set("region", f.region);
   if (f.to) p.set("to", f.to);
   return p.toString();

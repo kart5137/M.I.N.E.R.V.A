@@ -13,7 +13,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { API_BASE_URL } from "@/lib/api";
-import { formatInt, formatPct } from "@/lib/format";
+import { formatInt, formatPct, formatRate } from "@/lib/format";
 import {
   DETECTIONS_RGB,
   FEW_SPECIMENS_COLOR,
@@ -21,6 +21,7 @@ import {
   POSITIVITY_BINS,
   positivityClass,
 } from "@/lib/positivity-scale";
+import { incidenceClass, monthSpan, weeklyCases } from "@/lib/incidence-scale";
 import type { CountryWindowValue } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,10 @@ export type CountryProps = {
   label: [number, number];
 };
 type Countries = FeatureCollection<Polygon | MultiPolygon, CountryProps>;
+
+/** What the fill and columns show: influenza test positivity and lab detections, or
+ *  reported incidence and cases (case-based diseases such as dengue). */
+export type GlobeMeasure = "positivity" | "incidence";
 
 export interface GlobeLayers {
   positivity: boolean;
@@ -72,6 +77,7 @@ export interface GlobeProps {
   values?: CountryWindowValue[];
   /** Window length, used to show detections as a weekly average. */
   windowWeeks?: number;
+  measure?: GlobeMeasure;
   layers?: GlobeLayers;
   selectedIso3?: string | null;
   onCountryClick?: (country: CountryProps) => void;
@@ -197,6 +203,7 @@ export function Globe({
   className,
   values,
   windowWeeks = 1,
+  measure = "positivity",
   layers = DEFAULT_LAYERS,
   selectedIso3 = null,
   onCountryClick,
@@ -418,7 +425,12 @@ export function Globe({
     if (!map || !styleReady || !countries) return;
     for (const f of countries.features) {
       const iso3 = f.properties.iso3;
-      const cls = fill ? (fill.byIso3.get(iso3) ?? -1) : positivityClass(valueByIso3.get(iso3));
+      const v = valueByIso3.get(iso3);
+      const cls = fill
+        ? (fill.byIso3.get(iso3) ?? -1)
+        : measure === "incidence"
+          ? incidenceClass(v)
+          : positivityClass(v);
       map.setFeatureState({ source: "countries", id: iso3 }, { cls });
     }
     map.setPaintProperty(
@@ -426,7 +438,7 @@ export function Globe({
       "fill-color",
       fill ? classColor(fill.colors) : fillColor(layers.positivity),
     );
-  }, [valueByIso3, layers.positivity, fill, styleReady, countries]);
+  }, [valueByIso3, layers.positivity, fill, styleReady, countries, measure]);
 
   // Selection outline
   useEffect(() => {
@@ -447,7 +459,8 @@ export function Globe({
     const data = layers.detections
       ? (values ?? []).flatMap((v) => {
           const c = byIso3.get(v.iso3);
-          return c && v.positives ? [{ position: c.label, weekly: v.positives / windowWeeks }] : [];
+          const weekly = measure === "incidence" ? weeklyCases(v) : (v.positives ?? 0) / windowWeeks;
+          return c && weekly ? [{ position: c.label, weekly }] : [];
         })
       : [];
     const ringData = (rings ?? []).flatMap((r) => {
@@ -489,7 +502,7 @@ export function Globe({
         }),
       ],
     });
-  }, [layers.detections, values, windowWeeks, byIso3, styleReady, rings, ringColor, projection]);
+  }, [layers.detections, values, windowWeeks, byIso3, styleReady, rings, ringColor, projection, measure]);
 
   const hovered = hover ? byIso3.get(hover.iso3) : undefined;
   const hoveredValue = hover ? valueByIso3.get(hover.iso3) : undefined;
@@ -521,13 +534,50 @@ export function Globe({
             <span className="font-medium text-foreground">{hovered.name}</span>
             <span className="font-mono text-[10.5px] text-muted-foreground">{hovered.iso3}</span>
           </div>
-          {values && !fill && <HoverValues v={hoveredValue} />}
+          {values && !fill && (measure === "incidence" ? <HoverCases v={hoveredValue} /> : <HoverValues v={hoveredValue} />)}
           {hoverDetail?.(hover.iso3)}
         </div>
       )}
       <div className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-subtle-foreground">
         Boundaries: Natural Earth
       </div>
+    </div>
+  );
+}
+
+function HoverRows({ rows }: { rows: [string, string][] }) {
+  return (
+    <>
+      {rows.map(([k, val]) => (
+        <div key={k} className="flex justify-between gap-4">
+          <span className="text-muted-foreground">{k}</span>
+          <span className="metric text-foreground">{val}</span>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function HoverCases({ v }: { v: CountryWindowValue | undefined }) {
+  if (!v) return <div className="mt-1 text-muted-foreground">No report in this window</div>;
+  const monthly = v.grain === "month" && v.period_start && v.period_end;
+  return (
+    <div className="mt-1.5 space-y-0.5">
+      <HoverRows
+        rows={[
+          ["Per 100k / week", formatRate(v.incidence)],
+          ["Reported cases", formatInt(v.cases)],
+          monthly
+            ? ["Monthly report", monthSpan(v.period_start!, v.period_end!)]
+            : ["Weeks reported", String(v.periods_reported ?? v.weeks_reported)],
+        ]}
+      />
+      {v.incidence == null && (
+        <div className="pt-1 text-[10.5px] text-muted-foreground">No population figure: no rate</div>
+      )}
+      {v.provisional_weeks > 0 && (
+        <div className="pt-1 text-[10.5px] text-status-warn">Includes provisional reports</div>
+      )}
     </div>
   );
 }

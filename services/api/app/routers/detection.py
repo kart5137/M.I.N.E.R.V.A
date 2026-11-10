@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_session
 from app.queries import detection as q
-from app.queries.common import Window, check_region, load_disease, make_window, monday
+from app.queries.common import (
+    Window,
+    check_region,
+    load_lab_disease,
+    make_window,
+    monday,
+)
 from app.queries.countries import country_row
 from app.schemas.detection import (
     Anomalies,
@@ -38,7 +44,7 @@ def anomalies(
     iso3: Annotated[str | None, Query(description="One country")] = None,
     method: Annotated[Literal["seasonal_ewma", "isolation_forest"] | None, Query()] = None,
 ) -> Anomalies:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Outbreak detection")
     region = check_region(region)
     code = country_row(session, iso3)["iso3"] if iso3 else None
     w = make_window(ctx, to, weeks)
@@ -56,7 +62,7 @@ def hotspots(
     to: To = None,
     region: Region = None,
 ) -> Hotspots:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Outbreak detection")
     region = check_region(region)
     run, _ = q.run_info(session, ctx)
     first, last, weeks, spec = q.hotspot_range(session, ctx)
@@ -74,7 +80,7 @@ def hotspots(
             summary="Weekly counts of hotspot and anomaly countries")
 def detection_history(session: Session = Depends(get_session), disease: Disease = "influenza",
                       region: Region = None) -> DetectionHistory:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Outbreak detection")
     region = check_region(region)
     return DetectionHistory(meta=ctx.meta(), region=region,
                             points=q.history(session, ctx, region))
@@ -84,7 +90,7 @@ def detection_history(session: Session = Depends(get_session), disease: Disease 
             summary="Risk level of the 2-week forecast against MEM thresholds")
 def risk(session: Session = Depends(get_session), disease: Disease = "influenza",
          region: Region = None) -> RiskList:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Outbreak detection")
     region = check_region(region)
     run, summary = q.run_info(session, ctx)
     items = q.risk(session, ctx, region)
@@ -97,7 +103,7 @@ def risk(session: Session = Depends(get_session), disease: Disease = "influenza"
             summary="Thresholds, risk, anomalies (latest 52 weeks) and hotspot status")
 def country_detection(iso3: str, session: Session = Depends(get_session),
                       disease: Disease = "influenza") -> CountryDetection:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Outbreak detection")
     c = country_row(session, iso3)
     run, summary = q.run_info(session, ctx)
     by_season = q.thresholds_by_season(session, ctx, c["iso3"])

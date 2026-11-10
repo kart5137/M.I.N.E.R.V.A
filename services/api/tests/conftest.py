@@ -11,6 +11,17 @@ Weeks W0..W7 start on Mondays from 2024-01-01; W7 is provisional.
 
 Season types: AAA NH, BBB SH, CCC YR. AAA rows carry an A/B breakdown (A = 6·(w+1),
 B = 4·(w+1)). Health: AAA hospital beds 2.5 (2020) and 3.0 (2022); nothing else.
+
+Dengue (case-based, source `who_dengue`), same weeks, W7 provisional:
+
+| country | population | reports                                                        |
+|---------|------------|----------------------------------------------------------------|
+| AAA     | 1000       | weekly cases w+1 (W0..W7); also a monthly Jan 2024 row of 310   |
+|         |            | (ignored in windows that have weekly reports)                  |
+| BBB     | none       | weekly cases 5, W0..W6, no row for W2                           |
+| CCC     | none       | monthly only: Jan 2024 62, Feb 2024 29 (provisional)            |
+
+`mpox` is a registered disease with no data.
 """
 
 from __future__ import annotations
@@ -53,11 +64,14 @@ def _seed(conn) -> None:
     conn.execute(text("""
         INSERT INTO data_sources (id, key, name, attribution_text)
           VALUES (1, 'flunet', 'WHO FluNet', 'Influenza data: WHO FluNet.'),
-                 (2, 'worldbank_wdi', 'World Bank WDI', NULL);
+                 (2, 'worldbank_wdi', 'World Bank WDI', NULL),
+                 (3, 'who_dengue', 'WHO dengue', 'Dengue data: WHO.');
         INSERT INTO diseases (id, key, name, native_granularity, primary_metric, metric_label)
           VALUES (1, 'influenza', 'Influenza', 'weekly', 'positivity', 'Test positivity'),
-                 (2, 'dengue', 'Dengue', 'weekly', 'cases', 'Cases');
-        INSERT INTO ingestion_runs (id, source_id, status) VALUES (1, 1, 'success');
+                 (2, 'dengue', 'Dengue', 'weekly+monthly', 'cases', 'Cases'),
+                 (3, 'mpox', 'Mpox', 'weekly', 'cases', 'Cases');
+        INSERT INTO ingestion_runs (id, source_id, status)
+          VALUES (1, 1, 'success'), (2, 3, 'success');
         INSERT INTO countries (iso3, iso2, name, who_region, flu_season, geom) VALUES
           ('AAA', 'AA', 'Alpha', 'EUR', 'NH',
            ST_Multi(ST_GeomFromText('POLYGON((0 0,1 0,1 1,0 1,0 0))', 4326))),
@@ -72,7 +86,25 @@ def _seed(conn) -> None:
         INSERT INTO coverage_profiles
           (disease_id, iso3, reference_week, tier, completeness, longest_gap)
           VALUES (1, 'AAA', '2024-02-12', 'A', 1.0, 0);
+        INSERT INTO coverage_profiles
+          (disease_id, iso3, reference_week, tier, grain, completeness, longest_gap)
+          VALUES (2, 'AAA', '2024-02-12', 'A', 'week', 1.0, 0),
+                 (2, 'CCC', '2024-02-12', 'C', 'month', 1.0, 0);
+        INSERT INTO surveillance_monthly
+          (disease_id, iso3, month_start, cases, is_provisional, source_id, ingestion_run_id)
+          VALUES (2, 'AAA', '2024-01-01', 310, false, 3, 2),
+                 (2, 'CCC', '2024-01-01', 62, false, 3, 2),
+                 (2, 'CCC', '2024-02-01', 29, true, 3, 2);
     """))
+    for i, wk in enumerate(W):
+        y, n, _ = wk.isocalendar()
+        dengue = [("AAA", i + 1)] + ([("BBB", 5)] if i not in (2, 7) else [])
+        for iso3, cases in dengue:
+            conn.execute(text("""
+                INSERT INTO surveillance_weekly (disease_id, iso3, week_start, iso_year,
+                  iso_week, cases, is_provisional, source_id, ingestion_run_id)
+                VALUES (2, :iso3, :wk, :y, :n, :cases, :prov, 3, 2)
+            """), {"iso3": iso3, "wk": wk, "y": y, "n": n, "cases": cases, "prov": i == 7})
     for iso3, wk, tests, pos, prov in _rows():
         valid = tests is not None and tests > 0 and pos is not None and pos <= tests
         y, n, _ = wk.isocalendar()

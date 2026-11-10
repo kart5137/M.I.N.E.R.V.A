@@ -49,6 +49,8 @@ def overview(
     region: Region = None,
     trend_weeks: Annotated[int, Query(ge=13, le=520)] = 156,
     movers_min_specimens: Annotated[int, Query(ge=1)] = 50,
+    movers_min_cases: Annotated[int, Query(
+        ge=1, description="Case-based diseases: minimum cases in both windows")] = 50,
 ) -> Overview:
     ctx = load_disease(session, disease)
     region = check_region(region)
@@ -58,6 +60,8 @@ def overview(
         region=region,
         kpis=kpis(session, ctx, w, region),
         trend=trend(session, ctx, w, region, trend_weeks),
-        top_movers=top_movers(session, ctx, w, region, movers_min_specimens),
+        top_movers=top_movers(session, ctx, w, region, movers_min_specimens,
+                              min_cases=movers_min_cases),
         movers_min_specimens=movers_min_specimens,
+        movers_min_cases=movers_min_cases if ctx.case_based else None,
     )

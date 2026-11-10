@@ -9,16 +9,26 @@ import { Provenance } from "@/components/common/provenance";
 import { QueryError } from "@/components/common/query-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { useCountries } from "@/hooks/use-surveillance";
-import { REGIONS, updateSearchParams, useFilters } from "@/lib/filters";
-import { formatInt, formatPct, formatWeek, windowLabel } from "@/lib/format";
+import { DISEASES, type DiseaseKey } from "@/lib/diseases";
+import { REGIONS, diseaseParam, updateSearchParams, useFilters, withParams } from "@/lib/filters";
+import { formatInt, formatPct, formatRate, formatWeek, windowLabel } from "@/lib/format";
+import { monthSpan } from "@/lib/incidence-scale";
 import { MIN_SPECIMENS } from "@/lib/positivity-scale";
 import type { CountryListItem, CountrySort } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 50;
 const SORTS: CountrySort[] = ["name", "tier", "positivity", "positives", "specimens_tested", "last_reported_week"];
+const CASE_SORTS: CountrySort[] = ["name", "tier", "incidence", "cases"];
 /** Numeric columns default to descending (largest first) when first clicked. */
-const DESC_FIRST = new Set<CountrySort>(["positivity", "positives", "specimens_tested", "last_reported_week"]);
+const DESC_FIRST = new Set<CountrySort>([
+  "positivity",
+  "positives",
+  "specimens_tested",
+  "last_reported_week",
+  "incidence",
+  "cases",
+]);
 
 export const SEASON_LABEL = { NH: "Northern", SH: "Southern", YR: "Year-round" } as const;
 
@@ -38,7 +48,9 @@ export function CountriesTable() {
   const [filters] = useFilters();
   const params = useSearchParams();
   const sortParam = params.get("sort") as CountrySort | null;
-  const sort: CountrySort = sortParam && SORTS.includes(sortParam) ? sortParam : "name";
+  const caseBased = DISEASES[filters.disease].caseBased;
+  const sorts = caseBased ? CASE_SORTS : SORTS;
+  const sort: CountrySort = sortParam && sorts.includes(sortParam) ? sortParam : "name";
   const order = params.get("order") === "desc" ? "desc" : "asc";
   const page = Math.max(1, Number(params.get("page")) || 1);
   const q = params.get("q") ?? "";
@@ -51,7 +63,15 @@ export function CountriesTable() {
     return () => clearTimeout(t);
   }, [draft, q]);
 
-  const list = useCountries({ region: filters.region, q, sort, order, page, pageSize: PAGE_SIZE });
+  const list = useCountries({
+    disease: filters.disease,
+    region: filters.region,
+    q,
+    sort,
+    order,
+    page,
+    pageSize: PAGE_SIZE,
+  });
   const data = list.data;
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
   const region = REGIONS.find((r) => r.code === filters.region)?.label;
@@ -65,6 +85,7 @@ export function CountriesTable() {
     <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6">
       <PageHeader
         title="Countries"
+        eyebrow={`${DISEASES[filters.disease].label} surveillance`}
         description={
           data
             ? `${formatInt(data.total)} areas${region ? ` in ${region}` : ""} · recent values: ${windowLabel(data.window)}`
@@ -98,16 +119,31 @@ export function CountriesTable() {
             <tr className="border-b border-border">
               <SortHeader label="Country" k="name" sort={sort} order={order} onSort={setSort} align="left" />
               <th className="px-3 py-2 text-left font-normal">Region</th>
-              <th className="px-3 py-2 text-left font-normal">Season</th>
+              <th className="px-3 py-2 text-left font-normal">{caseBased ? "Reports" : "Season"}</th>
               <SortHeader label="Tier" k="tier" sort={sort} order={order} onSort={setSort} align="center" />
-              <SortHeader label="Positivity" k="positivity" sort={sort} order={order} onSort={setSort} />
-              <SortHeader label="Detections" k="positives" sort={sort} order={order} onSort={setSort} />
-              <SortHeader label="Specimens" k="specimens_tested" sort={sort} order={order} onSort={setSort} />
-              <SortHeader label="Last reported" k="last_reported_week" sort={sort} order={order} onSort={setSort} />
+              {caseBased ? (
+                <>
+                  <SortHeader label="Per 100k / week" k="incidence" sort={sort} order={order} onSort={setSort} />
+                  <SortHeader label="Cases" k="cases" sort={sort} order={order} onSort={setSort} />
+                </>
+              ) : (
+                <>
+                  <SortHeader label="Positivity" k="positivity" sort={sort} order={order} onSort={setSort} />
+                  <SortHeader label="Detections" k="positives" sort={sort} order={order} onSort={setSort} />
+                  <SortHeader label="Specimens" k="specimens_tested" sort={sort} order={order} onSort={setSort} />
+                </>
+              )}
+              {caseBased ? (
+                <th className="px-3 py-2 text-right font-normal">Last reported</th>
+              ) : (
+                <SortHeader label="Last reported" k="last_reported_week" sort={sort} order={order} onSort={setSort} />
+              )}
             </tr>
           </thead>
           <tbody className={cn("metric", list.isPlaceholderData && "opacity-60")}>
-            {data?.items.map((c) => <Row key={c.iso3} c={c} />)}
+            {data?.items.map((c) =>
+              caseBased ? <CaseRow key={c.iso3} c={c} disease={filters.disease} /> : <Row key={c.iso3} c={c} />,
+            )}
             {data && data.items.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
@@ -122,7 +158,9 @@ export function CountriesTable() {
       {data && (
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
           <span>
-            Positivity is shown muted and not ranked when fewer than {MIN_SPECIMENS} specimens were tested. Missing values sort last.
+            {caseBased
+              ? "Monthly reporters show the calendar months overlapping the period. Case definitions differ by country. Missing values sort last."
+              : `Positivity is shown muted and not ranked when fewer than ${MIN_SPECIMENS} specimens were tested. Missing values sort last.`}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -215,6 +253,42 @@ function Row({ c }: { c: CountryListItem }) {
       <td className="px-3 py-2 text-right">{formatInt(c.positives)}</td>
       <td className="px-3 py-2 text-right text-muted-foreground">{formatInt(c.specimens_tested)}</td>
       <td className="px-3 py-2 text-right text-muted-foreground">{formatWeek(c.last_reported_week)}</td>
+    </tr>
+  );
+}
+
+function CaseRow({ c, disease }: { c: CountryListItem; disease: DiseaseKey }) {
+  const lastMonth = c.last_reported_month;
+  const lastWeek = c.last_reported_week;
+  // The more recent of the two report types.
+  const last =
+    lastMonth && (!lastWeek || lastMonth > lastWeek)
+      ? monthSpan(lastMonth, lastMonth)
+      : formatWeek(lastWeek);
+  const cadence = c.grain ?? (lastMonth && (!lastWeek || lastMonth > lastWeek) ? "month" : lastWeek ? "week" : null);
+  return (
+    <tr className="border-b border-border/60 last:border-0 hover:bg-accent/40">
+      <td className="px-3 py-2">
+        <Link href={withParams(`/countries/${c.iso3}`, diseaseParam(disease))} className="font-medium hover:text-primary">
+          {c.name}
+        </Link>
+        <span className="ml-2 font-mono text-[10.5px] text-muted-foreground">{c.iso3}</span>
+        {!c.has_geometry && (
+          <span className="ml-2 text-[10.5px] text-muted-foreground" title="No separate boundary; not drawn on the map">
+            not mapped
+          </span>
+        )}
+      </td>
+      <td className="px-3 py-2 text-muted-foreground">{c.who_region ?? "—"}</td>
+      <td className="px-3 py-2 text-muted-foreground">
+        {cadence === "month" ? "Monthly" : cadence === "week" ? "Weekly" : "—"}
+      </td>
+      <td className="px-3 py-2 text-center">
+        <TierBadge tier={c.tier} />
+      </td>
+      <td className="px-3 py-2 text-right">{formatRate(c.incidence)}</td>
+      <td className="px-3 py-2 text-right">{formatInt(c.cases)}</td>
+      <td className="px-3 py-2 text-right text-muted-foreground">{last}</td>
     </tr>
   );
 }

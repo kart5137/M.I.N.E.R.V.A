@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_session
 from app.core.errors import ApiError
+from app.queries import cases
 from app.queries import countries as q
 from app.queries.common import (
     MIN_SPECIMENS_FOR_RATE,
@@ -26,7 +27,7 @@ router = APIRouter(prefix="/countries", tags=["countries"])
 
 Disease = Annotated[str, Query(description="Disease key, e.g. `influenza`.")]
 SortKey = Literal["name", "tier", "positivity", "specimens_tested", "positives",
-                  "last_reported_week"]
+                  "last_reported_week", "cases", "incidence"]
 #: Window for "recent" values in the list and profile: 4 weeks to the reference week.
 RECENT_WEEKS = 4
 SEASON_RULES = {
@@ -94,6 +95,10 @@ def country_timeseries(
     if start > end:
         raise ApiError(422, "invalid_range", "'from' must not be after 'to'.")
     w = Window(start, end, (end - start).days // 7 + 1)
+    if ctx.case_based:
+        points, monthly = cases.timeseries(session, ctx, c["iso3"], w)
+        return CountryTimeseries(meta=ctx.meta(), iso3=c["iso3"], window=w.info(ctx),
+                                 points=points, monthly=monthly)
     return CountryTimeseries(meta=ctx.meta(), iso3=c["iso3"], window=w.info(ctx),
                              points=q.timeseries(session, ctx, c["iso3"], w))
 
@@ -108,6 +113,11 @@ def country_seasons_endpoint(
 ) -> CountrySeasons:
     ctx = load_disease(session, disease)
     c = q.country_row(session, iso3)
+    if ctx.case_based:
+        return CountrySeasons(meta=ctx.meta(), iso3=c["iso3"], season_type=None,
+                              season_rule=f"Season alignment is not available for {ctx.name} "
+                                          "yet.",
+                              min_specimens_for_peak=MIN_SPECIMENS_FOR_RATE, seasons=[])
     season_type = c["flu_season"]
     if season_type is None:
         # Area without FluNet reports: no season type is known, nothing to align.

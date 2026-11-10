@@ -4,9 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { diseaseParam, useFilters, withParams } from "@/lib/filters";
 import { cn } from "@/lib/utils";
 
 import { NAV_ITEMS } from "./nav-items";
+
+/** Nav links keep the selected disease, so moving between pages does not reset it. */
+function useHref() {
+  const [filters] = useFilters();
+  const q = diseaseParam(filters.disease);
+  return (href: string) => withParams(href, q);
+}
 
 function useIsActive() {
   const pathname = usePathname();
@@ -16,6 +24,7 @@ function useIsActive() {
 /** Desktop: a slim icon rail; each item names itself in a tooltip and to screen readers. */
 export function NavRail() {
   const isActive = useIsActive();
+  const toHref = useHref();
   return (
     <nav aria-label="Main" className="flex flex-col items-center gap-1.5">
       {NAV_ITEMS.map((item) => {
@@ -25,7 +34,7 @@ export function NavRail() {
           <Tooltip key={item.href}>
             <TooltipTrigger asChild>
               <Link
-                href={item.href}
+                href={toHref(item.href)}
                 aria-label={item.label}
                 aria-current={active ? "page" : undefined}
                 className={cn(
@@ -54,6 +63,7 @@ export function NavRail() {
 /** Mobile sheet: full labels. */
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const isActive = useIsActive();
+  const toHref = useHref();
   return (
     <nav aria-label="Main" className="flex flex-col gap-1 px-3">
       {NAV_ITEMS.map((item) => {
@@ -62,7 +72,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         return (
           <Link
             key={item.href}
-            href={item.href}
+            href={toHref(item.href)}
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={cn(

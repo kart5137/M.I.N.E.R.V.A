@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_session
 from app.core.errors import ApiError
 from app.queries import models as q
-from app.queries.common import check_region, load_disease
+from app.queries.common import check_region, load_lab_disease
 from app.queries.countries import country_row
 from app.schemas.models import (
     CountryBacktest,
@@ -28,7 +28,7 @@ Disease = Annotated[str, Query(description="Disease key, e.g. `influenza`.")]
 @router.get("/models", response_model=ModelRun,
             summary="Model versions of the current run with pooled backtest metrics")
 def models(session: Session = Depends(get_session), disease: Disease = "influenza") -> ModelRun:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Forecasting")
     run_key = q.current_run(session, ctx)
     if run_key is None:
         return ModelRun(meta=ctx.meta(), run_key=None, target=q.TARGET, trained_at=None,
@@ -42,7 +42,7 @@ def models(session: Session = Depends(get_session), disease: Disease = "influenz
             summary="One model version: backtest metrics, per-country errors, importance")
 def model_detail(version_id: int, session: Session = Depends(get_session),
                  disease: Disease = "influenza") -> ModelDetail:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Forecasting")
     v = q.version(session, version_id)
     return ModelDetail(
         meta=ctx.meta(), id=v["id"], run_key=v["run_key"], model_type=v["model_type"],
@@ -59,7 +59,7 @@ def model_detail(version_id: int, session: Session = Depends(get_session),
             summary="Stored forecasts for one country from the current run (all models)")
 def forecasts(iso3: str, session: Session = Depends(get_session),
               disease: Disease = "influenza") -> CountryForecasts:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Forecasting")
     c = country_row(session, iso3)
     run_key = q.current_run(session, ctx)
     if run_key is None:
@@ -79,7 +79,7 @@ def forecasts(iso3: str, session: Session = Depends(get_session),
 def forecasts_global(session: Session = Depends(get_session), disease: Disease = "influenza",
                      horizon: Annotated[int, Query(description="1, 2 or 4")] = 2,
                      region: Annotated[str | None, Query()] = None) -> GlobalForecasts:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Forecasting")
     region = check_region(region)
     if horizon not in (1, 2, 4):
         raise ApiError(422, "invalid_parameter", "horizon must be 1, 2 or 4.")
@@ -104,7 +104,7 @@ def forecast_explanation(forecast_id: int, session: Session = Depends(get_sessio
             summary="Out-of-sample backtest predictions vs. actuals for one country")
 def backtest(iso3: str, model_version_id: int, session: Session = Depends(get_session),
              disease: Disease = "influenza") -> CountryBacktest:
-    ctx = load_disease(session, disease)
+    ctx = load_lab_disease(session, disease, "Forecasting")
     c = country_row(session, iso3)
     v = q.version(session, model_version_id)
     latest = session.execute(text("SELECT count(*) FROM backtest_predictions "

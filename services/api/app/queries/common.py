@@ -7,6 +7,8 @@ Aggregation rules (used by every endpoint, documented in docs/DESIGN.md §5):
 - **Positivity** = sum(positives) / sum(specimens_tested), pooled over rows whose own
   positivity is valid (tests > 0 and positives ≤ tests). Not a mean of country rates.
 - A country-week is **reported** when specimens_tested > 0.
+
+Case-based diseases (dengue) have their own rules in app/queries/cases.py.
 """
 
 from __future__ import annotations
@@ -34,11 +36,17 @@ class DiseaseContext:
     key: str
     name: str
     metric_label: str
+    primary_metric: str
     first_week: date
     latest_week: date
     reference_week: date
     provisional_from: date | None
     sources: tuple[SourceRef, ...]
+
+    @property
+    def case_based(self) -> bool:
+        """Reported case counts (dengue) rather than laboratory tests (influenza)."""
+        return self.primary_metric == "cases"
 
     def meta(self) -> ResponseMeta:
         return ResponseMeta(
@@ -75,7 +83,7 @@ def monday(d: date) -> date:
 def load_disease(session: Session, key: str) -> DiseaseContext:
     row = session.execute(
         text("""
-            SELECT d.id, d.key, d.name, d.metric_label,
+            SELECT d.id, d.key, d.name, d.metric_label, d.primary_metric,
               (SELECT min(week_start) FROM surveillance_weekly WHERE disease_id = d.id),
               (SELECT max(week_start) FROM surveillance_weekly WHERE disease_id = d.id),
               (SELECT week_start FROM surveillance_weekly
@@ -90,7 +98,7 @@ def load_disease(session: Session, key: str) -> DiseaseContext:
     ).one_or_none()
     if row is None:
         raise ApiError(404, "unknown_disease", f"Unknown disease '{key}'.")
-    did, dkey, name, label, first, latest, reference, provisional = row
+    did, dkey, name, label, metric, first, latest, reference, provisional = row
     if latest is None:
         raise ApiError(404, "no_data",
                        f"No surveillance data is loaded for {name}. Run `ei ingest all`.")
@@ -98,20 +106,30 @@ def load_disease(session: Session, key: str) -> DiseaseContext:
     sources = session.execute(
         text("""
             SELECT key, name, attribution_text FROM data_sources
-            WHERE id IN (SELECT DISTINCT source_id FROM surveillance_weekly
-                         WHERE disease_id = :d)
+            WHERE id IN (SELECT source_id FROM surveillance_weekly WHERE disease_id = :d
+                         UNION SELECT source_id FROM surveillance_monthly WHERE disease_id = :d)
             ORDER BY key
         """),
         {"d": did},
     ).all()
     return DiseaseContext(
-        id=did, key=dkey, name=name, metric_label=label,
+        id=did, key=dkey, name=name, metric_label=label, primary_metric=metric,
         first_week=first, latest_week=latest,
         # With only provisional rows there is no settled week yet; fall back to latest.
         reference_week=reference or latest,
         provisional_from=provisional,
         sources=tuple(SourceRef(key=k, name=n, attribution=a) for k, n, a in sources),
     )
+
+
+def load_lab_disease(session: Session, key: str, feature: str) -> DiseaseContext:
+    """`load_disease` for endpoints built on laboratory data (positivity, forecasts,
+    detection). Case-based diseases get a clear 422 until their phase adds the feature."""
+    ctx = load_disease(session, key)
+    if ctx.case_based:
+        raise ApiError(422, "not_available",
+                       f"{feature} is not available for {ctx.name} yet (planned for phase D4).")
+    return ctx
 
 
 def make_window(ctx: DiseaseContext, end: date | None, weeks: int) -> Window:

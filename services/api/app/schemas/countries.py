@@ -22,6 +22,11 @@ class CountryListItem(BaseModel):
     positivity: float | None
     positives: float | None
     specimens_tested: float | None
+    # Case-based diseases.
+    cases: float | None = None
+    incidence: float | None = None
+    grain: str | None = None
+    last_reported_month: date | None = None
 
 
 class CountryList(BaseModel):
@@ -48,12 +53,17 @@ class Coverage(BaseModel):
     longest_gap: int
     median_tests: float | None
     weeks_since_last: int | None
+    grain: str = "week"  # unit of completeness / longest_gap: "week" or "month"
 
 
 class SurveillanceSummary(BaseModel):
     first_week: date | None
     last_reported_week: date | None
     weeks_reported: int
+    #: Monthly reports (case-based diseases); null/0 when the country reports weekly.
+    first_month: date | None = None
+    last_reported_month: date | None = None
+    months_reported: int = 0
 
 
 class HealthValue(BaseModel):
@@ -86,10 +96,20 @@ class CountryProfile(BaseModel):
 
 class SeriesPoint(BaseModel):
     week_start: date
-    reported: bool  # False: no row or no specimens tested (no surveillance, not zero flu)
+    # False: no report (influenza: no specimens tested; dengue: no case value).
+    reported: bool
     specimens_tested: float | None
     positives: float | None
     positivity: float | None
+    is_provisional: bool
+    cases: float | None = None
+    incidence: float | None = None  # cases per 100,000 that week
+
+
+class MonthPoint(BaseModel):
+    month_start: date
+    cases: float | None
+    incidence: float | None  # cases per 100,000 per week (month total / weeks in month)
     is_provisional: bool
 
 
@@ -98,6 +118,8 @@ class CountryTimeseries(BaseModel):
     iso3: str
     window: WindowInfo
     points: list[SeriesPoint]
+    #: Monthly reports overlapping the window (case-based diseases); empty otherwise.
+    monthly: list[MonthPoint] = []
 
 
 class SeasonPoint(BaseModel):
