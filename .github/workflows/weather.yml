@@ -28,7 +28,7 @@ permissions:
 jobs:
   backfill:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       PYTHONIOENCODING: utf-8
@@ -65,6 +65,7 @@ jobs:
           set -eo pipefail
           alembic -c packages/ei_db/alembic.ini upgrade head
           ei ingest reference
-          ei ingest weather --backfill-only --budget "${{ inputs.budget || 4400 }}" 2>&1 \
+          ei ingest weather --backfill-only --budget "${{ inputs.budget || 4400 }}" \
+            --max-minutes 30 2>&1 \
             | tee weather.log
           { echo '```'; grep -E '^\[' weather.log || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

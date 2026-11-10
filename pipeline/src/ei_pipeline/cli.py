@@ -113,6 +113,8 @@ def main(argv: list[str] | None = None) -> int:
     ingest.add_argument("--refresh", action="store_true", help="re-download source files")
     ingest.add_argument("--budget", type=float, default=DEFAULT_BUDGET,
                         help="weather: weighted Open-Meteo calls this run may use")
+    ingest.add_argument("--max-minutes", type=float, default=None,
+                        help="weather: no new requests after this many minutes")
     ingest.add_argument("--backfill-only", action="store_true",
                         help="weather: only areas whose history is still incomplete")
     forecast = sub.add_parser("forecast", help="backtest, train and store forecasts")
@@ -155,7 +157,8 @@ def main(argv: list[str] | None = None) -> int:
     steps = STEPS if args.step == "all" else (args.step,)
     for step in steps:
         t0 = time.perf_counter()
-        opts = ({"budget": args.budget, "backfill_only": args.backfill_only}
+        opts = ({"budget": args.budget, "backfill_only": args.backfill_only,
+                 "max_minutes": args.max_minutes}
                 if step == "weather" else {})
         report = _run_step(engine, step, args.refresh, **opts)
         print(f"[{step}] {time.perf_counter() - t0:.1f}s "

@@ -76,6 +76,11 @@ def test_quota_paces_minutes_and_stops_at_the_hour_or_budget():
     with pytest.raises(open_meteo.QuotaExhausted, match="budget"):
         small.take(26)
     assert small.used == 26
+    timed = open_meteo.Quota(budget=1000, max_seconds=100, clock=c, sleep=c.sleep)
+    timed.take(1)
+    c.t += 101
+    with pytest.raises(open_meteo.QuotaExhausted, match="time limit"):
+        timed.take(1)
 
 
 def test_chunks_are_week_aligned_and_cover_the_range():

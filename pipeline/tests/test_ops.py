@@ -160,9 +160,10 @@ def test_weekly_continues_when_optional_weather_fails(fake_jobs, monkeypatch):
 
 
 def test_ingest_weather_passes_budget_options(fake_jobs):
-    assert cli.main(["ingest", "weather", "--budget", "100", "--backfill-only"]) == 0
+    assert cli.main(["ingest", "weather", "--budget", "100", "--backfill-only",
+                     "--max-minutes", "25"]) == 0
     assert fake_jobs == [("weather", {"refresh": False, "budget": 100.0,
-                                      "backfill_only": True})]
+                                      "backfill_only": True, "max_minutes": 25.0})]
 
 
 def test_cli_single_commands(fake_jobs, capsys):

@@ -162,14 +162,16 @@ def _store(session: Session, iso3: str, weeks: pd.DataFrame, point: dict,
 
 
 def ingest_weather(engine: Engine, *, refresh: bool = False, backfill_only: bool = False,
-                   budget: float = DEFAULT_BUDGET, today: date | None = None,
+                   budget: float = DEFAULT_BUDGET, max_minutes: float | None = None,
+                   today: date | None = None,
                    fetch: Fetcher = open_meteo.fetch,
                    quota: open_meteo.Quota | None = None) -> dict:
     """Fetch, check, aggregate and upsert weather within `budget` weighted API calls.
-    Stops cleanly when the budget or the API's hourly/daily limit is reached; the next
-    run continues from the stored weeks."""
+    Stops cleanly when the budget, `max_minutes` or the API's hourly/daily limit is
+    reached; the next run continues from the stored weeks."""
     end = (today or date.today()) - timedelta(days=1)
-    quota = quota or open_meteo.Quota(budget)
+    quota = quota or open_meteo.Quota(
+        budget, max_seconds=None if max_minutes is None else 60 * max_minutes)
     with track_run(engine, SOURCE_KEY) as run:
         with session_scope(engine) as s:
             plan, skipped = _plan(s.execute(text(TARGETS)).all(), end=end, refresh=refresh,

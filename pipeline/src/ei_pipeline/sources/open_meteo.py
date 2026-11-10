@@ -52,8 +52,10 @@ class Quota:
     which other users of a shared IP also draw on) and a total budget for the run."""
 
     def __init__(self, budget: float, per_minute: float = 500, per_hour: float = 4500,
-                 clock=time.monotonic, sleep=time.sleep):
+                 max_seconds: float | None = None, clock=time.monotonic, sleep=time.sleep):
         self.budget, self.used = budget, 0.0
+        #: No new requests after this point (the run then ends cleanly).
+        self.deadline = None if max_seconds is None else clock() + max_seconds
         self.limits = ((60.0, per_minute), (3600.0, per_hour))
         self.log: deque[tuple[float, float]] = deque()
         self.clock, self.sleep = clock, sleep
@@ -61,6 +63,8 @@ class Quota:
     def take(self, w: float) -> None:
         if self.used + w > self.budget:
             raise QuotaExhausted(f"run budget of {self.budget:.0f} weighted calls used")
+        if self.deadline is not None and self.clock() > self.deadline:
+            raise QuotaExhausted("run time limit reached")
         while True:
             now = self.clock()
             while self.log and now - self.log[0][0] > 3600:
@@ -103,7 +107,7 @@ def parse(payload: dict) -> PointSeries:
 
 
 def fetch(lat: float, lon: float, start: date, end: date, *, quota: Quota,
-          retries: int = 4, timeout: int = 120) -> PointSeries:
+          retries: int = 4, timeout: int = 30) -> PointSeries:
     """Daily ERA5 values for one point, `start`–`end` inclusive (≤ MAX_DAYS days)."""
     if (end - start).days + 1 > MAX_DAYS:
         raise ValueError(f"request spans more than {MAX_DAYS} days")

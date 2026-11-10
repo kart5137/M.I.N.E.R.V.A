@@ -57,8 +57,9 @@ days of the free daily limit. Loading is therefore **resumable**:
 - each run continues every area from its last stored week, **forecast-ready areas first**
   (dengue tier A/B, 52 areas, ~2 days), then the rest;
 - requests are paced client-side below the minute and hour limits (500 / 4,500) and a run
-  stops cleanly at its **budget** (`--budget`, default 4,400) or when the API reports the
-  hourly/daily limit; what arrived is stored, and the run is recorded as succeeded with
+  stops cleanly at its **budget** (`--budget`, default 4,400), its time limit
+  (`--max-minutes`; 30 in the workflow) or when the API reports the hourly/daily limit;
+  requests time out after 30 s and are retried (from GitHub's runners some hang); what arrived is stored, and the run is recorded as succeeded with
   `stopped_early` in its quality report;
 - `.github/workflows/weather.yml` runs `ei ingest weather --backfill-only` twice a day
   (separate hourly windows). When every area is complete it makes no requests;
