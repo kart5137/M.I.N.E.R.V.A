@@ -12,6 +12,8 @@ alembic -c "$ROOT/packages/ei_db/alembic.ini" upgrade head
 echo "== ingest, forecast, detect, prune"
 ei weekly ${EI_WEEKLY_ARGS:-}
 
-echo "== weekly global report"
+echo "== weekly global reports"
 cd "$ROOT/services/api"
-python -m app.cli report --scope global --weeks "${EI_REPORT_WEEKS:-4}"
+for disease in influenza dengue; do
+  python -m app.cli report --disease "$disease" --scope global --weeks "${EI_REPORT_WEEKS:-4}"
+done

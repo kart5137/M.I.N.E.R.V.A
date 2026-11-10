@@ -138,8 +138,10 @@ def test_dengue_reports_render_cases_and_incidence(api: TestClient, dengue_run):
     assert "| Week | Reported cases | Incidence per 100,000 |" in c["rendered_md"]
     assert "| 19 Feb 2024 | +1 wk | XGBoost | 840 | 700–1,000 |" in c["rendered_md"]
     assert "incidence up 3 weeks in a row" in c["rendered_md"]
-    v = api.get(f"{V1}/reports/{c['id']}/verify", params=DENGUE).json()
-    assert v["inputs_identical"] and v["regenerated_identical"]
+    # Verify uses the report's own disease, with or without ?disease=.
+    for params in (DENGUE, {}):
+        v = api.get(f"{V1}/reports/{c['id']}/verify", params=params).json()
+        assert v["inputs_identical"] and v["regenerated_identical"], params
     m = api.post(f"{V1}/reports/generate", params=DENGUE,
                  json={"scope": "country", "iso3": "CCC"}).json()["report"]["rendered_md"]
     assert "Reported monthly" in m and "| Jan 2024 | 62 |" in m

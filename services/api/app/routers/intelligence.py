@@ -133,11 +133,10 @@ def report(report_id: int, session: Session = Depends(get_session)) -> ReportDet
 
 
 @router.get("/reports/{report_id}/verify", response_model=Verification,
-            summary="Regenerate from current stored data and compare with the stored report")
-def verify_report(report_id: int, session: Session = Depends(get_session),
-                  disease: Disease = "influenza") -> Verification:
-    ctx = load_disease(session, disease)
-    return service.verify(session, ctx, report_id)
+            summary="Regenerate from current stored data and compare with the stored report "
+                    "(uses the report's own disease)")
+def verify_report(report_id: int, session: Session = Depends(get_session)) -> Verification:
+    return service.verify(session, report_id)
 
 
 @router.get("/about", response_model=About,

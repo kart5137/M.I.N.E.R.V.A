@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
-from app.queries.common import DiseaseContext
+from app.queries.common import DiseaseContext, load_disease
 from app.reports.facts import TEMPLATE_VERSION, gather, sha256, title_of
 from app.reports.render import render_markdown
 from app.schemas.intelligence import (
@@ -114,8 +114,13 @@ def generate(session: Session, ctx: DiseaseContext, req: GenerateRequest
     return get_report(session, rid), False
 
 
-def verify(session: Session, ctx: DiseaseContext, report_id: int) -> Verification:
+def verify(session: Session, report_id: int) -> Verification:
+    """Regenerate a report for the disease it was written for and compare."""
     r = get_report(session, report_id)
+    key = session.execute(text("""
+        SELECT d.key FROM intelligence_reports r JOIN diseases d ON d.id = r.disease_id
+        WHERE r.id = :id"""), {"id": report_id}).scalar_one()
+    ctx = load_disease(session, key)
     stored = r.content
     again = gather(session, ctx, scope=r.scope, iso3=r.iso3, region=r.region,
                    to=r.period_end, weeks=r.weeks)

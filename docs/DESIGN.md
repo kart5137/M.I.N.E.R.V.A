@@ -435,7 +435,7 @@ lists the changed sections. `POST /reports/generate` is rate-limited (10/min per
 
 ## 7. Data flow
 
-Weekly run (`pipeline/scripts/weekly.sh`: migrations → `ei weekly` → `python -m app.cli report`;
+Weekly run (`pipeline/scripts/weekly.sh`: migrations → `ei weekly` → `python -m app.cli report` (global report per disease);
 scheduled by `.github/workflows/weekly.yml`, Wednesdays 06:00 UTC), each step idempotent
 and recorded; the first failing step stops the run:
 
