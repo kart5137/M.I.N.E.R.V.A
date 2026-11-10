@@ -4,6 +4,7 @@ with their milestones (M5–M7), each with its own migration."""
 from ei_db.models.detection import (
     Anomaly,
     DetectionRun,
+    EndemicChannel,
     HotspotResult,
     RiskAssessment,
     SeasonalThreshold,
@@ -40,6 +41,7 @@ __all__ = [
     "ReportAlert",
     "Anomaly",
     "DetectionRun",
+    "EndemicChannel",
     "HotspotResult",
     "RiskAssessment",
     "SeasonalThreshold",

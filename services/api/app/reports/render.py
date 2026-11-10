@@ -176,7 +176,9 @@ def render_markdown(c: dict) -> str:
             lines.append("No forecast for this country in the current run.")
         lines.append("")
         t = c["thresholds"]
-        if t and not t["quality_note"]:
+        if "channel" in c:
+            lines += _channel(c["channel"])
+        elif t and not t["quality_note"]:
             lines.append(f"Moving Epidemic Method levels for {t['season']}{unit}: epidemic "
                          f"threshold {v(t['epidemic_threshold'])}, medium "
                          f"{v(t['medium'])}, high {v(t['high'])}, very high "
@@ -189,12 +191,14 @@ def render_markdown(c: dict) -> str:
         lines.append("")
 
     lines += ["## Risk", ""]
+    channel = c.get("risk_method") == "endemic_channel"
     if c["risk"]:
         rows = [r for r in c["risk"] if c["scope"] == "country" or r["risk_level"] != "low"]
         if rows:
             lines += _table(
-                ["Country", "Risk", "Week", f"Forecast (80%){unit}", "Epidemic threshold",
-                 "High"],
+                ["Country", "Risk", "Week", f"Forecast (80%){unit}",
+                 "Top of channel" if channel else "Epidemic threshold",
+                 "90th percentile" if channel else "High"],
                 [[r["name"], r["risk_level"], _d(r["target_week"]),
                   f"{v(r['forecast_point'])} "
                   f"({_interval(r['forecast_lo80'], r['forecast_hi80'], inc)})",
@@ -203,6 +207,9 @@ def render_markdown(c: dict) -> str:
         low = sum(r["risk_level"] == "low" for r in c["risk"])
         if c["scope"] == "global":
             lines += ["", f"{low} further assessed countries are at low risk."]
+    elif channel:
+        lines.append("Not assessed (no endemic channel: fewer than 5 complete reporting "
+                     "years among the last 7, or no 2-week forecast).")
     else:
         lines.append("Not assessed (no usable MEM thresholds or no 2-week forecast).")
     lines.append("")
@@ -270,6 +277,31 @@ def _interval(lo: float | None, hi: float | None, inc: bool) -> str:
     return f"{_pct(lo, 0)}–{_pct(hi, 0)}"
 
 
+def _years(years: list[int]) -> str:
+    """[2019, 2020, 2021, 2023] -> "2019–2021, 2023"."""
+    out, start = [], None
+    for i, y in enumerate(years):
+        start = y if start is None else start
+        if i + 1 == len(years) or years[i + 1] != y + 1:
+            out.append(str(y) if start == y else f"{start}–{y}")
+            start = None
+    return ", ".join(out)
+
+
+def _channel(ch: dict | None) -> list[str]:
+    if ch is None:
+        return ["No endemic channel for this country: it needs 5 complete reporting years "
+                "among the last 7."]
+    out = [f"Endemic channel {ch['year']} (usual weekly range from "
+           f"{_years(ch['years_used'])}; highest year {_years(ch['excluded_years'])} left "
+           "out), per 100,000:", ""]
+    if ch["weeks"]:
+        out += _table(["Week", "Median", "Top of channel (75th)", "90th percentile"],
+                      [[_d(w["week_start"]), _inc(w["median"]), _inc(w["q75"]),
+                        _inc(w["p90"])] for w in ch["weeks"]], "lrrr")
+    return out
+
+
 def _dengue_summary(c: dict, s: dict, p: dict) -> list[str]:
     if c["scope"] == "global":
         out = [
@@ -287,9 +319,13 @@ def _dengue_summary(c: dict, s: dict, p: dict) -> list[str]:
                 f"- Countries with an anomaly: **{_int(s['countries_with_anomaly'])}**.",
                 f"- Countries in a Gi* hot spot (4 weeks to the period end): "
                 f"**{_int(s['countries_in_hotspot'])}**.",
-                f"- Latest 2-week forecast at or above the epidemic threshold: "
-                f"**{_int(s['above_threshold'])}** of {_int(s['risk_assessed'])} countries "
-                "with thresholds.",
+                (f"- Latest 2-week forecast above the usual range (endemic channel): "
+                 f"**{_int(s['above_threshold'])}** of {_int(s['risk_assessed'])} assessed "
+                 "countries."
+                 if c.get("risk_method") == "endemic_channel" else
+                 f"- Latest 2-week forecast at or above the epidemic threshold: "
+                 f"**{_int(s['above_threshold'])}** of {_int(s['risk_assessed'])} countries "
+                 "with thresholds."),
             ]
         return out
     if not s["weeks_reported"] and not s["periods_reported"]:

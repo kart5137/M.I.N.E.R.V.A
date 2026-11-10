@@ -128,8 +128,11 @@ def detection_kpis(session: Session, ctx: DiseaseContext, w: Window, region: str
         "above_threshold": Kpi(
             value=above, previous=None, change=None, change_unit="count",
             denominator=assessed,
-            note="Latest 2-week forecast at or above the MEM epidemic threshold "
-                 "(countries with usable thresholds)"),
+            note=("Latest 2-week forecast above the usual range (endemic channel; "
+                  "countries with 5 complete reporting years among the last 7)"
+                  if ctx.case_based else
+                  "Latest 2-week forecast at or above the MEM epidemic threshold "
+                  "(countries with usable thresholds)")),
     }
 
 

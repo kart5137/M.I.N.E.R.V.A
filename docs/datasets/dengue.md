@@ -175,11 +175,10 @@ and after the refactor).
 
 **Detection** (`ei detect run --disease dengue`), weekly reporters only:
 
-- **MEM thresholds** on weekly incidence with ISO calendar-year seasons, ≥ 3 usable
-  earlier years (≥ 75% of weeks reported), COVID years included. Finding: most dengue
-  series give unordered MEM levels (epidemic years like 2023–24 sit far above ordinary
-  ones), so the quality gate leaves only a few countries with usable levels and a risk
-  level (4 for the 2026 season locally). The others show the reason.
+- **Risk: endemic channel** (D5, below). D4 used MEM thresholds on calendar-year seasons;
+  most dengue series gave unordered MEM levels (epidemic years like 2023–24 sit far above
+  ordinary ones), so only 4 countries had usable levels and 2 a risk level. MEM is no
+  longer run for dengue.
 - **Anomalies:** seasonal EWMA on log(incidence + one case per 100,000), residual floor
   0.25 log units (≈ 28%), no COVID gap; expected value and band are reported as
   incidence. Comparable to the endemic channel used in dengue surveillance. Most flagged
@@ -193,6 +192,41 @@ and after the refactor).
 - **Reports:** dengue facts carry `"metric": "incidence"` (cases, incidence, movers by
   relative change, monthly table for monthly reporters); influenza report facts are
   unchanged, so stored influenza reports still verify.
+
+## Endemic channel and risk (D5)
+
+`detection/channel.py`, stored in `endemic_channels`; the method used in dengue
+surveillance in the Americas (Bortman 1999; PAHO), in its quartile form.
+
+- **Channel of year Y, week w:** the same ISO week ±1 in up to 7 complete calendar years
+  before Y (incidence in ≥ 75% of the year's weeks); the year with the highest mean
+  incidence is left out, at least 4 must remain (so 5 complete years are needed). Week 53
+  uses week 52 in years without one. Levels: median, 75th percentile (top of the channel)
+  and 90th percentile of the pooled values (≥ 8). COVID years are used.
+- **Risk** (2-week-ahead forecast of the active model): below the top of the channel =
+  low; up to the 90th percentile = moderate; at or above it = high. Both levels are at
+  least one weekly case (one case per 100,000 population, as incidence), so a country that
+  usually reports zero is not "above its range" on a fraction of a forecast case.
+- **Coverage** (local run, reference week 3 Aug 2026): 32 countries have a 2026 channel,
+  21 of them a forecast and so a risk level (was 2 with MEM): 16 low, 4 moderate, 1 high.
+  Countries that started weekly reporting recently show the reason (e.g. "2 complete
+  reporting years in 2019–2025").
+- **Historical check** (share of observed country-weeks above each week's levels; about
+  25% and 10% are expected in a year like those the channel was built from):
+
+  | Year | Countries | Above the channel (75th) | Above the 90th percentile |
+  |---|---|---|---|
+  | 2023 | 30 | 54.8% | 44.6% |
+  | 2024 | 29 | 67.9% | 58.6% |
+  | 2025 | 29 | 35.9% | 24.1% |
+
+  The channel separates the 2023–24 epidemic years clearly. 2025 is still above the
+  expected shares: reported dengue has risen over the decade (and reporting improved), so
+  one left-out year does not remove every high year. The run summary (`detection_runs.
+  summary.channels.check`) recomputes this table on every run.
+- **Dashboard:** the dengue country page shows the channel chart (this year's reported
+  incidence over the usual range, with the 2-week forecast); the risk card, risk map and
+  reports name the top of the channel and the 90th percentile.
 
 ## Known limitations
 

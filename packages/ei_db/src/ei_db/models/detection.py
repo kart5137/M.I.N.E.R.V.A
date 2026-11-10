@@ -80,8 +80,34 @@ class SeasonalThreshold(Base):
     quality_note: Mapped[str | None] = mapped_column(Text)
 
 
+class EndemicChannel(Base):
+    """Usual weekly range of a country for one calendar year (dengue, D5): median, 75th
+    (top of the channel) and 90th percentiles of incidence per 100,000 in the same ISO
+    week ±1 of earlier years, the highest year left out (pipeline detection/channel.py)."""
+
+    __tablename__ = "endemic_channels"
+    __table_args__ = (UniqueConstraint("disease_id", "iso3", "year", "iso_week"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("detection_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    disease_id: Mapped[int] = mapped_column(ForeignKey("diseases.id"), nullable=False)
+    iso3: Mapped[str] = mapped_column(ForeignKey("countries.iso3"), nullable=False, index=True)
+    year: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    iso_week: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)
+    median: Mapped[float] = mapped_column(Double, nullable=False)
+    q75: Mapped[float] = mapped_column(Double, nullable=False)
+    p90: Mapped[float] = mapped_column(Double, nullable=False)
+    n_values: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    years_used: Mapped[list] = mapped_column(JSONB, nullable=False)
+    excluded_years: Mapped[list] = mapped_column(JSONB, nullable=False)
+
+
 class RiskAssessment(Base):
-    """Risk level of a 2-week-ahead forecast against the season's MEM thresholds.
+    """Risk level of a 2-week-ahead forecast against the season's MEM thresholds
+    (`method` "mem") or the target week's endemic channel ("endemic_channel", dengue).
     Forecast values and the thresholds used are copied in, so the row stays meaningful
     after forecast or detection reruns. Unlike the other outputs, risk rows are kept
     across runs (one per country and assessed week): the history drives the
@@ -113,6 +139,7 @@ class RiskAssessment(Base):
     season: Mapped[str | None] = mapped_column(String(8))
     epidemic_threshold: Mapped[float | None] = mapped_column(Double)
     high_threshold: Mapped[float | None] = mapped_column(Double)
+    method: Mapped[str] = mapped_column(String(16), nullable=False, server_default="mem")
 
 
 class Anomaly(Base):

@@ -11,7 +11,9 @@ from app.queries.common import WEEK, DiseaseContext, Window
 from app.schemas.detection import (
     AnomalyCountry,
     AnomalyItem,
+    ChannelWeek,
     DetectionRunInfo,
+    EndemicChannel,
     HistoryPoint,
     HotspotItem,
     HotspotStatus,
@@ -43,11 +45,12 @@ RISK_RULE = (
     "at or above high intensity = high."
 )
 DENGUE_RISK_RULE = (
-    "Active 2-week-ahead incidence forecast vs the calendar year's Moving Epidemic Method "
-    "levels (from earlier years' weekly incidence): below the epidemic threshold = low; up "
-    "to high intensity = moderate; at or above high intensity = high. Most countries' "
-    "dengue years are too irregular for MEM (epidemic years far above ordinary ones), so "
-    "only a few countries are assessed."
+    "Active 2-week-ahead incidence forecast vs the endemic channel of the target week (its "
+    "usual range: the same ISO week ±1 in up to 7 earlier complete years, the highest year "
+    "left out, at least 4 remaining): below the top of the channel (75th percentile) = low; "
+    "up to the 90th percentile = moderate; at or above it = high. Both levels are at least "
+    "one weekly case. Countries without 5 complete reporting years among the last 7 are "
+    "not assessed."
 )
 
 
@@ -229,16 +232,27 @@ def thresholds_by_season(session: Session, ctx: DiseaseContext, iso3: str
     return {r["season_start"]: ThresholdLevels(**r) for r in rows}
 
 
+#: Risk rows are kept across runs (their history drives the escalation alert); current
+#: levels are those of the disease's latest finished detection run. MEM rows also need
+#: their thresholds (an earlier run's thresholds are replaced).
+_LATEST_RUN = """(SELECT id FROM detection_runs WHERE disease_id = :d
+                  AND finished_at IS NOT NULL ORDER BY finished_at DESC LIMIT 1)"""
+_CURRENT_RISK = f"""r.run_id = {_LATEST_RUN} AND (r.method <> 'mem' OR t.id IS NOT NULL)"""
+
 _RISK = text(f"""
     SELECT r.iso3, c.name, c.who_region, r.assessed_week, r.target_week, r.risk_level, r.rule,
            r.forecast_point, r.forecast_lo80, r.forecast_hi80, r.model_type,
-           {_THRESHOLD_COLS}
+           r.method AS risk_method, r.season AS risk_season,
+           r.epidemic_threshold AS risk_epidemic, r.high_threshold AS risk_high,
+           t.id AS threshold_id, {_THRESHOLD_COLS}
     FROM risk_assessments r
-    JOIN seasonal_thresholds t ON t.id = r.threshold_id
+    LEFT JOIN seasonal_thresholds t ON t.id = r.threshold_id
     JOIN countries c ON c.iso3 = r.iso3
-    WHERE r.disease_id = :d AND {_REGION} AND (CAST(:iso3 AS text) IS NULL OR r.iso3 = :iso3)
+    WHERE r.disease_id = :d AND {_CURRENT_RISK} AND {_REGION}
+      AND (CAST(:iso3 AS text) IS NULL OR r.iso3 = :iso3)
     ORDER BY CASE r.risk_level WHEN 'high' THEN 0 WHEN 'moderate' THEN 1 ELSE 2 END,
-             r.forecast_point / NULLIF(t.epidemic_threshold, 0) DESC, r.iso3
+             r.forecast_point / NULLIF(coalesce(t.epidemic_threshold, r.epidemic_threshold), 0)
+             DESC, r.iso3
 """)
 
 _RISK_FIELDS = ("iso3", "name", "who_region", "assessed_week", "target_week", "risk_level",
@@ -250,9 +264,34 @@ def risk(session: Session, ctx: DiseaseContext, region: str | None,
     rows = session.execute(_RISK, {"d": ctx.id, "region": region, "iso3": iso3}).mappings()
     out = []
     for r in rows:
-        th = ThresholdLevels(**{k: r[k] for k in ThresholdLevels.model_fields})
-        out.append(RiskItem(**{k: r[k] for k in _RISK_FIELDS}, thresholds=th))
+        th = (ThresholdLevels(**{k: r[k] for k in ThresholdLevels.model_fields})
+              if r["threshold_id"] is not None else None)
+        out.append(RiskItem(
+            **{k: r[k] for k in _RISK_FIELDS}, method=r["risk_method"],
+            epidemic_threshold=th.epidemic_threshold if th else r["risk_epidemic"],
+            high_threshold=th.high if th else r["risk_high"],
+            season=th.season if th else r["risk_season"], thresholds=th))
     return out
+
+
+def channel(session: Session, ctx: DiseaseContext, iso3: str) -> EndemicChannel | None:
+    """The latest year's endemic channel of a country, if it has one."""
+    rows = session.execute(text("""
+        SELECT year, iso_week, week_start, median, q75, p90, years_used, excluded_years
+        FROM endemic_channels
+        WHERE disease_id = :d AND iso3 = :iso3
+          AND year = (SELECT max(year) FROM endemic_channels
+                      WHERE disease_id = :d AND iso3 = :iso3)
+        ORDER BY iso_week
+    """), {"d": ctx.id, "iso3": iso3}).mappings().all()
+    if not rows:
+        return None
+    first = rows[0]
+    return EndemicChannel(
+        year=first["year"], years_used=first["years_used"],
+        excluded_years=first["excluded_years"],
+        weeks=[ChannelWeek(iso_week=r["iso_week"], week_start=r["week_start"],
+                           median=r["median"], q75=r["q75"], p90=r["p90"]) for r in rows])
 
 
 def not_assessed(session: Session, summary: dict | None, region: str | None,
@@ -281,7 +320,8 @@ def above_threshold_count(session: Session, ctx: DiseaseContext, region: str | N
     r = session.execute(text(f"""
         SELECT count(*) FILTER (WHERE r.risk_level <> 'low'), count(*)
         FROM risk_assessments r JOIN countries c ON c.iso3 = r.iso3
-        WHERE r.disease_id = :d AND {_REGION}
+        LEFT JOIN seasonal_thresholds t ON t.id = r.threshold_id
+        WHERE r.disease_id = :d AND {_CURRENT_RISK} AND {_REGION}
     """), {"d": ctx.id, "region": region}).one()
     return r[0], r[1]
 

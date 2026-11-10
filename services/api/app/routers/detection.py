@@ -88,7 +88,8 @@ def detection_history(session: Session = Depends(get_session), disease: Disease 
 
 
 @router.get("/risk", response_model=RiskList,
-            summary="Risk level of the 2-week forecast against MEM thresholds")
+            summary="Risk level of the 2-week forecast against MEM thresholds "
+                    "(influenza) or the endemic channel (dengue)")
 def risk(session: Session = Depends(get_session), disease: Disease = "influenza",
          region: Region = None) -> RiskList:
     ctx = load_disease(session, disease)
@@ -113,7 +114,10 @@ def country_detection(iso3: str, session: Session = Depends(get_session),
     reason = (summary or {}).get("thresholds", {}).get("not_assessed", {}).get(c["iso3"])
     if current is not None and reason is None and current.quality_note:
         reason = f"MEM levels unusable: {current.quality_note}"
-    if current is None and reason is None:
+    chan = q.channel(session, ctx, c["iso3"]) if ctx.case_based else None
+    if chan is not None:
+        reason = None
+    if current is None and chan is None and reason is None:
         if ctx.case_based:
             reason = ("No weekly dengue reporting: detection runs on weekly data (monthly "
                       "reporters are shown as trends only).")
@@ -123,7 +127,7 @@ def country_detection(iso3: str, session: Session = Depends(get_session),
     risk = q.risk(session, ctx, None, c["iso3"])
     return CountryDetection(
         meta=ctx.meta(), run=run, iso3=c["iso3"], thresholds=current,
-        thresholds_reason=reason, risk=risk[0] if risk else None,
+        thresholds_reason=reason, channel=chan, risk=risk[0] if risk else None,
         anomalies=q.anomalies(session, ctx, q.last_weeks(ctx, 52), None, c["iso3"], None),
         hotspots=q.country_hotspots(session, ctx, c["iso3"]),
     )

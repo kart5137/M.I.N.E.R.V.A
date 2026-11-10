@@ -52,8 +52,10 @@ DENGUE_LIMITATIONS = [
     "Recent weeks are provisional and are often revised upwards as reports arrive.",
     "Forecasts are statistical projections with 80% intervals from backtested models; "
     "they are not public-health guidance.",
-    "Risk levels use Moving Epidemic Method thresholds on weekly incidence, available only "
-    "where past calendar years were regular enough for MEM (few countries).",
+    "Risk levels compare the 2-week forecast with each country's endemic channel (its "
+    "usual range for that week in earlier years, the highest year left out); countries "
+    "without 5 complete reporting years among the last 7 are not assessed. Rising "
+    "reporting over the years also raises the channel.",
     "Hotspots compare a country's reported incidence with its neighbours' over 4 weeks; "
     "monthly reporters and countries without data do not take part.",
 ]
@@ -125,6 +127,7 @@ def gather(session: Session, ctx: DiseaseContext, *, scope: str, iso3: str | Non
     }
     if ctx.case_based:
         content["metric"] = "incidence"
+        content["risk_method"] = "endemic_channel"
         _dengue_values(session, ctx, content, w, region, iso3, weeks)
     elif scope == "global":
         k = kpis(session, ctx, w, region)
@@ -190,8 +193,8 @@ def gather(session: Session, ctx: DiseaseContext, *, scope: str, iso3: str | Non
     content["risk"] = [{"iso3": r.iso3, "name": r.name, "risk_level": r.risk_level,
                         "target_week": r.target_week, "forecast_point": r.forecast_point,
                         "forecast_lo80": r.forecast_lo80, "forecast_hi80": r.forecast_hi80,
-                        "epidemic_threshold": r.thresholds.epidemic_threshold,
-                        "high_threshold": r.thresholds.high}
+                        "epidemic_threshold": r.epidemic_threshold,
+                        "high_threshold": r.high_threshold}
                        for r in det.risk(session, ctx, region, iso3)]
     content["alerts"] = alerts_in_period(session, ctx, w.start, w.end, region, iso3)
     return canonical(content)
@@ -211,6 +214,13 @@ def _outlook(session: Session, ctx: DiseaseContext, content: dict, iso3: str,
             for f in sorted((f for f in fc if f.is_active), key=lambda f: f.horizon_weeks)]
     else:
         content["forecasts"] = []
+    if ctx.case_based:
+        ch = det.channel(session, ctx, iso3)
+        weeks = {f["target_week"] for f in content["forecasts"]}
+        content["channel"] = None if ch is None else {
+            "year": ch.year, "years_used": ch.years_used,
+            "excluded_years": ch.excluded_years,
+            "weeks": [w.model_dump() for w in ch.weeks if w.week_start in weeks]}
 
 
 def _dengue_values(session: Session, ctx: DiseaseContext, content: dict, w: Window,

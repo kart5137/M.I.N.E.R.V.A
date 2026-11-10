@@ -173,7 +173,8 @@ erDiagram
 | `backtest_predictions` | `id` PK, `model_version_id` FK, `iso3`, `origin_week`, `target_week`, `point`, `lo80`…`hi95`, `actual` — out-of-sample backtest detail, kept for the current run only (M5) |
 | `detection_runs` | `id` PK, `disease_id`, `run_key`, `reference_week`, `latest_week`, `started_at`, `finished_at`, `git_sha`, `summary JSONB` (settings, counts, not-assessed reasons) — *M6: each run replaces the outputs below* |
 | `seasonal_thresholds` | `id` PK, `run_id`, `disease_id`, `iso3`, `season`, `season_start`, `method` (`mem`), `epidemic_threshold`, `post_threshold`, `medium`, `high`, `very_high`, `n_seasons_used`, `seasons_used JSONB`, `mean_epidemic_weeks`, `quality_note` (NULL = usable) |
-| `risk_assessments` | `id` PK, `run_id`, `disease_id`, `iso3`, `assessed_week`, `target_week`, `risk_level` (`low`,`moderate`,`high`), `rule`, `forecast_point`, `forecast_lo80`, `forecast_hi80`, `model_type` (copied so the row survives a forecast rerun), `forecast_id` FK (SET NULL), `threshold_id` FK |
+| `risk_assessments` | `id` PK, `run_id`, `disease_id`, `iso3`, `assessed_week`, `target_week`, `risk_level` (`low`,`moderate`,`high`), `rule`, `forecast_point`, `forecast_lo80`, `forecast_hi80`, `model_type` (copied so the row survives a forecast rerun), `forecast_id` FK (SET NULL), `threshold_id` FK, `season`, `epidemic_threshold`, `high_threshold`, `method` (`mem`/`endemic_channel`, D5). Current levels = rows of the disease's latest detection run |
+| `endemic_channels` | D5 (dengue): `id` PK, `run_id`, `disease_id`, `iso3`, `year`, `iso_week`, `week_start`, `median`, `q75`, `p90`, `n_values`, `years_used JSONB`, `excluded_years JSONB` — see `datasets/dengue.md` |
 | `anomalies` | `id` PK, `run_id`, `disease_id`, `iso3`, `week_start`, `metric`, `method` (`seasonal_ewma`/`isolation_forest`), `observed`, `expected`, `upper_band`, `score`, `ewma`, `ewma_limit`, `specimens_tested`, `severity`, `is_provisional`, `detected_at` |
 | `hotspot_results` | `id` PK, `run_id`, `disease_id`, `iso3`, `window_end`, `window_weeks`, `statistic` (`gi_star`,`local_moran`), `value`, `stat_value`, `z_score`, `p_value`, `p_fdr`, `classification`, `n_neighbours`, `neighbour_source` (`queen`/`knn`), `weights_spec` |
 | `alerts` | `id` PK, `disease_id`, `iso3`, `alert_type`, `severity` (`low`/`medium`/`high`), `week_start`, `title`, `details JSONB`, `status` (`active`/`retracted`), `anomaly_id`/`hotspot_id`/`risk_id` FKs (SET NULL), `first_run_id`, `last_run_id`, `created_at`, `updated_at`, `retracted_at` · UNIQUE(`disease_id`,`iso3`,`alert_type`,`week_start`) — *M7: upserted each run; never deleted* |
@@ -367,6 +368,8 @@ which only reads stored results (rate-limited).
 - **Risk rule** (shown in UI): forecast at horizon 2 below epidemic threshold = Low;
   between epidemic threshold and high intensity = Moderate; at or above high intensity =
   High. The interval is shown alongside the level.
+- **Dengue (D5)** uses the endemic channel instead of MEM: the same rule with the target
+  week's top of the channel (75th percentile) and 90th percentile (`datasets/dengue.md`).
 
 ### 6.4 Anomaly detection
 - Expected value = seasonal baseline (median and 90th percentile of the same ISO week

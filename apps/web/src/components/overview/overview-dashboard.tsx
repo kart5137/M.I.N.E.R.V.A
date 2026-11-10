@@ -409,7 +409,7 @@ function Signals({ kpis: k, weeks, filters, glass }: {
     },
     {
       key: "above_threshold",
-      label: "Forecast above epidemic threshold",
+      label: filters.disease === "dengue" ? "Forecast above usual range" : "Forecast above epidemic threshold",
       kpi: k.above_threshold,
       value: k.above_threshold
         ? `${formatInt(k.above_threshold.value)} of ${formatInt(k.above_threshold.denominator)}`

@@ -53,17 +53,22 @@ function Row({ k, v, className }: { k: string; v: React.ReactNode; className?: s
   );
 }
 
-/** Risk level + the MEM thresholds behind it. */
+/** Risk level + the levels behind it (MEM thresholds, or the dengue endemic channel). */
 export function RiskCard({ iso3 }: { iso3: string }) {
   const q = useCountryDetection(iso3);
   const m = metricFor(useDisease());
   const d = q.data;
   const r = d?.risk;
   const t = d?.thresholds;
+  const channel = r?.method === "endemic_channel";
   return (
     <Shell
       title="Risk"
-      subtitle={`2-week forecast against the ${m.key === "incidence" ? "calendar year" : "season"}'s Moving Epidemic Method levels`}
+      subtitle={
+        m.key === "incidence"
+          ? "2-week forecast against the endemic channel (usual range for that week in earlier years)"
+          : "2-week forecast against the season's Moving Epidemic Method levels"
+      }
     >
       {q.error && <QueryError error={q.error} />}
       {d && !d.run && <p className="text-xs text-muted-foreground">No detection run yet.</p>}
@@ -85,7 +90,18 @@ export function RiskCard({ iso3 }: { iso3: string }) {
                   k="Forecast (80%)"
                   v={`${m.format(r.forecast_point)} (${m.formatBound(r.forecast_lo80)}–${m.formatBound(r.forecast_hi80)})`}
                 />
+                {channel && (
+                  <>
+                    <Row k={`Top of channel (week of ${formatWeek(r.target_week)})`} v={`${m.format(r.epidemic_threshold)} per 100k`} />
+                    <Row k="90th percentile" v={`${m.format(r.high_threshold)} per 100k`} />
+                  </>
+                )}
               </dl>
+              {channel && (
+                <p className="text-[10.5px] text-muted-foreground">
+                  Low below the top of the channel, moderate up to the 90th percentile, high above it. Both levels are at least one weekly case.
+                </p>
+              )}
             </>
           ) : (
             <p className="text-muted-foreground">

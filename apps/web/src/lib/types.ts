@@ -614,7 +614,29 @@ export interface RiskItem {
   forecast_lo80: number | null;
   forecast_hi80: number | null;
   model_type: string;
-  thresholds: ThresholdLevels;
+  /** "mem" (season thresholds) or "endemic_channel" (dengue: the target week's usual range). */
+  method: "mem" | "endemic_channel";
+  /** MEM epidemic threshold / high intensity, or top of the channel (75th) / 90th percentile. */
+  epidemic_threshold: number | null;
+  high_threshold: number | null;
+  season: string | null;
+  /** MEM levels; null for the endemic channel. */
+  thresholds: ThresholdLevels | null;
+}
+
+export interface ChannelWeek {
+  iso_week: number;
+  week_start: string;
+  median: number;
+  q75: number;
+  p90: number;
+}
+
+export interface EndemicChannel {
+  year: number;
+  years_used: number[];
+  excluded_years: number[];
+  weeks: ChannelWeek[];
 }
 
 export interface RiskList {
@@ -641,6 +663,8 @@ export interface CountryDetection {
   iso3: string;
   thresholds: ThresholdLevels | null;
   thresholds_reason: string | null;
+  /** Dengue: the latest year's endemic channel. */
+  channel?: EndemicChannel | null;
   risk: RiskItem | null;
   anomalies: AnomalyItem[];
   hotspots: HotspotStatus[];

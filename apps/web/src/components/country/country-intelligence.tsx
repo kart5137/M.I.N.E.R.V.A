@@ -23,6 +23,7 @@ import { GenerateReportForm } from "@/components/intelligence/reports-view";
 
 import { CaseCoverage, CaseHistory, CaseRecentStats, hasCaseReports } from "./case-sections";
 import { WeatherPanel } from "./weather-panel";
+import { ChannelCard } from "./channel-card";
 import { AnomalyTimeline, HotspotCard, RiskCard } from "./detection-cards";
 import { ForecastSummary } from "./forecast-summary";
 import { SeasonChart, SeasonTable } from "./season-chart";
@@ -110,6 +111,7 @@ export function CountryIntelligence() {
           </p>
         )}
         {p && hasCaseReports(p) && <CaseHistory iso3={iso3} p={p} info={info} />}
+        {p && p.surveillance.weeks_reported > 0 && <ChannelCard iso3={iso3} />}
         <div className="grid gap-4 md:grid-cols-3">
           <ForecastSummary iso3={iso3} />
           <RiskCard iso3={iso3} />

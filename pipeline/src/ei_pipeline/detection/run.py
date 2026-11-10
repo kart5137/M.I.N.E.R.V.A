@@ -1,5 +1,8 @@
 """`ei detect run`: thresholds → risk → anomalies → hotspots, stored per run.
 
+Influenza risk uses MEM season thresholds; dengue (D5) uses the endemic channel instead
+(`channel.py`, stored in `endemic_channels`) and MEM is not run for it.
+
 Outputs are fully recomputable, so each run replaces the previous thresholds, anomalies
 and hotspots for the disease in one transaction and records a `detection_runs` row
 (settings + counts). Risk rows are kept across runs (one per country and assessed week;
@@ -21,6 +24,7 @@ from sqlalchemy import Engine, delete, insert, update
 from ei_db.models import (
     Anomaly,
     DetectionRun,
+    EndemicChannel,
     HotspotResult,
     RiskAssessment,
     SeasonalThreshold,
@@ -28,9 +32,10 @@ from ei_db.models import (
 from ei_pipeline.db import session_scope
 from ei_pipeline.detection import config as cfg
 from ei_pipeline.detection.anomalies import compute_anomalies
+from ei_pipeline.detection.channel import channel_check, compute_channels
 from ei_pipeline.detection.data import load_detection_data, season_first_week
 from ei_pipeline.detection.hotspots import compute_hotspots
-from ei_pipeline.detection.risk import assess, load_forecasts
+from ei_pipeline.detection.risk import assess, assess_channel, load_forecasts
 from ei_pipeline.detection.thresholds import compute_thresholds
 from ei_pipeline.detection.weights import load_geography
 from ei_pipeline.forecasting.run import _git_sha
@@ -69,13 +74,32 @@ def run_detection(engine: Engine, disease: str = "influenza") -> dict:
     timings["load"] = time.perf_counter() - t0
 
     t = time.perf_counter()
-    thresholds, not_assessed = compute_thresholds(data.weekly, data.countries,
-                                                  data.reference_week, data.latest_week, spec)
-    timings["thresholds"] = time.perf_counter() - t
-
-    usable = {(r.iso3, r.season_start): r for r in thresholds if r.quality_note is None}
-    risk = assess(load_forecasts(engine, data.disease_id), usable,
-                  _season_start_of(data.countries), spec.metric)
+    channels, channel_stats = [], None
+    if spec.risk_method == "endemic_channel":
+        thresholds = []
+        last_year = (data.reference_week + cfg.RISK_HORIZON * pd.Timedelta(weeks=1)
+                     ).isocalendar()[0]
+        last_year = max(last_year, data.latest_week.isocalendar()[0])
+        channels, not_assessed = compute_channels(data.weekly, data.reference_week, last_year)
+        one_case = (data.weekly.dropna(subset=["offset"]).sort_values("week_start")
+                    .groupby("iso3")["offset"].last().to_dict())
+        risk = assess_channel(load_forecasts(engine, data.disease_id),
+                              {(c.iso3, c.week_start): c for c in channels}, one_case,
+                              spec.metric)
+        channel_stats = {
+            "rows": len(channels),
+            "countries_current": len({c.iso3 for c in channels if c.year == last_year}),
+            "year": last_year,
+            "check": channel_check(data.weekly, channels, data.reference_week),
+        }
+        timings["channels"] = time.perf_counter() - t
+    else:
+        thresholds, not_assessed = compute_thresholds(
+            data.weekly, data.countries, data.reference_week, data.latest_week, spec)
+        timings["thresholds"] = time.perf_counter() - t
+        usable = {(r.iso3, r.season_start): r for r in thresholds if r.quality_note is None}
+        risk = assess(load_forecasts(engine, data.disease_id), usable,
+                      _season_start_of(data.countries), spec.metric)
 
     t = time.perf_counter()
     anomalies, anomaly_stats = compute_anomalies(data.weekly, spec)
@@ -93,7 +117,7 @@ def run_detection(engine: Engine, disease: str = "influenza") -> dict:
             disease_id=data.disease_id, run_key=run_key, reference_week=data.reference_week,
             latest_week=data.latest_week, git_sha=_git_sha(),
         )).scalar_one()
-        for model in (Anomaly, HotspotResult, SeasonalThreshold):
+        for model in (Anomaly, HotspotResult, SeasonalThreshold, EndemicChannel):
             s.execute(delete(model).where(model.disease_id == data.disease_id))
         assessed = {r.assessed_week for r in risk}
         if assessed:
@@ -109,7 +133,8 @@ def run_detection(engine: Engine, disease: str = "influenza") -> dict:
                 .values(**base, method="mem", **asdict(r))).scalar_one()
         _insert(s, RiskAssessment, [
             {**base, **{k: v for k, v in asdict(r).items() if k != "season_start"},
-             "threshold_id": th_ids[(r.iso3, r.season_start)]} for r in risk])
+             "threshold_id": th_ids.get((r.iso3, r.season_start))} for r in risk])
+        _insert(s, EndemicChannel, [{**base, **asdict(c)} for c in channels])
         _insert(s, Anomaly, [{**base, "metric": spec.metric, **asdict(a)} for a in anomalies])
         _insert(s, HotspotResult, [{**base, "weights_spec": cfg.WEIGHTS_SPEC, **asdict(h)}
                                    for h in hotspots])
@@ -117,18 +142,23 @@ def run_detection(engine: Engine, disease: str = "influenza") -> dict:
         current = [r for r in thresholds
                    if r.season_start == max(x.season_start for x in thresholds
                                             if x.iso3 == r.iso3)]
+        if channel_stats is not None:
+            usable_now = channel_stats["countries_current"]
+        else:
+            usable_now = sum(r.quality_note is None for r in current)
         summary = {
             "settings": {k: (str(v) if not isinstance(v, int | float | str | tuple) else v)
                          for k, v in vars(cfg).items() if k.isupper() and k != "SPECS"
                          and not isinstance(v, cfg.DetectionSpec)} | {"spec": asdict(spec)},
             "thresholds": {"rows": len(thresholds),
-                           "countries_current_usable": sum(r.quality_note is None
-                                                           for r in current),
+                           "countries_current_usable": usable_now,
                            "countries_current_flagged": sum(r.quality_note is not None
                                                             for r in current),
                            "not_assessed": not_assessed},
             "risk": {lvl: sum(r.risk_level == lvl for r in risk)
                      for lvl in ("low", "moderate", "high")},
+            "risk_method": spec.risk_method,
+            "channels": channel_stats,
             "anomalies": {"seasonal_ewma": sum(a.method == "seasonal_ewma" for a in anomalies),
                           "isolation_forest": sum(a.method == "isolation_forest"
                                                   for a in anomalies),
@@ -149,6 +179,7 @@ def run_detection(engine: Engine, disease: str = "influenza") -> dict:
     return {"disease": disease, "run_key": run_key, "reference_week": str(data.reference_week),
             "thresholds": summary["thresholds"]["rows"],
             "thresholds_current_usable": summary["thresholds"]["countries_current_usable"],
-            "risk": summary["risk"], "anomalies": summary["anomalies"],
+            "risk": summary["risk"], "channels": channel_stats,
+            "anomalies": summary["anomalies"],
             "hotspots": summary["hotspots"], "alerts": summary["alerts"],
             "seconds": summary["seconds"]}

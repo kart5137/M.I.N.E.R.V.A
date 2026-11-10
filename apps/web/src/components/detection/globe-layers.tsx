@@ -185,8 +185,14 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
                   <>
                     <Row k="Risk" v={RISK_SCALE.labels[RISK_INDEX[r.risk_level]]} />
                     <Row k="2-week forecast" v={`${valueText(r.forecast_point, m)} (${m.formatBound(r.forecast_lo80)}–${m.formatBound(r.forecast_hi80)})`} />
-                    <Row k="Epidemic threshold" v={valueText(r.thresholds.epidemic_threshold, m)} />
-                    <Row k="High intensity" v={valueText(r.thresholds.high, m)} />
+                    <Row
+                      k={r.method === "endemic_channel" ? "Top of channel" : "Epidemic threshold"}
+                      v={valueText(r.epidemic_threshold, m)}
+                    />
+                    <Row
+                      k={r.method === "endemic_channel" ? "90th percentile" : "High intensity"}
+                      v={valueText(r.high_threshold, m)}
+                    />
                   </>
                 ) : (
                   <div className="text-muted-foreground">Not assessed</div>
@@ -199,13 +205,17 @@ export function useDetectionLayers(mode: FillMode, showAnomalies: boolean, filte
         legend: (
           <>
             <ClassLegend
-              title="Risk: 2-week forecast vs MEM thresholds"
+              title={
+                m.key === "incidence"
+                  ? "Risk: 2-week forecast vs the endemic channel"
+                  : "Risk: 2-week forecast vs MEM thresholds"
+              }
               scale={RISK_SCALE}
               order={[0, 1, 2]}
               noData="Not assessed"
               footnote={
                 m.key === "incidence"
-                  ? "Only countries whose past years give usable MEM levels (few for dengue)."
+                  ? "Countries with 5 complete weekly reporting years among the last 7."
                   : "Temperate countries with ≥ 3 usable past seasons only."
               }
             />

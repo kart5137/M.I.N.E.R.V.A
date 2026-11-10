@@ -124,7 +124,17 @@ class RiskItem(BaseModel):
     forecast_lo80: float | None
     forecast_hi80: float | None
     model_type: str
-    thresholds: ThresholdLevels
+    #: "mem" (season thresholds) or "endemic_channel" (dengue: the target week's usual
+    #: range from earlier years).
+    method: str
+    #: Levels the forecast was compared with: MEM epidemic threshold and high intensity,
+    #: or the top of the channel (75th percentile) and the 90th percentile.
+    epidemic_threshold: float | None
+    high_threshold: float | None
+    #: Season ("2025/26") or calendar year of the levels.
+    season: str | None
+    #: MEM levels; null for the endemic channel.
+    thresholds: ThresholdLevels | None
 
 
 class NotAssessed(BaseModel):
@@ -151,12 +161,32 @@ class HotspotStatus(BaseModel):
     neighbour_source: str
 
 
+class ChannelWeek(BaseModel):
+    iso_week: int
+    week_start: date
+    median: float
+    q75: float
+    p90: float
+
+
+class EndemicChannel(BaseModel):
+    """A country's usual weekly range for one calendar year (dengue): median, top of the
+    channel (75th percentile) and 90th percentile of the same ISO week +-1 in earlier
+    years, the highest year left out."""
+    year: int
+    years_used: list[int]
+    excluded_years: list[int]
+    weeks: list[ChannelWeek]
+
+
 class CountryDetection(BaseModel):
     meta: ResponseMeta
     run: DetectionRunInfo | None
     iso3: str
     thresholds: ThresholdLevels | None
     thresholds_reason: str | None
+    #: Dengue: the endemic channel of the latest year (null when too few past years).
+    channel: EndemicChannel | None = None
     risk: RiskItem | None
     anomalies: list[AnomalyItem]
     hotspots: list[HotspotStatus]

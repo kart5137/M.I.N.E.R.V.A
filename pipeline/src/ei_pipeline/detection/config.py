@@ -68,6 +68,24 @@ DENGUE_SEASON = "CY"
 #: 4 weeks (mean weekly incidence over the reported weeks; gaps are not zeros).
 DENGUE_HOTSPOT_MIN_WEEKS = 2
 
+# --- Endemic channel (D5, dengue risk) ----------------------------------------------------
+#: The channel for year Y uses up to this many calendar years before Y …
+CHANNEL_YEARS = 7
+#: … each with incidence in at least this share of its ISO weeks …
+CHANNEL_MIN_COMPLETENESS = 0.75
+#: … minus this many years with the highest mean incidence (epidemic years are left out
+#: of an endemic channel), keeping at least CHANNEL_MIN_YEARS.
+CHANNEL_EXCLUDE_TOP = 1
+CHANNEL_MIN_YEARS = 4
+#: Each week pools the same ISO week ±1 of every year used.
+CHANNEL_WEEK_HALFWIDTH = 1
+#: A week's channel needs at least this many pooled values.
+CHANNEL_MIN_VALUES = 8
+#: Levels: median (centre), top of the channel (alert line) and the high line.
+CHANNEL_QUANTILES = (0.5, 0.75, 0.9)
+#: Channels are stored for calendar years from this one (history for the check below).
+CHANNEL_FROM_YEAR = 2023
+
 
 @dataclass(frozen=True)
 class DetectionSpec:
@@ -85,6 +103,9 @@ class DetectionSpec:
     residual_floor: float
     #: MEM runs on value × mem_factor (positivity in percent); results are divided back.
     mem_factor: float
+    #: What risk is assessed against: "mem" (season thresholds) or "endemic_channel"
+    #: (usual range for the target week; MEM is then not run).
+    risk_method: str = "mem"
 
 
 INFLUENZA = DetectionSpec(disease="influenza", metric="positivity",
@@ -94,5 +115,5 @@ INFLUENZA = DetectionSpec(disease="influenza", metric="positivity",
 DENGUE = DetectionSpec(disease="dengue", metric="incidence",
                        mem_season_types=(DENGUE_SEASON,), exclude_covid=False,
                        anomaly_scale="log", residual_floor=DENGUE_RESIDUAL_FLOOR,
-                       mem_factor=1.0)
+                       mem_factor=1.0, risk_method="endemic_channel")
 SPECS = {"influenza": INFLUENZA, "dengue": DENGUE}

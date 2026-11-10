@@ -70,8 +70,9 @@ DENGUE_DATA_LIMITATIONS = [
     "anomalies, and their months are never split into invented weeks.",
     "Weather is ERA5 at one point per country, which does not represent large or "
     "climatically varied countries.",
-    "Most countries' dengue years are too irregular for MEM thresholds, so few countries "
-    "have a risk level.",
+    "Risk levels use each country's endemic channel, which needs 5 complete weekly "
+    "reporting years among the last 7; countries that started reporting recently have "
+    "none. Reporting has grown over the years, which also raises the channel.",
     "Backtests use today's revised data, not the data as first published, so live "
     "forecast accuracy will be somewhat lower than reported.",
 ]

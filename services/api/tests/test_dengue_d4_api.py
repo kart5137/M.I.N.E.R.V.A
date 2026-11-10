@@ -153,3 +153,57 @@ def test_dengue_about_and_analytics_scope(api: TestClient, dengue_run):
     assert any("case definition" in t for t in about["limitations"])
     r = api.get(f"{V1}/analytics/trends", params={**DENGUE, "series": "global"})
     assert r.status_code == 422 and "influenza only" in r.json()["error"]["message"]
+
+
+def test_dengue_risk_uses_the_endemic_channel(api: TestClient, dengue_run, seeded_engine):
+    """D5: a later detection run with an endemic channel and a channel-based risk row."""
+    with seeded_engine.begin() as c:
+        c.execute(text("""
+            INSERT INTO detection_runs (id, disease_id, run_key, reference_week, latest_week,
+              finished_at, summary)
+            VALUES (10, 2, 'den-D10', '2024-02-12', '2024-02-19', now() + interval '1 min',
+                    '{"thresholds": {"not_assessed": {}}}');
+            INSERT INTO endemic_channels (run_id, disease_id, iso3, year, iso_week, week_start,
+              median, q75, p90, n_values, years_used, excluded_years)
+            VALUES (10, 2, 'AAA', 2024, 8, '2024-02-19', 300, 500, 900, 15,
+                    '[2018, 2019, 2020, 2022, 2023]', '[2021]'),
+                   (10, 2, 'AAA', 2024, 9, '2024-02-26', 320, 520, 950, 15,
+                    '[2018, 2019, 2020, 2022, 2023]', '[2021]');
+            INSERT INTO risk_assessments (run_id, disease_id, iso3, assessed_week, target_week,
+              risk_level, rule, forecast_point, forecast_lo80, forecast_hi80, model_type,
+              forecast_id, season, epidemic_threshold, high_threshold, method)
+            VALUES (10, 2, 'AAA', '2024-02-12', '2024-02-26', 'moderate', 'channel rule',
+                    840, 700, 1000, 'xgboost', 402, '2024', 520, 950, 'endemic_channel'),
+                   (9, 2, 'BBB', '2024-02-05', '2024-02-19', 'high', 'older run', 1, 1, 1,
+                    'xgboost', NULL, '2024', 0.5, 0.9, 'endemic_channel');
+        """))
+    try:
+        r = api.get(f"{V1}/risk", params=DENGUE).json()
+        assert "endemic channel" in r["rule"]
+        # Only the latest run's rows count (BBB's row is from the earlier run).
+        assert [(i["iso3"], i["risk_level"], i["method"], i["epidemic_threshold"],
+                 i["high_threshold"], i["season"], i["thresholds"]) for i in r["items"]] == [
+            ("AAA", "moderate", "endemic_channel", 520, 950, "2024", None)]
+        det = api.get(f"{V1}/countries/AAA/detection", params=DENGUE).json()
+        assert det["thresholds"] is None and det["thresholds_reason"] is None
+        ch = det["channel"]
+        assert ch["year"] == 2024 and ch["excluded_years"] == [2021]
+        assert [w["q75"] for w in ch["weeks"]] == [500, 520]
+        k = api.get(f"{V1}/overview", params={**DENGUE, "to": "2024-02-12"}).json()["kpis"]
+        assert (k["above_threshold"]["value"], k["above_threshold"]["denominator"]) == (1, 1)
+        assert "endemic channel" in k["above_threshold"]["note"]
+        rep = api.post(f"{V1}/reports/generate", params=DENGUE,
+                       json={"scope": "country", "iso3": "AAA"}).json()["report"]
+        md = rep["rendered_md"]
+        assert ("Endemic channel 2024 (usual weekly range from 2018–2020, 2022–2023; "
+                "highest year 2021 left out)") in md
+        assert "| 19 Feb 2024 | 300 | 500 | 900 |" in md
+        assert "Top of channel" in md and "90th percentile" in md
+        assert rep["content"]["risk_method"] == "endemic_channel"
+        v = api.get(f"{V1}/reports/{rep['id']}/verify").json()
+        assert v["inputs_identical"] and v["rendering_identical"]
+    finally:
+        with seeded_engine.begin() as c:
+            c.execute(text("DELETE FROM risk_assessments WHERE disease_id = 2; "
+                           "DELETE FROM endemic_channels WHERE disease_id = 2; "
+                           "DELETE FROM detection_runs WHERE id = 10"))

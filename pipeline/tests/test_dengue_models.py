@@ -294,6 +294,19 @@ def test_end_to_end_dengue_run_keeps_influenza_outputs(db, tmp_path):
     assert text_.startswith("# Model card — dengue incidence forecasts")
     assert "## Does weather help?" in text_ and "2 of 3 countries at the latest origin" in text_
 
+    # Detection (D5): dengue risk uses the endemic channel; MEM is not run for dengue.
+    from ei_pipeline.detection.run import run_detection
+    det = run_detection(db, "dengue")
+    assert det["channels"]["rows"] > 0 and det["thresholds"] == 0
+    dengue = "(SELECT id FROM diseases WHERE key = 'dengue')"
+    assert _q(db, f"SELECT count(*) FROM seasonal_thresholds WHERE disease_id = {dengue}") == 0
+    assert _q(db, f"SELECT count(DISTINCT iso3) FROM endemic_channels "
+                  f"WHERE disease_id = {dengue}") == 3
+    assert _q(db, f"SELECT bool_and(method = 'endemic_channel' AND threshold_id IS NULL "
+                  f"AND epidemic_threshold <= high_threshold) FROM risk_assessments "
+                  f"WHERE disease_id = {dengue}")
+    assert _q(db, f"SELECT count(*) FROM risk_assessments WHERE disease_id = {dengue}") == 3
+
 
 def test_weather_model_needs_a_clear_benefit_to_stay_active():
     from ei_pipeline.forecasting.evaluation import Selection

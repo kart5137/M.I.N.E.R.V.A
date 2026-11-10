@@ -8,6 +8,8 @@ rules in [datasets/dengue.md](datasets/dengue.md#dashboard-values-d2). D3 (weath
 quota-free alternative and rejected (drift against ERA5). D4 (forecasting, detection, alerts,
 reports) built 2026-11-10 — [datasets/dengue.md](datasets/dengue.md#forecasting-and-detection-d4)
 and the generated model card [models/dengue-incidence.md](models/dengue-incidence.md).
+D5 (endemic channel for dengue risk, replacing MEM) built 2026-11-11 —
+[datasets/dengue.md](datasets/dengue.md#endemic-channel-and-risk-d5).
 
 ## 1. Sources (verified 2026-11-09)
 
@@ -63,6 +65,7 @@ the missing case values (8,954) are periods not yet reported.
 | D2 ✓ | Multi-disease API + disease selector; Overview, Surveillance, Countries, country page for dengue | Dengue browsable on the live site with correct units |
 | D3 ✓ | Open-Meteo weather ingestion + weekly weather features; weather panel | Weather stored for all dengue countries; panel shown |
 | D4 ✓ | Dengue forecasting (with/without weather), detection, alerts, reports | Backtest report shows whether weather helps; dengue in alerts and reports |
+| D5 ✓ | Endemic channel for dengue risk (MEM covered 4 countries) | Risk for every forecast country with 5 complete years; channel chart on the country page; influenza unchanged |
 
 Each milestone ends with the usual report and waits for approval.
 

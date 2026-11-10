@@ -140,7 +140,7 @@ const DENGUE_STEPS = [
   ["Ingest", "WHO Global Dengue Surveillance, World Bank population and ERA5 weather (Open-Meteo) are downloaded, validated and loaded; revisions to past periods are kept."],
   ["Profile", "Each country's series is profiled into a coverage tier (3-year window); weekly and monthly reporters are kept apart, and recent periods are marked provisional."],
   ["Forecast", "Weekly incidence per 100,000: baselines, and Random Forest and XGBoost with and without weather, are backtested on past origins; the best model that beats seasonal-naive is used."],
-  ["Detect", "MEM thresholds (calendar years), risk levels, anomalies and hotspots on weekly incidence are computed from stored data."],
+  ["Detect", "Endemic channels (each country's usual weekly range), risk levels, anomalies and hotspots on weekly incidence are computed from stored data."],
   ["Alert & report", "Fixed rules turn detection outputs into alerts; reports are deterministic templates over stored facts."],
 ];
 
@@ -256,19 +256,30 @@ function DetectionCard({ d }: { d: About }) {
       {r && (
         <div className="grid gap-4 text-xs lg:grid-cols-2">
           <dl className="space-y-2">
-            <div>
-              <dt className="font-medium">Epidemic thresholds (Moving Epidemic Method)</dt>
-              <dd className="text-muted-foreground">
-                Python port of R <span className="font-mono">mem</span> 2.19 with its defaults, validated to match it exactly.{" "}
-                {dengue
-                  ? `Weekly incidence, calendar-year seasons; ${r.thresholds_current_usable ?? 0} countries have usable levels this year (most dengue years are too irregular for MEM).`
-                  : `Temperate countries only; ${r.thresholds_current_usable ?? 0} countries have usable levels this season.`}
-              </dd>
-            </div>
+            {dengue ? (
+              <div>
+                <dt className="font-medium">Endemic channel</dt>
+                <dd className="text-muted-foreground">
+                  Each country&apos;s usual range for every week: median, 75th (top of the channel) and 90th percentiles of
+                  the same week ±1 in up to 7 earlier complete years, the highest year left out (at least 4 remaining), as
+                  used in dengue surveillance in the Americas. {r.thresholds_current_usable ?? 0} countries have a channel
+                  this year. Moving Epidemic Method levels are not used for dengue: most dengue years were too irregular.
+                </dd>
+              </div>
+            ) : (
+              <div>
+                <dt className="font-medium">Epidemic thresholds (Moving Epidemic Method)</dt>
+                <dd className="text-muted-foreground">
+                  Python port of R <span className="font-mono">mem</span> 2.19 with its defaults, validated to match it exactly.{" "}
+                  Temperate countries only; {r.thresholds_current_usable ?? 0} countries have usable levels this season.
+                </dd>
+              </div>
+            )}
             <div>
               <dt className="font-medium">Risk</dt>
               <dd className="text-muted-foreground">
-                2-week forecast vs MEM levels: low {r.risk?.low ?? 0}, moderate {r.risk?.moderate ?? 0}, high {r.risk?.high ?? 0}.
+                2-week forecast vs {dengue ? "the endemic channel" : "MEM levels"}: low {r.risk?.low ?? 0}, moderate{" "}
+                {r.risk?.moderate ?? 0}, high {r.risk?.high ?? 0}.
               </dd>
             </div>
             <div>
