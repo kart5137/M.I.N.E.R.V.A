@@ -35,6 +35,16 @@ DATA_SOURCES = [
         "(SP.POP.TOTL), CC BY 4.0.",
         "notes": None,
     },
+    {
+        "key": "who_dengue",
+        "name": "WHO Global Dengue Surveillance",
+        "url": "https://xmart-api-public.who.int/ARBOV/V_DENGUE_GLOBAL_VALIDATED_PUBLIC",
+        "licence": "WHO data policy — reuse with attribution",
+        "attribution_text": "Dengue data: WHO Global Dengue Surveillance.",
+        "notes": "Reported cases as defined by each country (suspected, probable or "
+        "confirmed), weekly or monthly. Compare within a country over time, not across "
+        "countries.",
+    },
 ]
 
 DISEASES = [
@@ -47,6 +57,17 @@ DISEASES = [
         "supports_forecast": True,
         "supports_anomaly": True,
         "supports_hotspots": True,
+    },
+    {
+        # Capabilities switch on in phase D4, once dengue forecasting/detection exist.
+        "key": "dengue",
+        "name": "Dengue",
+        "native_granularity": "weekly+monthly",
+        "primary_metric": "cases",
+        "metric_label": "Reported dengue cases",
+        "supports_forecast": False,
+        "supports_anomaly": False,
+        "supports_hotspots": False,
     },
 ]
 

@@ -127,6 +127,7 @@ def about(session: Session = Depends(get_session), disease: Disease = "influenza
                  WHEN 'natural_earth' THEN
                    (SELECT count(*) FROM countries WHERE geom IS NOT NULL)
                  ELSE (SELECT count(*) FROM surveillance_weekly s WHERE s.source_id = ds.id)
+                    + (SELECT count(*) FROM surveillance_monthly m WHERE m.source_id = ds.id)
                     + (SELECT count(*) FROM population_annual p WHERE p.source_id = ds.id)
                     + (SELECT count(*) FROM health_indicators h WHERE h.source_id = ds.id)
                END AS stored_rows

@@ -73,7 +73,7 @@ jobs:
           pip install ./packages/ei_db ./services/api ./pipeline
 
       # Boundaries and World Bank files change rarely: reuse them for a month.
-      # FluNet is always downloaded fresh by `ei weekly`.
+      # FluNet and WHO dengue are always downloaded fresh by `ei weekly`.
       - name: Cache reference downloads
         uses: actions/cache@v6
         with:

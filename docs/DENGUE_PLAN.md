@@ -1,6 +1,8 @@
 # Post-MVP phase P1 — Dengue + weather (proposal)
 
-Status: **proposed, awaiting approval** (2026-11-09). Nothing here is built yet.
+Status: **approved 2026-11-10.** D1 (ingestion) built 2026-11-10 — see
+[datasets/dengue.md](datasets/dengue.md) and the generated
+[datasets/dengue_profile.md](datasets/dengue_profile.md). D2–D4 not started.
 
 ## 1. Sources (verified 2026-11-09)
 
@@ -15,6 +17,12 @@ rows dated up to **2029**, **84 negative** case counts, **20 % missing** case va
 duplicate** (country, grain, start) keys, mixed grains within some countries, and "monthly"
 rows that start on days other than the 1st. Case definitions vary by country (suspected,
 probable, confirmed), so counts compare **within a country over time**, not across countries.
+
+*Corrected in D1 (measured 2026-11-10):* the "duplicate keys" were 60 rows with a missing
+start date (rebuildable from year and period number, not duplicates); every monthly row
+starts on the 1st (the earlier check looked at the weekday); only 5 rows with case values
+are dated in the future (Malaysia/Singapore 2027–2029), the rest are empty placeholders;
+the missing case values (8,954) are periods not yet reported.
 
 ## 2. Decisions proposed
 
@@ -46,7 +54,7 @@ probable, confirmed), so counts compare **within a country over time**, not acro
 
 | # | Scope | Done when |
 |---|---|---|
-| D1 | WHO dengue ingestion with validation report, coverage tiers, revisions; profile doc | Weekly job loads dengue; validation numbers documented |
+| D1 ✓ | WHO dengue ingestion with validation report, coverage tiers, revisions; profile doc | Weekly job loads dengue; validation numbers documented |
 | D2 | Multi-disease API + disease selector; Overview, Surveillance, Countries, country page for dengue | Dengue browsable on the live site with correct units |
 | D3 | Open-Meteo weather ingestion + weekly weather features; weather panel | Weather stored for all dengue countries; panel shown |
 | D4 | Dengue forecasting (with/without weather), detection, alerts, reports | Backtest report shows whether weather helps; dengue in alerts and reports |

@@ -118,6 +118,9 @@ CI runs the same checks plus a Docker build and smoke test
 
 Writes `docs/datasets/flunet_profile.md` and `data/profiles/flunet_country_profile.csv`.
 
+The dengue equivalent is `pipeline\scripts\profile_dengue.py [--download]`
+(writes `docs/datasets/dengue_profile.md` and `data/profiles/dengue_country_profile.csv`).
+
 ## Attribution
 
 - Influenza data: WHO FluNet, Global Influenza Surveillance and Response System (GISRS).

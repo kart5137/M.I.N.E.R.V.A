@@ -74,6 +74,51 @@ class SurveillanceRevision(Base):
     ingestion_run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"), nullable=False)
 
 
+class SurveillanceMonthly(Base):
+    """One row per disease, country and calendar month, for sources that report monthly
+    (e.g. many WHO dengue reporters). Kept monthly: never split into invented weeks."""
+
+    __tablename__ = "surveillance_monthly"
+    __table_args__ = (
+        UniqueConstraint("disease_id", "iso3", "month_start"),
+        Index("ix_surveillance_monthly_disease_month", "disease_id", "month_start"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    disease_id: Mapped[int] = mapped_column(ForeignKey("diseases.id"), nullable=False)
+    iso3: Mapped[str] = mapped_column(ForeignKey("countries.iso3"), nullable=False)
+    month_start: Mapped[date] = mapped_column(Date, nullable=False)
+    cases: Mapped[float | None] = mapped_column(Double)
+    breakdown: Mapped[dict | None] = mapped_column(JSONB)
+    is_provisional: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    source_id: Mapped[int] = mapped_column(ForeignKey("data_sources.id"), nullable=False)
+    ingestion_run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class SurveillanceMonthlyRevision(Base):
+    """Append-only history of revised monthly values."""
+
+    __tablename__ = "surveillance_monthly_revisions"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    surveillance_monthly_id: Mapped[int] = mapped_column(
+        # Explicit name: the convention-generated one exceeds PostgreSQL's 63 characters.
+        ForeignKey("surveillance_monthly.id", ondelete="CASCADE",
+                   name="fk_surveillance_monthly_revisions_monthly"),
+        nullable=False, index=True,
+    )
+    previous_values: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    revised_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    ingestion_run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"), nullable=False)
+
+
 class PopulationAnnual(Base):
     __tablename__ = "population_annual"
 
@@ -103,6 +148,9 @@ class CoverageProfile(Base):
     iso3: Mapped[str] = mapped_column(ForeignKey("countries.iso3"), primary_key=True)
     reference_week: Mapped[date] = mapped_column(Date, primary_key=True)
     tier: Mapped[str] = mapped_column(CHAR(1), nullable=False)
+    # Reporting grain the profile is measured in: "week" or "month". `completeness` and
+    # `longest_gap` are in that unit; `weeks_since_last` is always in weeks.
+    grain: Mapped[str] = mapped_column(String(8), server_default="week", nullable=False)
     completeness: Mapped[float] = mapped_column(Double, nullable=False)
     longest_gap: Mapped[int] = mapped_column(Integer, nullable=False)
     median_tests: Mapped[float | None] = mapped_column(Double)

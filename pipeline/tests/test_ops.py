@@ -124,9 +124,10 @@ def test_weekly_runs_every_step_in_order(fake_jobs, capsys):
     assert cli.main(["weekly", "--fast", "--keep", "4"]) == 0
     names = [c[0] for c in fake_jobs]
     assert names == [*cli.STEPS, "forecast", "detect", "prune"]
-    # Only FluNet is re-downloaded; other sources are fetched only when missing.
+    # Only surveillance sources are re-downloaded; others are fetched only when missing.
+    assert cli.REFRESHED == ("flunet", "dengue")
     assert [c[1]["refresh"] for c in fake_jobs[:len(cli.STEPS)]] == [
-        s == "flunet" for s in cli.STEPS]
+        s in cli.REFRESHED for s in cli.STEPS]
     assert fake_jobs[-3][1] == {"fast": True}
     out = capsys.readouterr().out
     assert '[forecast]' in out and '"run_key": "k"' in out and '"x"' not in out
@@ -181,6 +182,7 @@ def test_flunet_structure_check(tmp_path):
 
 
 def test_flunet_download_tries_variants_and_keeps_good_file(tmp_path, monkeypatch):
+    from ei_pipeline import util
     from ei_pipeline.sources import flunet
 
     served: list[dict] = []
@@ -190,14 +192,14 @@ def test_flunet_download_tries_variants_and_keeps_good_file(tmp_path, monkeypatc
         dest.write_bytes((SPLICED if len(served) == 1 else GOOD).encode())
         return dest
 
-    monkeypatch.setattr(flunet, "_download", fake)
+    monkeypatch.setattr(util, "download", fake)
     dest = tmp_path / "VIW_FNT.csv"
     assert flunet.download(dest) == dest and dest.read_bytes() == GOOD.encode()
     assert served == list(flunet.DOWNLOAD_VARIANTS[:2])
     assert [p.name for p in tmp_path.iterdir()] == ["VIW_FNT.csv"]  # temp file removed
 
     # Every variant malformed: fail loudly and keep the previous good file.
-    monkeypatch.setattr(flunet, "_download",
+    monkeypatch.setattr(util, "download",
                         lambda url, d, *, headers: d.write_bytes(SPLICED.encode()))
     with pytest.raises(flunet.MalformedExport, match="previous file kept"):
         flunet.download(dest)

@@ -61,7 +61,7 @@ export function DataStatus() {
           <dd className="font-mono">{status?.schema_revision ?? "—"}</dd>
         </dl>
         {status && status.diseases.length > 0 && (
-          <div className="mt-3 border-t border-border pt-2">
+          <div className="mt-3 space-y-3 border-t border-border pt-2">
             {status.diseases.map((d) => (
               <dl key={d.key} className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
                 <dt className="col-span-2 font-medium text-foreground">{d.name}</dt>

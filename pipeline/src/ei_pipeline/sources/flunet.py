@@ -7,7 +7,6 @@ implemented here.
 
 from __future__ import annotations
 
-import csv
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,7 +14,10 @@ from pathlib import Path
 import pandas as pd
 
 from ei_pipeline.config import RAW_DIR
-from ei_pipeline.util import download as _download
+from ei_pipeline.util import MalformedExport, download_checked
+from ei_pipeline.util import check_csv_structure as check_structure
+
+__all__ = ["MalformedExport", "check_structure", "clean", "download", "load_raw"]
 
 log = logging.getLogger(__name__)
 
@@ -72,48 +74,12 @@ class CleaningReport:
     notes: list[str] = field(default_factory=list)
 
 
-class MalformedExport(ValueError):
-    """The downloaded CSV is not a complete, rectangular table."""
-
-
-def check_structure(path: Path) -> str | None:
-    """None when every record has the header's field count; otherwise a description.
-
-    Uses the csv module, which follows quoting rules exactly (FluNet comments contain
-    commas and line breaks), so a failure means the file itself is broken - typically a
-    truncated last record or two records spliced together."""
-    with path.open(encoding="utf-8", newline="") as fh:
-        reader = csv.reader(fh)
-        header = next(reader, None)
-        if not header:
-            return "empty file"
-        bad = [(n, len(rec)) for n, rec in enumerate(reader, start=2) if len(rec) != len(header)]
-    if bad:
-        shown = ", ".join(f"record {n}: {k} fields" for n, k in bad[:3])
-        return f"{len(bad)} record(s) without {len(header)} fields ({shown})"
-    return None
-
-
 def download(dest: Path = RAW_PATH) -> Path:
     """Download the full FluNet table as CSV (~30 MB) and keep it only if it is complete.
 
     Tries each request variant in turn; the previous file at `dest` is replaced only by
     a well-formed download. Raises MalformedExport when no variant gives one."""
-    tmp = dest.with_name(dest.name + ".download")
-    problems = []
-    try:
-        for headers in DOWNLOAD_VARIANTS:
-            _download(FLUNET_URL, tmp, headers=headers)
-            problem = check_structure(tmp)
-            if problem is None:
-                tmp.replace(dest)
-                return dest
-            log.warning("FluNet export malformed with %s: %s", headers, problem)
-            problems.append(f"{headers}: {problem}")
-    finally:
-        tmp.unlink(missing_ok=True)
-    raise MalformedExport("Every FluNet download was malformed; previous file kept. "
-                          + " | ".join(problems))
+    return download_checked(FLUNET_URL, dest, DOWNLOAD_VARIANTS, label="FluNet")
 
 
 def load_raw(path: Path = RAW_PATH) -> pd.DataFrame:

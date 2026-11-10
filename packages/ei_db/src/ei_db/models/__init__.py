@@ -20,6 +20,8 @@ from ei_db.models.observations import (
     CoverageProfile,
     HealthIndicator,
     PopulationAnnual,
+    SurveillanceMonthly,
+    SurveillanceMonthlyRevision,
     SurveillanceRevision,
     SurveillanceWeekly,
 )
@@ -53,6 +55,8 @@ __all__ = [
     "HealthIndicator",
     "IngestionRun",
     "PopulationAnnual",
+    "SurveillanceMonthly",
+    "SurveillanceMonthlyRevision",
     "SurveillanceRevision",
     "SurveillanceWeekly",
 ]

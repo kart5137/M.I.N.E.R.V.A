@@ -5,11 +5,12 @@
     ei ingest population [--refresh] World Bank → population_annual
     ei ingest health [--refresh]     World Bank → health_indicators
     ei ingest flunet [--refresh]     WHO FluNet → surveillance_weekly
+    ei ingest dengue [--refresh]     WHO dengue → surveillance_weekly / _monthly (D1)
     ei ingest all [--refresh]        all of the above, in order
     ei forecast run [--fast]         backtest, select, train and store forecasts (M5)
     ei detect run                    thresholds, risk, anomalies, hotspots (M6), alerts (M7)
     ei prune [--keep N]              drop per-country detail of old forecast runs (M8)
-    ei weekly [--fast]               the scheduled job: ingest (FluNet refreshed),
+    ei weekly [--fast]               the scheduled job: ingest (FluNet, dengue refreshed),
                                      forecast, detect, prune (M8)
 """
 
@@ -25,14 +26,18 @@ from ei_db import make_engine
 from ei_pipeline.catalog import seed_reference
 from ei_pipeline.db import session_scope
 from ei_pipeline.ingest.boundaries import ingest_boundaries
+from ei_pipeline.ingest.dengue import ingest_dengue
 from ei_pipeline.ingest.flunet import ingest_flunet
 from ei_pipeline.ingest.health import ingest_health
 from ei_pipeline.ingest.population import ingest_population
 from ei_pipeline.maintenance import DEFAULT_KEEP, prune_runs
 
-STEPS = ("reference", "boundaries", "population", "health", "flunet")
+STEPS = ("reference", "boundaries", "population", "health", "flunet", "dengue")
+#: Surveillance sources re-downloaded by every weekly run; reference files only when
+#: missing.
+REFRESHED = ("flunet", "dengue")
 SUMMARY_KEYS = ("inserted", "updated", "unchanged", "revisions_recorded", "rows_excluded",
-                "reference_week", "coverage_tiers", "areas", "latest_year",
+                "reference_week", "reference_month", "coverage_tiers", "areas", "latest_year",
                 "countries_without_population", "indicators")
 
 
@@ -41,7 +46,7 @@ def _run_step(engine, step: str, refresh: bool) -> dict:
         with session_scope(engine) as s:
             return seed_reference(s)
     job = {"boundaries": ingest_boundaries, "population": ingest_population,
-           "health": ingest_health, "flunet": ingest_flunet}[step]
+           "health": ingest_health, "flunet": ingest_flunet, "dengue": ingest_dengue}[step]
     return job(engine, refresh=refresh)
 
 
@@ -66,12 +71,13 @@ def _timed(label: str, fn) -> dict:
 
 def _weekly(engine, *, fast: bool, keep: int) -> int:
     """The scheduled job. Reference files (boundaries, World Bank) are downloaded only when
-    missing; FluNet is always re-downloaded. Any failure stops the job (non-zero exit)."""
+    missing; surveillance sources (REFRESHED) are always re-downloaded. Any failure stops
+    the job (non-zero exit)."""
     from ei_pipeline.detection.run import run_detection
     from ei_pipeline.forecasting.run import run_forecast
 
     for step in STEPS:
-        _timed(step, lambda s=step: _summary(_run_step(engine, s, refresh=s == "flunet")))
+        _timed(step, lambda s=step: _summary(_run_step(engine, s, refresh=s in REFRESHED)))
     _timed("forecast", lambda: {k: v for k, v in run_forecast(engine, fast=fast).items()
                                 if k in ("run_key", "reference_week", "forecasts", "active")})
     _timed("detect", lambda: run_detection(engine))

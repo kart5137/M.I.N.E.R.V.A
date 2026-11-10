@@ -1,0 +1,200 @@
+country_code,country_name,who_region,grain,has_weekly,has_monthly,first_period,last_period,periods_reported_all_time,window_periods_reported,window_completeness,window_longest_gap,weeks_since_last_report,median_cases,share_zero_case_periods,cases_in_window,tier
+ABW,Aruba,AMR,week,True,False,2014-07-07,2025-10-27,278,70,0.449,40,39,0.0,0.671,114.0,C
+AFG,Afghanistan,EMR,month,True,True,2024-01-01,2026-08-01,32,32,0.889,3,0,250.5,0.0,12820.0,C
+AGO,Angola,AFR,week,True,False,2024-01-01,2026-06-22,85,85,0.545,21,5,2.0,0.447,478.0,C
+AIA,Anguilla,AMR,week,True,False,2014-02-03,2026-08-03,286,117,0.75,35,0,0.0,0.957,9.0,C
+ALB,Albania,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+AND,Andorra,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+ARG,Argentina,AMR,week,True,False,2013-12-30,2026-08-03,558,156,1.0,0,0,16.5,0.154,615813.0,A
+ARM,Armenia,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+ATG,Antigua and Barbuda,AMR,week,True,False,2014-07-07,2026-07-13,281,90,0.577,11,2,0.0,0.744,424.0,C
+AUS,Australia,WPR,month,False,True,2008-01-01,2026-09-01,225,36,1.0,0,0,133.0,0.0,5405.0,C
+AUT,Austria,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+AZE,Azerbaijan,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+BDI,Burundi,AFR,week,True,False,2024-01-01,2026-08-03,57,57,0.365,79,0,0.0,1.0,0.0,C
+BEL,Belgium,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+BEN,Benin,AFR,week,True,False,2024-01-01,2026-08-03,133,133,0.853,20,0,1.0,0.481,192.0,B
+BES,"Bonaire, Saint Eustatius and Saba",AMR,week,True,False,2018-01-01,2024-03-18,164,12,0.077,124,123,16.0,0.0,207.0,C
+BFA,Burkina Faso,AFR,week,True,False,2024-01-01,2026-08-03,132,132,0.846,20,0,788.0,0.0,151616.0,B
+BGD,Bangladesh,SEAR,month,True,True,2024-01-01,2026-09-01,33,33,0.917,3,0,2669.0,0.0,283701.0,C
+BGR,Bulgaria,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+BHS,Bahamas,AMR,week,True,False,2014-01-20,2026-05-18,217,48,0.308,97,10,0.0,0.604,238.0,C
+BIH,Bosnia and Herzegovina,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+BLM,Saint Barthélemy,AMR,week,True,False,2014-01-20,2026-05-18,394,119,0.763,14,10,0.0,0.538,866.0,C
+BLR,Belarus,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+BLZ,Belize,AMR,week,True,False,2013-12-30,2026-04-13,638,136,0.872,16,15,22.5,0.0,5335.0,B
+BMU,Bermuda,AMR,week,True,False,2013-12-30,2026-06-15,527,133,0.853,7,6,0.0,0.962,6.0,C
+BOL,Bolivia (Plurinational State of),AMR,week,True,False,2013-12-30,2026-08-03,658,156,1.0,0,0,670.5,0.0,166091.0,A
+BRA,Brazil,AMR,week,True,False,2013-12-30,2026-08-03,658,156,1.0,0,0,35947.0,0.0,15757517.0,A
+BRB,Barbados,AMR,week,True,False,2013-12-30,2026-08-03,658,156,1.0,0,0,3.0,0.064,2144.0,A
+BTN,Bhutan,SEAR,month,False,True,2024-01-01,2026-08-01,32,32,0.889,3,0,11.5,0.031,512.0,C
+BWA,Botswana,AFR,week,True,False,2025-02-03,2026-08-03,78,78,0.5,77,0,0.0,1.0,0.0,C
+CAF,Central African Republic,AFR,week,True,False,2024-01-01,2026-08-03,58,58,0.372,67,0,0.0,0.983,207.0,C
+CAN,Canada,AMR,week,True,False,2013-12-30,2026-08-03,657,155,0.994,1,0,0.0,1.0,0.0,C
+CHE,Switzerland,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+CHL,Chile,AMR,week,True,False,2014-10-13,2026-08-03,469,156,1.0,0,0,0.0,0.865,184.0,C
+CHN,China,WPR,month,False,True,2024-01-01,2026-08-01,32,32,0.889,3,0,186.5,0.0,37186.0,C
+CIV,Côte d'Ivoire,AFR,week,True,False,2023-01-02,2026-08-03,186,154,0.987,1,0,11.0,0.052,8888.0,A
+CMR,Cameroon,AFR,week,True,False,2024-01-01,2026-07-20,124,124,0.795,20,1,0.0,0.806,164.0,C
+COD,Democratic Republic of the Congo,AFR,week,True,False,2025-12-29,2026-08-03,31,31,0.199,124,0,0.0,1.0,0.0,C
+COG,Congo,AFR,week,True,False,2024-01-01,2026-08-03,57,57,0.365,79,0,0.0,1.0,0.0,C
+COK,Cook Islands,WPR,week,True,False,2024-01-01,2026-08-03,115,115,0.737,20,0,0.0,0.591,1373.0,C
+COL,Colombia,AMR,week,True,False,2013-12-30,2026-08-03,658,156,1.0,0,0,2960.0,0.0,578311.0,A
+COM,Comoros,AFR,week,True,False,2025-09-01,2026-08-03,35,35,0.224,107,0,0.0,0.629,82.0,C
+CPV,Cabo Verde,AFR,week,True,False,2023-10-30,2026-07-27,112,112,0.718,12,0,26.0,0.188,26620.0,B
+CRI,Costa Rica,AMR,week,True,False,2013-12-30,2026-08-03,657,155,0.994,1,0,207.0,0.0,65051.0,A
+CUB,Cuba,AMR,week,True,False,2014-12-29,2026-06-22,51,32,0.205,50,5,80.0,0.0,33423.0,C
+CUW,Curaçao,AMR,week,True,False,2014-09-01,2024-03-18,318,12,0.077,124,123,19.5,0.0,262.0,C
+CYM,Cayman Islands,AMR,week,True,False,2013-12-30,2026-08-03,338,120,0.769,11,0,0.0,0.95,51.0,C
+CYP,Cyprus,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+CZE,Czechia,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+DEU,Germany,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+DMA,Dominica,AMR,week,True,False,2013-12-30,2023-12-25,163,1,0.006,136,135,419.0,0.0,419.0,C
+DNK,Denmark,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+DOM,Dominican Republic,AMR,week,True,False,2013-12-30,2026-08-03,655,154,0.987,1,0,48.0,0.0,41597.0,A
+ECU,Ecuador,AMR,week,True,False,2013-12-30,2026-08-03,655,156,1.0,0,0,755.0,0.0,138802.0,A
+ERI,Eritrea,AFR,week,True,False,2024-01-01,2026-06-15,77,77,0.494,20,6,186.0,0.052,19036.0,C
+ESP,Spain,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,0.939,10.0,C
+EST,Estonia,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+ETH,Ethiopia,AFR,week,True,False,2023-04-03,2026-08-03,164,145,0.929,5,0,60.0,0.041,26481.0,A
+FIN,Finland,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+FJI,Fiji,WPR,week,True,False,2024-01-01,2026-08-03,118,118,0.756,20,0,214.0,0.0,35973.0,B
+FRA,France,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,0.606,120.0,C
+FSM,Micronesia (Federated States of),WPR,week,True,False,2024-01-01,2026-06-01,109,109,0.699,20,8,1.0,0.394,144.0,B
+GAB,Gabon,AFR,week,True,False,2024-01-01,2026-08-03,122,122,0.782,20,0,0.0,1.0,0.0,C
+GBR,United Kingdom of Great Britain and Northern Ireland,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+GEO,Georgia,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+GHA,Ghana,AFR,week,True,False,2024-01-01,2026-08-03,133,133,0.853,20,0,0.0,0.654,1216.0,C
+GIN,Guinea,AFR,week,True,False,2024-01-01,2026-08-03,60,60,0.385,76,0,0.0,0.983,2.0,C
+GLP,Guadeloupe,AMR,week,True,False,2014-02-10,2026-05-18,260,123,0.788,13,10,105.0,0.171,26137.0,B
+GMB,Gambia,AFR,week,True,False,2024-01-01,2026-08-03,123,123,0.788,20,0,0.0,1.0,0.0,C
+GNB,Guinea-Bissau,AFR,week,True,False,2024-01-01,2026-06-15,103,103,0.66,20,6,0.0,1.0,0.0,C
+GNQ,Equatorial Guinea,AFR,week,True,False,2024-08-26,2026-07-27,90,90,0.577,54,0,0.0,1.0,0.0,C
+GRC,Greece,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+GRD,Grenada,AMR,week,True,False,2014-06-09,2026-08-03,328,154,0.987,1,0,5.0,0.026,1222.0,A
+GTM,Guatemala,AMR,week,True,False,2013-12-30,2026-08-03,606,156,1.0,0,0,1114.0,0.0,318214.0,A
+GUF,French Guiana,AMR,week,True,False,2014-01-20,2026-08-03,238,93,0.596,37,0,3.0,0.312,19149.0,C
+GUM,Guam,WPR,week,True,False,2024-12-30,2025-12-22,52,52,0.333,72,31,0.0,0.962,2.0,C
+GUY,Guyana,AMR,week,True,False,2014-07-07,2026-06-22,287,149,0.955,6,5,1128.0,0.027,168915.0,A
+HND,Honduras,AMR,week,True,False,2013-12-30,2026-08-03,644,156,1.0,0,0,410.5,0.0,224333.0,A
+HRV,Croatia,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+HTI,Haiti,AMR,week,True,False,2015-06-01,2022-06-27,157,0,0.0,156,213,,,0.0,D
+HUN,Hungary,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+IDN,Indonesia,SEAR,month,False,True,2007-01-01,2026-09-01,237,36,1.0,0,0,12932.0,0.0,547065.0,C
+IND,India,SEAR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,6625.0,0.0,423294.0,C
+IRL,Ireland,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+IRN,Iran (Islamic Republic of),EMR,month,False,True,2024-04-01,2026-06-01,27,27,0.75,6,4,93.0,0.074,14562.0,C
+ISL,Iceland,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+ISR,Israel,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+ITA,Italy,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,0.788,276.0,C
+JAM,Jamaica,AMR,week,True,False,2013-12-30,2026-08-03,596,151,0.968,2,0,13.0,0.192,11163.0,A
+KAZ,Kazakhstan,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+KEN,Kenya,AFR,week,True,False,2024-01-01,2026-08-03,118,118,0.756,20,0,168.0,0.195,20892.0,B
+KGZ,Kyrgyzstan,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+KHM,Cambodia,WPR,week,True,False,2024-01-01,2026-08-03,136,136,0.872,20,0,461.5,0.0,137371.0,B
+KIR,Kiribati,WPR,week,True,False,2024-01-01,2026-08-03,114,114,0.731,20,0,0.0,0.605,1464.0,C
+KNA,Saint Kitts and Nevis,AMR,week,True,False,2014-07-07,2026-03-30,408,137,0.878,18,17,0.0,0.591,561.0,C
+LAO,Lao People's Democratic Republic,WPR,week,True,False,2024-01-01,2026-08-03,136,136,0.872,20,0,172.5,0.0,55884.0,B
+LBR,Liberia,AFR,week,True,False,2024-01-01,2026-08-03,98,98,0.628,25,0,0.0,0.735,49.0,C
+LCA,Saint Lucia,AMR,week,True,False,2014-06-09,2026-08-03,474,149,0.955,5,0,0.0,0.537,534.0,C
+LIE,Liechtenstein,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+LKA,Sri Lanka,SEAR,month,True,True,2024-01-01,2026-08-01,32,32,0.889,3,0,4678.5,0.0,196885.0,C
+LSO,Lesotho,AFR,week,True,False,2025-12-29,2026-07-27,31,31,0.199,124,0,0.0,1.0,0.0,C
+LTU,Lithuania,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+LUX,Luxembourg,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+LVA,Latvia,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+MAF,Saint Martin (French part),AMR,week,True,False,2014-01-20,2026-05-18,325,123,0.788,13,10,5.0,0.407,2040.0,B
+MCO,Monaco,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+MDA,Republic of Moldova,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+MDG,Madagascar,AFR,week,True,False,2024-01-01,2026-08-03,57,57,0.365,79,0,0.0,1.0,0.0,C
+MDR,Autonomous Region of Madeira,EUR,month,False,True,2025-01-01,2025-04-01,4,4,0.111,17,65,0.0,0.75,2.0,C
+MDV,Maldives,SEAR,month,False,True,2022-01-01,2026-08-01,56,35,0.972,1,0,256.0,0.0,11189.0,C
+MEX,Mexico,AMR,week,True,False,2013-12-30,2026-08-03,658,156,1.0,0,0,3302.5,0.0,960938.0,A
+MHL,Marshall Islands,WPR,week,True,False,2024-01-01,2026-08-03,114,114,0.731,20,0,0.0,0.982,17.0,C
+MKD,North Macedonia,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+MLI,Mali,AFR,week,True,False,2024-01-01,2026-08-03,131,131,0.84,20,0,86.0,0.015,15496.0,B
+MLT,Malta,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+MMR,Myanmar,SEAR,month,False,True,2024-01-01,2026-08-01,32,32,0.889,3,0,380.0,0.0,22889.0,C
+MNE,Montenegro,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+MNP,Northern Mariana Islands (Commonwealth of the),WPR,week,True,False,2024-01-01,2026-08-03,121,121,0.776,20,0,0.0,0.983,2.0,C
+MOZ,Mozambique,AFR,week,True,False,2024-01-01,2026-08-03,57,57,0.365,79,0,0.0,1.0,0.0,C
+MRT,Mauritania,AFR,week,True,False,2023-01-02,2026-07-13,167,135,0.865,7,2,38.0,0.022,11525.0,A
+MSR,Montserrat,AMR,week,True,False,2013-12-30,2026-08-03,376,127,0.814,7,0,0.0,0.945,10.0,C
+MTQ,Martinique,AMR,week,True,False,2014-01-20,2026-05-18,293,123,0.788,13,10,70.0,0.122,20645.0,B
+MUS,Mauritius,AFR,week,True,False,2023-12-11,2026-08-03,128,128,0.821,17,0,37.0,0.0,13645.0,B
+MWI,Malawi,AFR,week,True,False,2024-01-01,2026-08-03,136,136,0.872,20,0,0.0,1.0,0.0,C
+MYS,Malaysia,WPR,week,True,False,2024-01-01,2026-08-03,136,136,0.872,20,0,1383.0,0.0,232858.0,B
+MYT,Mayotte,EUR,week,True,False,2024-01-01,2025-11-10,95,95,0.609,38,37,0.0,0.621,97.0,C
+NAM,Namibia,AFR,week,True,False,2024-01-01,2026-07-20,55,55,0.353,79,1,0.0,1.0,0.0,C
+NCL,New Caledonia,WPR,week,True,False,2024-01-01,2026-08-03,106,106,0.679,29,0,0.0,0.585,2176.0,C
+NER,Niger,AFR,week,True,False,2024-01-01,2026-08-03,136,136,0.872,20,0,0.0,0.912,58.0,C
+NGA,Nigeria,AFR,week,True,False,2025-12-29,2026-08-03,30,30,0.192,124,0,0.0,1.0,0.0,C
+NIC,Nicaragua,AMR,week,True,False,2013-12-30,2025-01-20,578,76,0.487,80,79,2016.5,0.0,199401.0,C
+NIU,Niue,WPR,week,True,False,2024-01-01,2026-07-20,95,95,0.609,20,1,0.0,1.0,0.0,C
+NLD,Netherlands (Kingdom of the),EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+NOR,Norway,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+NPL,Nepal,SEAR,month,True,True,2023-01-01,2026-09-01,45,36,1.0,0,0,553.0,0.0,72710.0,C
+NRU,Nauru,WPR,week,True,False,2024-12-30,2026-06-15,77,77,0.494,72,6,0.0,0.805,455.0,C
+PAK,Pakistan,EMR,week,True,False,2023-05-29,2026-08-03,165,154,0.987,2,0,303.5,0.0,98436.0,A
+PAN,Panama,AMR,week,True,False,2014-02-03,2026-08-03,608,156,1.0,0,0,441.5,0.0,79474.0,A
+PCN,Pitcairn Islands,WPR,week,True,False,2024-01-01,2026-07-13,113,113,0.724,20,2,0.0,0.991,1.0,C
+PER,Peru,AMR,week,True,False,2013-12-30,2026-08-03,641,156,1.0,0,0,1118.0,0.0,389418.0,A
+PLW,Palau,WPR,week,True,False,2024-01-01,2026-08-03,121,121,0.776,20,0,0.0,0.777,64.0,C
+POL,Poland,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+PRI,Puerto Rico,AMR,week,True,False,2013-12-30,2026-08-03,622,154,0.987,2,0,53.0,0.0,11023.0,A
+PRT,Portugal,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+PRY,Paraguay,AMR,week,True,False,2013-12-30,2026-08-03,629,156,1.0,0,0,571.5,0.0,381040.0,A
+PYF,French Polynesia,WPR,week,True,False,2024-01-01,2026-08-03,122,122,0.782,20,0,2.0,0.344,1261.0,B
+REU,Réunion,EUR,week,True,True,2024-12-30,2026-08-03,84,84,0.538,72,0,0.0,0.595,302.0,C
+ROU,Romania,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+RUS,Russian Federation,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+RWA,Rwanda,AFR,week,True,False,2024-01-01,2026-08-03,125,125,0.801,20,0,0.0,1.0,0.0,C
+SAU,Saudi Arabia,EMR,month,False,True,2024-01-01,2024-08-01,8,8,0.222,25,100,1049.5,0.0,8193.0,C
+SDN,Sudan,EMR,week,True,False,2023-07-17,2026-08-03,159,155,0.994,1,0,224.0,0.0,92169.0,A
+SEN,Senegal,AFR,week,True,False,2024-01-01,2026-08-03,135,135,0.865,20,0,40.0,0.0,15544.0,B
+SGP,Singapore,WPR,week,True,False,2024-01-01,2026-08-03,136,136,0.872,20,0,103.5,0.0,19581.0,B
+SLB,Solomon Islands,WPR,week,True,False,2024-01-01,2026-08-03,121,121,0.776,20,0,4.0,0.091,565.0,B
+SLE,Sierra Leone,AFR,week,True,False,2024-01-01,2026-08-03,136,136,0.872,20,0,0.0,0.978,30.0,C
+SLV,El Salvador,AMR,week,True,False,2013-12-30,2026-08-03,647,153,0.981,2,0,114.0,0.0,19643.0,A
+SMR,San Marino,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+SRB,Serbia,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+SSD,South Sudan,AFR,week,True,False,2024-01-01,2026-08-03,57,57,0.365,79,0,0.0,1.0,0.0,C
+STP,Sao Tome and Principe,AFR,week,True,False,2023-04-10,2026-08-03,173,155,0.994,1,0,0.0,0.71,224.0,C
+SUR,Suriname,AMR,week,True,False,2014-05-26,2026-08-03,422,121,0.776,32,0,9.0,0.107,2006.0,B
+SVK,Slovakia,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+SVN,Slovenia,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+SWE,Sweden,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+SWZ,Eswatini,AFR,week,True,False,2025-12-29,2026-08-03,32,32,0.205,124,0,0.0,1.0,0.0,C
+SXM,Sint Maarten (Dutch part),AMR,week,True,False,2014-12-29,2025-07-07,150,54,0.346,56,55,0.0,0.685,153.0,C
+SYC,Seychelles,AFR,week,True,False,2023-01-02,2026-08-03,159,127,0.814,24,0,5.0,0.323,4776.0,B
+TCA,Turks and Caicos Islands,AMR,week,True,False,2014-07-07,2026-03-23,319,92,0.59,19,18,0.0,0.891,300.0,C
+TCD,Chad,AFR,week,True,False,2024-01-01,2026-08-03,109,109,0.699,27,0,0.0,0.927,74.0,C
+TGO,Togo,AFR,week,True,False,2023-09-11,2026-08-03,152,152,0.974,4,0,0.0,0.901,55.0,C
+THA,Thailand,SEAR,month,False,True,2010-01-01,2026-08-01,200,35,0.972,1,0,5293.0,0.0,233172.0,C
+TJK,Tajikistan,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+TKL,Tokelau,WPR,week,True,False,2024-01-01,2026-06-29,102,102,0.654,20,4,0.0,0.922,14.0,C
+TKM,Turkmenistan,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+TLS,Timor-Leste,SEAR,month,False,True,2021-01-01,2026-07-01,67,34,0.944,2,0,101.0,0.0,7781.0,C
+TON,Tonga,WPR,week,True,False,2024-01-01,2026-08-03,118,118,0.756,20,0,0.5,0.5,2473.0,B
+TTO,Trinidad and Tobago,AMR,week,True,False,2014-02-03,2026-08-03,213,98,0.628,19,0,0.0,0.633,2395.0,C
+TUR,Türkiye,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+TUV,Tuvalu,WPR,week,True,False,2024-01-01,2026-07-13,106,106,0.679,23,2,0.0,0.868,47.0,C
+TZA,United Republic of Tanzania,AFR,week,True,False,2024-01-01,2026-08-03,119,119,0.763,20,0,0.0,0.647,414.0,C
+UGA,Uganda,AFR,week,True,False,2024-01-01,2026-08-03,57,57,0.365,79,0,0.0,1.0,0.0,C
+UKR,Ukraine,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+URY,Uruguay,AMR,week,True,False,2013-12-30,2026-08-03,655,156,1.0,0,0,0.0,0.705,1155.0,C
+USA,United States of America,AMR,week,True,False,2013-12-30,2026-08-03,654,156,1.0,0,0,17.0,0.173,4602.0,A
+UZB,Uzbekistan,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+VAT,Holy See,EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+VCT,Saint Vincent and the Grenadines,AMR,week,True,False,2014-08-04,2026-08-03,327,106,0.679,11,0,0.0,0.811,985.0,C
+VEN,Venezuela (Bolivarian Republic of),AMR,week,True,False,2013-12-30,2026-08-03,602,156,1.0,0,0,682.0,0.0,125201.0,A
+VGB,British Virgin Islands,AMR,week,True,False,2013-12-30,2026-06-15,282,86,0.551,15,6,0.0,0.628,202.0,C
+VIR,United States Virgin Islands,AMR,week,True,False,2013-12-30,2026-08-03,657,155,0.994,1,0,0.0,0.794,232.0,C
+VNM,Viet Nam,WPR,week,True,False,2024-01-01,2026-08-03,136,136,0.872,20,0,2066.5,0.0,381688.0,B
+VUT,Vanuatu,WPR,week,True,False,2024-01-01,2026-08-03,120,120,0.769,20,0,2.0,0.375,502.0,B
+WLF,Wallis and Futuna,WPR,week,True,False,2024-01-01,2026-08-03,120,120,0.769,20,0,1.0,0.375,264.0,B
+WSM,Samoa,WPR,week,True,False,2024-01-01,2026-08-03,116,116,0.744,20,0,38.0,0.095,21671.0,B
+XKX,Kosovo (in accordance with UN Security Council resolution 1244 (1999)),EUR,month,False,True,2024-01-01,2026-09-01,33,33,0.917,3,0,0.0,1.0,0.0,C
+ZAF,South Africa,AFR,week,True,False,2025-12-29,2026-08-03,32,32,0.205,124,0,0.0,1.0,0.0,C
+ZMB,Zambia,AFR,week,True,False,2024-01-01,2026-08-03,57,57,0.365,79,0,0.0,1.0,0.0,C
+ZWE,Zimbabwe,AFR,week,True,False,2024-01-01,2026-08-03,57,57,0.365,79,0,0.0,1.0,0.0,C
