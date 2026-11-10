@@ -171,7 +171,8 @@ function Hero({
         </div>
 
         <div className="flex items-end justify-between gap-3">
-          <div className="panel-glass pointer-events-auto w-64 rounded-xl p-3">
+          {/* lg+: sit beside the KPI column (280px + 16px gap), not under it. */}
+          <div className="panel-glass pointer-events-auto w-64 rounded-xl p-3 lg:ml-[296px]">
             <PositivityLegend />
           </div>
           {global.error && <QueryError error={global.error} className="pointer-events-auto text-xs text-status-error" />}
