@@ -13,7 +13,7 @@ export function ForecastSummary({ iso3 }: { iso3: string }) {
   const d = fc.data;
   const active = (d?.forecasts ?? []).filter((f) => f.is_active);
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="panel p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="text-sm font-medium">Forecast</h2>

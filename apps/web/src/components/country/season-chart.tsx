@@ -6,7 +6,7 @@ import { CHART, EChart, type EChartsOption } from "@/components/charts/echart";
 import { formatInt, formatPct, formatWeek } from "@/lib/format";
 import type { Season, ThresholdLevels } from "@/lib/types";
 
-const PAST = "#64748b";
+const PAST = CHART.muted2;
 
 /**
  * Season-aligned positivity: the current season in the accent hue, earlier seasons as

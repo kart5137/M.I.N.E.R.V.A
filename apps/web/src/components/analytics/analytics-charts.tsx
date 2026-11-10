@@ -96,7 +96,7 @@ export function ComparisonChart({
           const rows = series.map((s) => {
             const b = lookup.get(s.key)!.get(p);
             const v = b ? metric.get(b) : null;
-            const note = b?.partial ? ` <span style="color:#f59e0b">partial</span>` : "";
+            const note = b?.partial ? ` <span style="color:#f2a93b">partial</span>` : "";
             return tooltipRow(colors.get(s.key) ?? CHART.muted, s.label, v == null ? "—" : metric.value(v), note);
           });
           return `<div style="font-weight:600;margin-bottom:4px">${labels.get(p)}</div>${rows.join("")}`;
@@ -122,8 +122,8 @@ export function ComparisonChart({
   return <EChart option={option} ariaLabel={`${metric.label} by period for ${series.map((s) => s.label).join(", ")}`} />;
 }
 
-const TYPE_A = "#9085e9";
-const TYPE_B = "#199e70";
+const TYPE_A = CHART.categorical[2];
+const TYPE_B = CHART.categorical[0];
 
 /** Influenza A vs B detections per period (stacked; typed detections only). */
 export function SubtypeChart({ series }: { series: TrendSeries }) {
@@ -143,11 +143,11 @@ export function SubtypeChart({ series }: { series: TrendSeries }) {
       tooltip: {
         trigger: "axis",
         ...CHART.tooltip,
-        axisPointer: { type: "shadow", shadowStyle: { color: "rgba(131,145,167,0.08)" } },
+        axisPointer: { type: "shadow", shadowStyle: { color: "rgba(159,181,175,0.08)" } },
         formatter: (params: { dataIndex: number }[]) => {
           const x = b[params[0]?.dataIndex ?? 0];
           return [
-            `<div style="font-weight:600;margin-bottom:4px">${x.label}${x.partial ? ` <span style="color:#f59e0b;font-weight:400">partial</span>` : ""}</div>`,
+            `<div style="font-weight:600;margin-bottom:4px">${x.label}${x.partial ? ` <span style="color:#f2a93b;font-weight:400">partial</span>` : ""}</div>`,
             tooltipRow(TYPE_A, "Influenza A", formatInt(x.inf_a)),
             tooltipRow(TYPE_B, "Influenza B", formatInt(x.inf_b)),
             `<div style="margin-top:4px;color:${CHART.muted}">A share: ${formatPct(x.share_a, 0)}</div>`,
@@ -200,7 +200,7 @@ export function PositivityHeatmap({ data }: { data: Heatmap }) {
       };
     });
     const pieces = [
-      { value: -1, color: "#5b6475", label: `< ${data.min_specimens} specimens` },
+      { value: -1, color: "#4d6662", label: `< ${data.min_specimens} specimens` },
       ...POSITIVITY_BINS.map((b, i) => ({
         gte: i === 0 ? 0 : POSITIVITY_BINS[i - 1].max,
         lt: b.max === Infinity ? 1.0001 : b.max,
@@ -216,7 +216,7 @@ export function PositivityHeatmap({ data }: { data: Heatmap }) {
         formatter: (p: { data: { cell: Heatmap["cells"][number] } }) => {
           const c = p.data.cell;
           return [
-            `<div style="font-weight:600;margin-bottom:4px">${c.iso_year}-W${String(c.iso_week).padStart(2, "0")}${c.is_provisional ? ` <span style="color:#f59e0b;font-weight:400">provisional</span>` : ""}</div>`,
+            `<div style="font-weight:600;margin-bottom:4px">${c.iso_year}-W${String(c.iso_week).padStart(2, "0")}${c.is_provisional ? ` <span style="color:#f2a93b;font-weight:400">provisional</span>` : ""}</div>`,
             `<div>Positivity: ${formatPct(c.positivity)}</div>`,
             `<div style="color:${CHART.muted}">Specimens: ${formatInt(c.specimens_tested)}</div>`,
           ].join("");
@@ -257,7 +257,7 @@ export function PositivityHeatmap({ data }: { data: Heatmap }) {
         {
           type: "heatmap",
           data: cells,
-          itemStyle: { borderColor: "#0d1322", borderWidth: 1, borderRadius: 2 },
+          itemStyle: { borderColor: "#0b2023", borderWidth: 1, borderRadius: 2 },
           emphasis: { itemStyle: { borderColor: CHART.ink, borderWidth: 1 } },
         },
       ],

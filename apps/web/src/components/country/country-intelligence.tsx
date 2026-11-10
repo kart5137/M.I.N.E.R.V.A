@@ -48,7 +48,7 @@ function Card({ title, subtitle, children, className, actions }: {
   actions?: React.ReactNode;
 }) {
   return (
-    <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
+    <section className={cn("panel p-4", className)}>
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-sm font-medium">{title}</h2>
@@ -63,7 +63,7 @@ function Card({ title, subtitle, children, className, actions }: {
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-3.5">
+    <div className="panel p-3.5">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-1 text-xl font-semibold tracking-tight">{value}</div>
       {note && <div className="mt-0.5 text-[11px] text-muted-foreground">{note}</div>}
@@ -226,7 +226,7 @@ function History({ iso3 }: { iso3: string }) {
       title="Surveillance history"
       subtitle={`Weekly · gaps are weeks without testing (or fewer than ${MIN_SPECIMENS} specimens for positivity), never zero · dashed / faded = provisional`}
       actions={
-        <div className="grid grid-cols-4 gap-1 rounded-md bg-muted p-0.5 text-xs" role="radiogroup" aria-label="History range">
+        <div className="grid grid-cols-4 gap-1 rounded-full border border-border bg-muted p-1 text-xs" role="radiogroup" aria-label="History range">
           {RANGES.map((r) => (
             <button
               key={r.key}
@@ -235,8 +235,8 @@ function History({ iso3 }: { iso3: string }) {
               aria-checked={range === r.key}
               onClick={() => setRange(r.key)}
               className={cn(
-                "rounded px-2 py-1 transition-colors",
-                range === r.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                "rounded-full px-3 py-1 transition-colors",
+                range === r.key ? "bg-primary font-medium text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {r.label}

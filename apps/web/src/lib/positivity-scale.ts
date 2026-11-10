@@ -1,7 +1,8 @@
 /**
- * Binned sequential scale for influenza test positivity (one hue, blue).
- * Validated with the dataviz palette validator against the globe surface (#0a1120):
- * monotone lightness, visible step gaps, darkest step ≥ 2:1. Dark → light = low → high.
+ * Binned sequential scale for influenza test positivity (one hue, amber).
+ * Validated with the dataviz palette validator (--ordinal) against the globe land colour
+ * #0f2f33: monotone lightness, visible step gaps, darkest step 2.28:1, hue spread 18°.
+ * Dark → light = low → high.
  */
 import type { CountryWindowValue } from "@/lib/types";
 
@@ -9,19 +10,19 @@ import type { CountryWindowValue } from "@/lib/types";
 export const MIN_SPECIMENS = 10;
 
 export const POSITIVITY_BINS = [
-  { max: 0.05, color: "#184f95", label: "<5" },
-  { max: 0.1, color: "#256abf", label: "5–10" },
-  { max: 0.15, color: "#3987e5", label: "10–15" },
-  { max: 0.25, color: "#6da7ec", label: "15–25" },
-  { max: 0.4, color: "#9ec5f4", label: "25–40" },
-  { max: Infinity, color: "#cde2fb", label: "≥40" },
+  { max: 0.05, color: "#86561a", label: "<5" },
+  { max: 0.1, color: "#a46b1c", label: "5–10" },
+  { max: 0.15, color: "#c48420", label: "10–15" },
+  { max: 0.25, color: "#e09f30", label: "15–25" },
+  { max: 0.4, color: "#f2c26a", label: "25–40" },
+  { max: Infinity, color: "#fae3b2", label: "≥40" },
 ] as const;
 
 /** Reported, but too few specimens for a stable rate. */
-export const FEW_SPECIMENS_COLOR = "#5b6475";
-/** Detections columns: a second, distinct hue (categorical slot 2, dark-mode step). */
-export const DETECTIONS_RGB: [number, number, number] = [217, 89, 38];
-export const DETECTIONS_COLOR = "#d95926";
+export const FEW_SPECIMENS_COLOR = "#4d6662";
+/** Detections columns: teal, a hue the amber fill never uses (categorical slot 1, lifted for 3D). */
+export const DETECTIONS_RGB: [number, number, number] = [79, 207, 189];
+export const DETECTIONS_COLOR = "#4fcfbd";
 
 /** -1 = no data (land colour), 0 = too few specimens, 1..n = positivity bin. */
 export function positivityClass(v: CountryWindowValue | undefined): number {

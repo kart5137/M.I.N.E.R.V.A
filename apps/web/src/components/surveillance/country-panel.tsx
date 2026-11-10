@@ -55,7 +55,7 @@ export function CountryPanel({
 
   return (
     <aside
-      className="flex max-h-full w-80 flex-col overflow-y-auto rounded-lg border border-border bg-card/95 text-xs backdrop-blur"
+      className="flex max-h-full w-80 flex-col overflow-y-auto panel-glass text-xs"
       aria-label={`${p?.name ?? iso3} details`}
     >
       <header className="flex items-start justify-between gap-2 border-b border-border p-3">

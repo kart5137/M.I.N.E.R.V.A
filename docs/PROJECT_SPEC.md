@@ -70,9 +70,12 @@ Weather handling:
 A dark-mode epidemiological command centre: dense but calm, closer to a professional
 geospatial analytics tool than a marketing site.
 
-- Dark navy / charcoal surfaces; restrained blue–cyan accents.
-- Sequential risk scale (yellow → orange → red) used only for risk/intensity.
-- Clean typography, consistent spacing, small radii, subtle transitions.
+- "Observatory" palette (redesign, Nov 2026): deep ink-teal surfaces, warm amber accent,
+  ivory text, teal as the secondary hue. Tokens in `apps/web/src/app/globals.css`.
+- Data colours validated with the dataviz palette checker: amber single-hue positivity
+  scale, blue ↔ coral diverging scales, amber ordinal risk; teal detection columns.
+- Bricolage Grotesque for headings and readouts, Geist for body text; slim icon rail;
+  one shared `.panel` card surface and a `.panel-glass` variant for overlays on the globe.
 - Responsive down to tablet; mobile shows a simplified read-only layout.
 
 Avoid: generic AI landing pages, heavy gradients, oversized cards, decorative

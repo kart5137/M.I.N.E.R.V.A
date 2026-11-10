@@ -3,15 +3,17 @@
 import { useMemo } from "react";
 
 import { CHART, EChart, type EChartsOption } from "@/components/charts/echart";
+import { COLD, HOT } from "@/lib/detection-scale";
 import { addWeeks, formatInt, formatPct, formatWeek, weeksBetween } from "@/lib/format";
 import type { CountryBacktest, Explanation, ForecastOut, SeriesPoint } from "@/lib/types";
 
 const OBS = CHART.categorical[0];
 const FC = CHART.categorical[1];
-const BAND80 = "rgba(217,89,38,0.28)";
-const BAND95 = "rgba(217,89,38,0.12)";
-const INCREASE = "#e66767";
-const DECREASE = "#3987e5";
+/** Interval bands: the forecast hue (amber, #bf8418) at two opacities. */
+const BAND80 = "rgba(191,132,24,0.32)";
+const BAND95 = "rgba(191,132,24,0.14)";
+const INCREASE = HOT;
+const DECREASE = COLD;
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const row = (k: string, v: string, color?: string) =>
@@ -148,7 +150,7 @@ export function ForecastChart({
           symbol: "circle",
           symbolSize: (v: number | null, p: { dataIndex: number }) => (weeks[p.dataIndex] === origin ? 0 : 8),
           lineStyle: { width: 2, color: FC },
-          itemStyle: { color: FC, borderColor: "#0d1322", borderWidth: 2 },
+          itemStyle: { color: FC, borderColor: "#0b2023", borderWidth: 2 },
         },
       ],
     };

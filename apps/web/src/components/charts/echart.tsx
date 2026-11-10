@@ -33,21 +33,26 @@ export type EChartsOption = echarts.EChartsCoreOption;
 
 /** Chart chrome shared by every chart: recessive axes and grid, text in ink tokens. */
 export const CHART = {
-  ink: "#dce3ee",
-  muted: "#8391a7",
-  grid: "#1c2740",
-  axis: "#2b3a5a",
-  series: "#3987e5",
-  provisional: "rgba(131,145,167,0.10)",
-  /** Categorical series slots (validated, dark surface). Assign by entity, never by rank. */
-  categorical: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#9085e9"],
-  muted2: "#4a5568",
-  selection: "rgba(34,211,238,0.08)",
+  ink: "#efe8da",
+  muted: "#9fb5af",
+  grid: "#16312f",
+  axis: "#2a5558",
+  /** Single-series colour (categorical slot 1). */
+  series: "#1f9e8f",
+  provisional: "rgba(159,181,175,0.08)",
+  /**
+   * Categorical series slots, validated on the card surface #0b2023 (dark band, chroma,
+   * adjacent CVD ≥ 12.8, normal-vision ≥ 19.4, contrast ≥ 3:1). Assign by entity, never
+   * by rank.
+   */
+  categorical: ["#1f9e8f", "#bf8418", "#8f6fe0", "#d4584a", "#3f83d6", "#c4508a"],
+  muted2: "#4d6662",
+  selection: "rgba(242,169,59,0.07)",
   tooltip: {
-    backgroundColor: "#0f1729",
-    borderColor: "#1c2740",
-    textStyle: { color: "#dce3ee", fontSize: 12 },
-    extraCssText: "border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.4);",
+    backgroundColor: "#0e2629",
+    borderColor: "#1c3a3d",
+    textStyle: { color: "#efe8da", fontSize: 12 },
+    extraCssText: "border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.5);",
   },
 } as const;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { ColumnLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { ColumnLayer, ScatterplotLayer, SolidPolygonLayer } from "@deck.gl/layers";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import {
   type ExpressionSpecification,
@@ -51,8 +51,18 @@ export interface GlobeRing {
   radius: number;
 }
 
+/** Pixels of the globe box covered by overlays; the globe is centred in what remains. */
+export interface GlobeInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 export interface GlobeProps {
   projection?: "globe" | "mercator";
+  /** Overlay insets (px). The globe is centred and sized to the uncovered area. */
+  insets?: Partial<GlobeInsets>;
   /** Initial camera tilt in degrees (makes 3D columns readable). */
   pitch?: number;
   autoRotate?: boolean;
@@ -76,10 +86,38 @@ export interface GlobeProps {
 /** Country boundaries: Natural Earth 1:50m (public domain), served from PostGIS. */
 const COUNTRIES_URL = `${API_BASE_URL}/geo/countries`;
 const ROTATE_DEG_PER_SEC = 4;
+/** Idle time after the user lets go before auto-rotation resumes, and its ease-in. */
+const RESUME_AFTER_MS = 1000;
+
+// The deck.gl overlay is a separate canvas, so it cannot see MapLibre's globe and
+// would draw columns on the far side straight through it. An invisible sphere drawn
+// first (depth only, alpha 0) occludes them. It is built from small cells so each
+// face follows the curvature, and sits slightly below the surface so flat rings at
+// ground level are not clipped by it.
+const OCCLUDER_STEP_DEG = 5;
+const OCCLUDER_DEPTH_M = -15_000;
+const OCCLUDER_CELLS: [number, number, number][][] = (() => {
+  const cells: [number, number, number][][] = [];
+  const z = OCCLUDER_DEPTH_M;
+  for (let lat = -90; lat < 90; lat += OCCLUDER_STEP_DEG) {
+    for (let lng = -180; lng < 180; lng += OCCLUDER_STEP_DEG) {
+      const a = lng;
+      const b = lng + OCCLUDER_STEP_DEG;
+      const c = lat;
+      const d = lat + OCCLUDER_STEP_DEG;
+      cells.push([[a, c, z], [b, c, z], [b, d, z], [a, d, z], [a, c, z]]);
+    }
+  }
+  return cells;
+})();
+const RESUME_RAMP_MS = 1200;
+/** Globe radius as a share of the shorter side of the visible area. */
+const GLOBE_FILL = 0.4;
+const NO_INSETS: GlobeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 /** Column height (m) per √(weekly average detections). Fixed, so heights compare over time. */
 const METRES_PER_SQRT_DETECTION = 12_000;
 const DEFAULT_LAYERS: GlobeLayers = { positivity: true, detections: false };
-const DEFAULT_RING: [number, number, number] = [241, 245, 249];
+const DEFAULT_RING: [number, number, number] = [246, 240, 227];
 
 // Served by scripts/copy-maplibre-worker.mjs (runs before dev/build).
 setWorkerUrl("/vendor/maplibre-gl-worker.mjs");
@@ -88,18 +126,46 @@ function token(name: string, fallback: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
+/**
+ * Zoom at which the globe's radius is `radius` px. MapLibre's globe matches the Mercator
+ * scale at the map centre, so the sphere's circumference is the world size (512·2^z) at the
+ * equator; `lat` corrects for the centre latitude.
+ */
+export function zoomForRadius(radius: number, lat = 0): number {
+  return Math.log2((radius * 2 * Math.PI) / (512 * Math.cos((lat * Math.PI) / 180)));
+}
+
+/**
+ * Camera that centres the globe in the area the overlays leave free and sizes it to
+ * GLOBE_FILL of that area. Two corrections, both measured on MapLibre 6:
+ * - perspective draws the sphere's silhouette ~0.8× the Mercator-matched radius (less
+ *   when tilted, as the camera moves closer), so the target radius is divided by that;
+ * - tilting the camera pivots on the surface point under the centre, which drops the
+ *   sphere's middle by ≈ r·sin(pitch); extra bottom padding lifts it back.
+ */
+function fitCamera(map: MapLibreMap, insets: GlobeInsets, globe: boolean) {
+  const { clientWidth: w, clientHeight: h } = map.getContainer();
+  const side = Math.max(Math.min(w - insets.left - insets.right, h - insets.top - insets.bottom), 120);
+  const radius = side * GLOBE_FILL;
+  const pitch = (map.getPitch() * Math.PI) / 180;
+  const silhouette = globe ? 0.8 / Math.cos(pitch) : 1;
+  const zoom = Math.min(Math.max(zoomForRadius(radius / silhouette, map.getCenter().lat), 0), 3);
+  const lift = globe ? 2 * radius * Math.sin(pitch) : 0;
+  return { zoom, padding: { ...insets, bottom: insets.bottom + lift } };
+}
+
 function buildStyle(projection: "globe" | "mercator"): StyleSpecification {
   return {
     version: 8,
     projection: { type: projection },
     sky: { "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 0.85, 5, 0.4, 7, 0] },
     sources: {},
-    layers: [{ id: "ocean", type: "background", paint: { "background-color": "#0a1120" } }],
+    layers: [{ id: "ocean", type: "background", paint: { "background-color": token("--globe-ocean", "#07242a") } }],
   };
 }
 
 function classColor(colors: string[]): ExpressionSpecification {
-  const land = token("--globe-land", "#15203a");
+  const land = token("--globe-land", "#0f2f33");
   return [
     "match",
     ["coalesce", ["feature-state", "cls"], -1],
@@ -109,7 +175,7 @@ function classColor(colors: string[]): ExpressionSpecification {
 }
 
 function fillColor(showPositivity: boolean): ExpressionSpecification | string {
-  const land = token("--globe-land", "#15203a");
+  const land = token("--globe-land", "#0f2f33");
   if (!showPositivity) return land;
   const bins = POSITIVITY_BINS.flatMap((b, i) => [i + 1, b.color]);
   return [
@@ -124,6 +190,7 @@ function fillColor(showPositivity: boolean): ExpressionSpecification | string {
 
 export function Globe({
   projection = "globe",
+  insets: insetsProp,
   pitch = 0,
   autoRotate = true,
   interactive = true,
@@ -142,6 +209,13 @@ export function Globe({
   const mapRef = useRef<MapLibreMap | null>(null);
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const rotatingRef = useRef(autoRotate);
+  const insetsKey = [insetsProp?.top, insetsProp?.right, insetsProp?.bottom, insetsProp?.left]
+    .map((v) => Math.round(v ?? 0))
+    .join(",");
+  const insetsRef = useRef<GlobeInsets>(NO_INSETS);
+  const projectionRef = useRef(projection);
+  /** Set once the user zooms; from then on resizes keep their zoom. */
+  const userZoomedRef = useRef(false);
   const clickRef = useRef(onCountryClick);
   const [countries, setCountries] = useState<Countries | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -157,6 +231,15 @@ export function Globe({
   useEffect(() => {
     clickRef.current = onCountryClick;
   }, [onCountryClick]);
+
+  // Declared before the map effect so a new map starts with the current insets.
+  useEffect(() => {
+    const [top, right, bottom, left] = insetsKey.split(",").map(Number);
+    insetsRef.current = { top, right, bottom, left };
+  }, [insetsKey]);
+  useEffect(() => {
+    projectionRef.current = projection;
+  }, [projection]);
 
   useEffect(() => {
     // Respect the system "reduce motion" setting: no idle rotation.
@@ -183,7 +266,8 @@ export function Globe({
     const map = new MapLibreMap({
       container: containerRef.current,
       style: buildStyle(projection),
-      center: [15, 20],
+      // Equator at the centre keeps the sphere in the middle of the frame.
+      center: [15, 0],
       zoom: 1.35,
       pitch,
       minZoom: 0.8,
@@ -193,6 +277,15 @@ export function Globe({
       renderWorldCopies: false,
     });
     mapRef.current = map;
+    const refit = () => {
+      const cam = fitCamera(map, insetsRef.current, projectionRef.current === "globe");
+      map.jumpTo(userZoomedRef.current ? { padding: cam.padding } : cam);
+    };
+    refit();
+    map.on("resize", refit);
+    map.on("zoomstart", (e) => {
+      if ((e as { originalEvent?: Event }).originalEvent) userZoomedRef.current = true;
+    });
 
     // M1 spike result: deck.gl 9.4 interleaved mode renders nothing on MapLibre 6
     // (no error). Overlaid mode (separate canvas, deck GlobeView synced to the map) works
@@ -202,7 +295,7 @@ export function Globe({
     map.addControl(overlay);
 
     let hoveredId: string | null = null;
-    const accent = token("--globe-hover", "#22d3ee");
+    const accent = token("--globe-hover", "#f2a93b");
     const active: ExpressionSpecification = [
       "any",
       ["boolean", ["feature-state", "hover"], false],
@@ -215,14 +308,14 @@ export function Globe({
         id: "country-fill",
         type: "fill",
         source: "countries",
-        paint: { "fill-color": token("--globe-land", "#15203a") },
+        paint: { "fill-color": token("--globe-land", "#0f2f33") },
       });
       map.addLayer({
         id: "country-line",
         type: "line",
         source: "countries",
         paint: {
-          "line-color": ["case", active, accent, token("--globe-border", "#2b3a5a")],
+          "line-color": ["case", active, accent, token("--globe-border", "#2a5558")],
           "line-width": ["case", active, 1.6, 0.5],
         },
       });
@@ -257,27 +350,42 @@ export function Globe({
       if (p) clickRef.current?.(p);
     });
 
-    // Slow auto-rotation that stops for good once the user interacts.
+    // Slow auto-rotation, "grab to hold": a pointer pressed on the globe stops it at
+    // once and holds it through the drag. RESUME_AFTER_MS after the last pointer is
+    // released and any drag inertia or zoom has settled, it eases back in. Presses
+    // elsewhere on the page never touch it. Pointer events cover mouse, pen and touch.
     let frame = 0;
     let last = performance.now();
-    const stop = () => {
-      rotatingRef.current = false;
+    const held = new Set<number>();
+    let resumeAt = 0;
+    const surface = map.getCanvasContainer();
+    const grab = (e: PointerEvent) => held.add(e.pointerId);
+    const letGo = (e: PointerEvent) => held.delete(e.pointerId);
+    surface.addEventListener("pointerdown", grab);
+    window.addEventListener("pointerup", letGo);
+    window.addEventListener("pointercancel", letGo);
+    const removePointerListeners = () => {
+      surface.removeEventListener("pointerdown", grab);
+      window.removeEventListener("pointerup", letGo);
+      window.removeEventListener("pointercancel", letGo);
     };
-    map.on("mousedown", stop);
-    map.on("touchstart", stop);
-    map.on("wheel", stop);
     const tick = (now: number) => {
-      const dt = (now - last) / 1000;
+      const dt = Math.min((now - last) / 1000, 0.1);
       last = now;
-      if (rotatingRef.current && !map.isMoving()) {
+      // While held, or while the camera is still moving (inertia, wheel zoom, our own
+      // re-centring), keep pushing the restart out so it begins only once all is still.
+      if (held.size > 0 || map.isMoving()) resumeAt = now + RESUME_AFTER_MS;
+      if (rotatingRef.current && now >= resumeAt) {
+        const ease = Math.min((now - resumeAt) / RESUME_RAMP_MS, 1);
         const c = map.getCenter();
-        map.jumpTo({ center: [c.lng + ROTATE_DEG_PER_SEC * dt, c.lat] });
+        map.jumpTo({ center: [c.lng + ROTATE_DEG_PER_SEC * ease * dt, c.lat] });
       }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
 
     return () => {
+      removePointerListeners();
       cancelAnimationFrame(frame);
       setStyleReady(false);
       overlayRef.current = null;
@@ -287,6 +395,14 @@ export function Globe({
     // Projection changes are applied in place below; recreate only on data/interactivity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countries, interactive]);
+
+  // Overlay insets: re-centre (and re-fit unless the user has zoomed).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const cam = fitCamera(map, insetsRef.current, projection === "globe");
+    map.easeTo({ ...(userZoomedRef.current ? { padding: cam.padding } : cam), duration: 300 });
+  }, [insetsKey, projection]);
 
   // Projection toggle
   useEffect(() => {
@@ -340,6 +456,14 @@ export function Globe({
     });
     overlay.setProps({
       layers: [
+        new SolidPolygonLayer<[number, number, number][]>({
+          id: "globe-occluder",
+          visible: projection === "globe",
+          data: OCCLUDER_CELLS,
+          getPolygon: (d) => d,
+          getFillColor: [0, 0, 0, 0],
+          pickable: false,
+        }),
         new ScatterplotLayer<{ position: [number, number]; radius: number }>({
           id: "rings",
           data: ringData,
@@ -365,7 +489,7 @@ export function Globe({
         }),
       ],
     });
-  }, [layers.detections, values, windowWeeks, byIso3, styleReady, rings, ringColor]);
+  }, [layers.detections, values, windowWeeks, byIso3, styleReady, rings, ringColor, projection]);
 
   const hovered = hover ? byIso3.get(hover.iso3) : undefined;
   const hoveredValue = hover ? valueByIso3.get(hover.iso3) : undefined;
@@ -373,7 +497,7 @@ export function Globe({
   return (
     <div
       className={cn("relative overflow-hidden", className)}
-      style={{ background: "radial-gradient(ellipse at center, #0b1426 0%, var(--globe-space) 70%)" }}
+      style={{ background: "radial-gradient(ellipse at center, #0a2a2e 0%, var(--globe-space) 72%)" }}
     >
       {/* Inline style: maplibre-gl.css sets `.maplibregl-map { position: relative }`
           unlayered, which overrides Tailwind's layered `absolute inset-0`. */}
@@ -390,7 +514,7 @@ export function Globe({
       )}
       {hover && hovered && (
         <div
-          className="pointer-events-none absolute z-10 min-w-40 rounded-md border border-border bg-popover/95 px-2.5 py-2 text-xs shadow-lg"
+          className="panel-glass pointer-events-none absolute z-10 min-w-44 rounded-lg px-3 py-2.5 text-xs"
           style={{ left: hover.x + 14, top: hover.y + 14 }}
         >
           <div className="flex items-baseline justify-between gap-3">

@@ -1,29 +1,17 @@
 "use client";
 
 import { Menu } from "lucide-react";
+import Link from "next/link";
 import { type ReactNode, Suspense, useState } from "react";
 
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
-import { Brand } from "./brand";
+import { Brand, BrandMark, Wordmark } from "./brand";
 import { DataStatus } from "./data-status";
 import { FilterBar } from "./filter-bar";
-import { SidebarNav } from "./sidebar-nav";
+import { NavRail, SidebarNav } from "./sidebar-nav";
 
-function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
-  return (
-    <div className="flex h-full flex-col gap-6 py-4">
-      <Brand />
-      {/* usePathname needs a Suspense boundary under Cache Components. */}
-      <Suspense fallback={null}>
-        <SidebarNav onNavigate={onNavigate} />
-      </Suspense>
-      <p className="mt-auto px-4 text-[10.5px] leading-relaxed text-subtle-foreground">
-        Analytical tool. Not medical advice or official public-health guidance.
-      </p>
-    </div>
-  );
-}
+const DISCLAIMER = "Analytical tool. Not medical advice or official public-health guidance.";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -36,42 +24,63 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         Skip to content
       </a>
+
       <aside
         aria-label="Sidebar"
-        className="sticky top-0 hidden h-dvh w-60 shrink-0 border-r border-sidebar-border bg-sidebar lg:block"
+        className="sticky top-0 hidden h-dvh w-[72px] shrink-0 flex-col items-center gap-6 border-r border-sidebar-border bg-sidebar/95 py-4 lg:flex"
       >
-        <SidebarBody />
+        <Link href="/" aria-label="M.I.N.E.R.V.A. home" className="rounded-xl p-1 transition-transform hover:scale-105">
+          <BrandMark className="size-9" />
+        </Link>
+        {/* usePathname needs a Suspense boundary under Cache Components. */}
+        <Suspense fallback={null}>
+          <NavRail />
+        </Suspense>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-background/85 px-4 py-2 backdrop-blur lg:px-6">
+        <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border/70 bg-background/80 px-4 py-2.5 backdrop-blur-md lg:px-6">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <button
                 type="button"
-                className="-ml-1 rounded-md p-1.5 text-muted-foreground hover:text-foreground lg:hidden"
+                className="-ml-1 rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground lg:hidden"
                 aria-label="Open navigation"
               >
                 <Menu className="size-5" />
               </button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 border-sidebar-border bg-sidebar p-0">
+            <SheetContent side="left" className="w-72 border-sidebar-border bg-sidebar p-0">
               <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <SidebarBody onNavigate={() => setMobileOpen(false)} />
+              <div className="flex h-full flex-col gap-6 py-5">
+                <Brand />
+                <Suspense fallback={null}>
+                  <SidebarNav onNavigate={() => setMobileOpen(false)} />
+                </Suspense>
+                <p className="mt-auto px-5 text-[10.5px] leading-relaxed text-subtle-foreground">{DISCLAIMER}</p>
+              </div>
             </SheetContent>
           </Sheet>
 
-          <div className="hidden items-center gap-2 text-xs sm:flex">
-            <span className="text-muted-foreground">Disease</span>
-            <span className="rounded-md border border-border bg-card px-2 py-1 font-medium">
+          <BrandMark className="size-7 sm:hidden" />
+          <Wordmark className="hidden sm:block" />
+          <span className="hidden h-7 w-px bg-border sm:block" aria-hidden />
+
+          <div className="hidden items-center gap-2 text-xs md:flex">
+            <span className="eyebrow">Disease</span>
+            <span className="flex h-8 items-center gap-2 rounded-full border border-primary/35 bg-primary/10 px-3 font-medium text-primary">
+              <span className="size-1.5 rounded-full bg-primary" aria-hidden />
               Influenza
             </span>
           </div>
 
-          {/* useSearchParams needs a Suspense boundary under Cache Components. */}
-          <Suspense fallback={null}>
-            <FilterBar />
-          </Suspense>
+          {/* Phones: filters take their own row under the menu, logo and status. */}
+          <div className="order-last w-full sm:order-none sm:w-auto">
+            {/* useSearchParams needs a Suspense boundary under Cache Components. */}
+            <Suspense fallback={null}>
+              <FilterBar />
+            </Suspense>
+          </div>
 
           <div className="ml-auto flex items-center gap-2">
             <DataStatus />
@@ -81,6 +90,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">
           {children}
         </main>
+        <footer className="border-t border-border/60 px-4 py-2.5 text-[10.5px] text-subtle-foreground lg:px-6">
+          {DISCLAIMER}
+        </footer>
       </div>
     </div>
   );

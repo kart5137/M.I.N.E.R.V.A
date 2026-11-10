@@ -18,7 +18,7 @@ import { num, pp, signedPct } from "./prediction-center";
 
 function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="panel p-4">
       <h2 className="text-sm font-medium">{title}</h2>
       {subtitle && <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>}
       <div className="mt-3">{children}</div>

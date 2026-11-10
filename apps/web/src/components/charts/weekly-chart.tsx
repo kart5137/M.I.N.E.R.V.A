@@ -81,7 +81,7 @@ export function WeeklyChart({
                 `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:${CHART.muted}">${k}</span><span style="font-variant-numeric:tabular-nums">${v}</span></div>`,
             ),
             p.provisional
-              ? `<div style="margin-top:4px;color:#f59e0b;font-size:11px">Provisional: reporting still incomplete</div>`
+              ? `<div style="margin-top:4px;color:#f2a93b;font-size:11px">Provisional: reporting still incomplete</div>`
               : "",
           ].join("");
         },

@@ -35,14 +35,19 @@ export function DataStatus() {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex h-8 items-center gap-2 rounded-md border border-border bg-card px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="flex h-8 items-center gap-2 rounded-full border border-input bg-card px-3 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
         >
-          <span className={cn("size-1.5 rounded-full", label.tone)} aria-hidden />
+          <span className="relative flex size-2" aria-hidden>
+            {state.kind === "ready" && (
+              <span className={cn("absolute inset-0 animate-ping rounded-full opacity-60", label.tone)} />
+            )}
+            <span className={cn("relative size-2 rounded-full", label.tone)} />
+          </span>
           <span>{label.text}</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 text-xs">
-        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <PopoverContent align="end" className="panel-glass w-80 text-xs">
+        <div className="eyebrow mb-2">
           Platform status
         </div>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">

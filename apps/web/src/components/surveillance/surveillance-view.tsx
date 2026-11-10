@@ -10,6 +10,7 @@ import { Provenance } from "@/components/common/provenance";
 import { FILL_MODES, type FillMode, useDetectionLayers } from "@/components/detection/globe-layers";
 import { Globe, type GlobeLayers } from "@/components/globe";
 import { Switch } from "@/components/ui/switch";
+import { useElementHeight, useMediaQuery } from "@/hooks/use-element-size";
 import { globalQueryOptions, useGlobalSurveillance } from "@/hooks/use-surveillance";
 import { useFilters } from "@/lib/filters";
 import { formatInt, windowLabel } from "@/lib/format";
@@ -88,6 +89,17 @@ export function SurveillanceView() {
   const data = global.data;
   const valueByIso3 = useMemo(() => new Map(data?.countries.map((c) => [c.iso3, c]) ?? []), [data]);
 
+  // Centre the globe in the area the overlays leave free.
+  const [bottomBar, setBottomBar] = useState<HTMLDivElement | null>(null);
+  const bottomHeight = useElementHeight(bottomBar);
+  const wide = useMediaQuery("(min-width: 1024px)");
+  const insets = {
+    top: 0,
+    left: wide ? 280 : 0,
+    right: wide && selected && data ? 344 : 0,
+    bottom: bottomHeight ? bottomHeight + 12 : 0,
+  };
+
   const prefetch = useCallback(
     (week: string) => void queryClient.prefetchQuery(globalQueryOptions({ ...filters, to: week })),
     [queryClient, filters],
@@ -98,6 +110,7 @@ export function SurveillanceView() {
       <Globe
         className="absolute inset-0"
         projection={projection}
+        insets={insets}
         pitch={20}
         autoRotate={autoRotate}
         values={data?.countries}
@@ -119,7 +132,7 @@ export function SurveillanceView() {
         onClick={() => setControlsOpen((o) => !o)}
         aria-expanded={controlsOpen}
         aria-controls="map-controls"
-        className="absolute left-3 top-3 z-10 flex h-8 items-center gap-1.5 rounded-md border border-border bg-card/90 px-2.5 text-xs font-medium backdrop-blur lg:hidden"
+        className="absolute left-3 top-3 z-10 flex h-8 items-center gap-1.5 panel-glass rounded-lg px-2.5 text-xs font-medium lg:hidden"
       >
         {controlsOpen ? <X className="size-4" aria-hidden /> : <SlidersHorizontal className="size-4" aria-hidden />}
         {controlsOpen ? "Close" : "Layers"}
@@ -128,13 +141,13 @@ export function SurveillanceView() {
         id="map-controls"
         aria-label="Map controls"
         className={cn(
-          "absolute left-3 top-14 max-h-[calc(100%-13rem)] w-64 space-y-4 overflow-y-auto rounded-lg border border-border bg-card/90 p-3 backdrop-blur lg:top-3 lg:block lg:max-h-none lg:overflow-visible",
+          "absolute left-3 top-14 max-h-[calc(100%-13rem)] w-64 space-y-4 overflow-y-auto panel-glass p-3 lg:top-3 lg:block lg:max-h-none lg:overflow-visible",
           controlsOpen ? "block" : "hidden",
         )}
       >
         <section className="space-y-2.5">
           <SectionTitle>View</SectionTitle>
-          <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-0.5 text-xs" role="radiogroup" aria-label="Projection">
+          <div className="grid grid-cols-2 gap-1 rounded-full border border-border bg-muted p-1 text-xs" role="radiogroup" aria-label="Projection">
             {(["globe", "mercator"] as const).map((p) => (
               <button
                 key={p}
@@ -143,8 +156,8 @@ export function SurveillanceView() {
                 aria-checked={projection === p}
                 onClick={() => setProjection(p)}
                 className={cn(
-                  "rounded px-2 py-1 transition-colors",
-                  projection === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                  "rounded-full px-3 py-1 transition-colors",
+                  projection === p ? "bg-primary font-medium text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {p === "globe" ? "3D globe" : "Flat map"}
@@ -190,7 +203,7 @@ export function SurveillanceView() {
             label="Detections (3D columns)"
             checked={detections}
             onChange={setDetections}
-            swatch={<span className="h-3 w-1.5 rounded-t-[2px] bg-[#d95926]" />}
+            swatch={<span className="h-3 w-1.5 rounded-t-[2px] bg-[#4fcfbd]" />}
           />
           <Toggle
             id="layer-anomalies"
@@ -200,7 +213,7 @@ export function SurveillanceView() {
               setShowAnomalies(v);
               setParam("anomalies", v ? "1" : null);
             }}
-            swatch={<span className="size-2.5 rounded-full border-2 border-slate-100" />}
+            swatch={<span className="size-2.5 rounded-full border-2 border-[#f6f0e3]" />}
           />
         </section>
 
@@ -235,7 +248,7 @@ export function SurveillanceView() {
         </div>
       )}
 
-      <div className="absolute inset-x-3 bottom-3 space-y-1.5 lg:left-[284px]">
+      <div ref={setBottomBar} className="absolute inset-x-3 bottom-3 space-y-1.5 lg:left-[284px]">
         {global.error && <QueryError error={global.error} className="rounded-md bg-card/90 p-2 text-xs text-status-error" />}
         {data && (
           <>

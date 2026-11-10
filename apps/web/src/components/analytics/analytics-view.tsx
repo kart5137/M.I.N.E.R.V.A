@@ -69,7 +69,7 @@ function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div className="flex gap-1 rounded-md bg-muted p-0.5 text-xs" role="radiogroup" aria-label={label}>
+    <div className="flex gap-1 rounded-full border border-border bg-muted p-1 text-xs" role="radiogroup" aria-label={label}>
       {options.map((o) => (
         <button
           key={o.key}
@@ -78,8 +78,8 @@ function Segmented<T extends string>({
           aria-checked={value === o.key}
           onClick={() => onChange(o.key)}
           className={cn(
-            "rounded px-2 py-1 transition-colors",
-            value === o.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            "rounded-full px-3 py-1 transition-colors",
+            value === o.key ? "bg-primary font-medium text-primary-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >
           {o.label}
@@ -96,7 +96,7 @@ function Card({ title, subtitle, actions, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="panel p-4">
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-sm font-medium">{title}</h2>
@@ -166,7 +166,7 @@ export function AnalyticsView() {
       />
 
       {/* Series picker */}
-      <section className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
+      <section className="flex flex-wrap items-center gap-2 panel p-3">
         <span className="text-xs text-muted-foreground">Series</span>
         {slots.map((key, i) =>
           key ? (

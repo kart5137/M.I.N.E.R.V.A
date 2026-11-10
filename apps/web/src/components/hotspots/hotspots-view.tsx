@@ -12,6 +12,7 @@ import { type FillMode, useDetectionLayers } from "@/components/detection/globe-
 import { Globe } from "@/components/globe";
 import { PageHeader } from "@/components/layout/page-header";
 import { Switch } from "@/components/ui/switch";
+import { useElementHeight, useMediaQuery } from "@/hooks/use-element-size";
 import { useAnomalies, useDetectionHistory, useHotspots } from "@/hooks/use-detection";
 import {
   COLD,
@@ -38,7 +39,7 @@ function Card({ title, subtitle, children, className, actions }: {
   actions?: React.ReactNode;
 }) {
   return (
-    <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
+    <section className={cn("panel p-4", className)}>
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-sm font-medium">{title}</h2>
@@ -60,6 +61,11 @@ export function HotspotsView() {
   const router = useRouter();
   const [mode, setMode] = useState<Extract<FillMode, "hotspots" | "moran">>("hotspots");
   const [rings, setRings] = useState(true);
+  // Centre the globe beside the controls (above them on phones, where they sit below it).
+  const [controls, setControls] = useState<HTMLDivElement | null>(null);
+  const controlsHeight = useElementHeight(controls);
+  const roomBeside = useMediaQuery("(min-width: 640px)");
+  const globeInsets = roomBeside ? { left: 252 } : { bottom: controlsHeight ? controlsHeight + 12 : 0 };
   const hotspots = useHotspots({ to: filters.to, region: filters.region });
   const anomalies = useAnomalies({ to: filters.to, weeks: filters.weeks, region: filters.region });
   const history = useDetectionHistory(filters.region);
@@ -89,9 +95,10 @@ export function HotspotsView() {
       )}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <section className="relative min-h-[460px] overflow-hidden rounded-lg border border-border">
+        <section className="relative overflow-hidden rounded-xl border border-border pt-[340px] sm:min-h-[520px] sm:pt-0">
           <Globe
             className="absolute inset-0"
+            insets={globeInsets}
             pitch={0}
             autoRotate={false}
             fill={layers.fill}
@@ -99,8 +106,8 @@ export function HotspotsView() {
             hoverDetail={layers.hoverDetail}
             onCountryClick={(c) => router.push(`/countries/${c.iso3}`)}
           />
-          <div className="absolute left-3 top-3 w-60 space-y-2.5 rounded-md border border-border bg-card/90 p-2.5 backdrop-blur">
-            <div className="grid grid-cols-2 gap-1 rounded-md bg-muted p-0.5 text-xs" role="radiogroup" aria-label="Statistic">
+          <div ref={setControls} className="panel-glass relative m-3 space-y-2.5 rounded-lg p-2.5 sm:absolute sm:left-3 sm:top-3 sm:m-0 sm:w-60">
+            <div className="grid grid-cols-2 gap-1 rounded-full border border-border bg-muted p-1 text-xs" role="radiogroup" aria-label="Statistic">
               {(["hotspots", "moran"] as const).map((m) => (
                 <button
                   key={m}
@@ -109,8 +116,8 @@ export function HotspotsView() {
                   aria-checked={mode === m}
                   onClick={() => setMode(m)}
                   className={cn(
-                    "rounded px-2 py-1 transition-colors",
-                    mode === m ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                    "rounded-full px-3 py-1 transition-colors",
+                    mode === m ? "bg-primary font-medium text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {m === "hotspots" ? "Gi*" : "Local Moran"}
@@ -473,7 +480,7 @@ function Methods({
   run: { run_key: string; finished_at: string | null } | null;
 }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground">
+    <section className="panel p-4 text-xs text-muted-foreground">
       <h2 className="flex items-center gap-1.5 text-sm font-medium text-foreground">
         <Info className="size-4" aria-hidden /> Methods
       </h2>

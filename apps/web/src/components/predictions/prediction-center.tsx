@@ -34,7 +34,7 @@ function Card({ title, subtitle, actions, children, className }: {
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-lg border border-border bg-card p-4", className)}>
+    <section className={cn("panel p-4", className)}>
       <header className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-sm font-medium">{title}</h2>
@@ -119,7 +119,7 @@ export function PredictionCenter() {
 
       {run.data && <ActiveModels models={run.data.models} />}
 
-      <section className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
+      <section className="flex flex-wrap items-end gap-3 panel p-3">
         <Select label="Country (coverage tier A or B)" value={iso3} onChange={(v) => updateSearchParams({ country: v })}>
           {!eligible.some((c) => c.iso3 === iso3) && <option value={iso3}>{countryName}</option>}
           {eligible.map((c) => (
@@ -130,7 +130,7 @@ export function PredictionCenter() {
         </Select>
         <div className="flex flex-col gap-1 text-[11px] text-muted-foreground">
           Horizon
-          <div className="flex gap-1 rounded-md bg-muted p-0.5 text-xs" role="radiogroup" aria-label="Horizon">
+          <div className="flex gap-1 rounded-full border border-border bg-muted p-1 text-xs" role="radiogroup" aria-label="Horizon">
             {HORIZONS.map((x) => (
               <button
                 key={x}
@@ -138,7 +138,7 @@ export function PredictionCenter() {
                 role="radio"
                 aria-checked={h === x}
                 onClick={() => updateSearchParams({ h: x === 1 ? null : x, model: null })}
-                className={cn("rounded px-2.5 py-1", h === x ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
+                className={cn("rounded px-2.5 py-1", h === x ? "bg-primary font-medium text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
               >
                 {x} week{x > 1 ? "s" : ""}
               </button>
@@ -292,7 +292,7 @@ function ActiveModels({ models }: { models: ModelSummary[] }) {
       {HORIZONS.map((h) => {
         const a = models.find((m) => m.horizon_weeks === h && m.is_active);
         return (
-          <section key={h} className="rounded-lg border border-border bg-card p-3.5">
+          <section key={h} className="panel p-3.5">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{h}-week horizon</span>
               {a && <CheckCircle2 className="size-4 text-status-ok" aria-label="Active model" />}

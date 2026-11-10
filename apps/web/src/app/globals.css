@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-display), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -47,6 +47,7 @@
   --color-status-warn: var(--status-warn);
   --color-status-error: var(--status-error);
   --color-status-idle: var(--status-idle);
+  --color-teal: var(--teal);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -57,65 +58,74 @@
 }
 
 /*
- * M.I.N.E.R.V.A. design tokens — dark command-centre theme.
- * The app is dark-only; shadcn's variable names are kept so its components inherit
- * the palette. Risk colours are reserved for risk/intensity encodings only.
+ * M.I.N.E.R.V.A. design tokens — "observatory": deep ink-teal surfaces, warm amber
+ * accent, ivory ink. Dark-only; shadcn's variable names are kept so its components
+ * inherit the palette. Every text token meets 4.5:1 on every surface (background,
+ * sidebar, card, muted, accent, popover). Data colours live in lib/*-scale.ts and
+ * components/charts/echart.tsx and are validated separately (dataviz validator).
  */
 :root {
   color-scheme: dark;
-  --radius: 0.375rem;
+  --radius: 0.625rem;
 
-  --background: #070b14;
-  --foreground: #dce3ee;
-  --card: #0d1322;
-  --card-foreground: #dce3ee;
-  --popover: #0f1729;
-  --popover-foreground: #dce3ee;
-  --primary: #22d3ee;
-  --primary-foreground: #04131a;
-  --secondary: #131c30;
-  --secondary-foreground: #dce3ee;
-  --muted: #111a2c;
-  --muted-foreground: #8391a7;
-  /* Secondary small print: the dimmest text that still meets 4.5:1 on every surface
-     (background, sidebar, card, muted). Use instead of lowering muted-foreground opacity. */
-  --subtle-foreground: #76839a;
-  --accent: #16213a;
-  --accent-foreground: #e2e8f0;
-  --destructive: #ef4444;
-  --border: #1c2740;
-  --input: #1c2740;
-  --ring: #22d3ee;
+  --background: #061517;
+  --foreground: #efe8da;
+  --card: #0b2023;
+  --card-foreground: #efe8da;
+  --popover: #0e2629;
+  --popover-foreground: #efe8da;
+  --primary: #f2a93b;
+  --primary-foreground: #1a1204;
+  --secondary: #10292c;
+  --secondary-foreground: #efe8da;
+  --muted: #0f272a;
+  --muted-foreground: #9fb5af;
+  /* Secondary small print: the dimmest text that still meets 4.5:1 on every surface. */
+  --subtle-foreground: #86a19a;
+  --accent: #143236;
+  --accent-foreground: #f6f0e3;
+  --destructive: #f0715f;
+  --border: #1c3a3d;
+  --input: #1f4044;
+  --ring: #f2a93b;
 
-  --chart-1: #22d3ee;
-  --chart-2: #3b82f6;
-  --chart-3: #a78bfa;
-  --chart-4: #34d399;
-  --chart-5: #94a3b8;
+  /* Secondary brand hue (teal), for non-data emphasis next to the amber accent. */
+  --teal: #4fcfbd;
 
-  --sidebar: #090e1a;
-  --sidebar-foreground: #c3cddc;
-  --sidebar-primary: #22d3ee;
-  --sidebar-primary-foreground: #04131a;
-  --sidebar-accent: #121b2e;
-  --sidebar-accent-foreground: #e2e8f0;
-  --sidebar-border: #1a2438;
-  --sidebar-ring: #22d3ee;
+  --chart-1: #1f9e8f;
+  --chart-2: #bf8418;
+  --chart-3: #8f6fe0;
+  --chart-4: #d4584a;
+  --chart-5: #3f83d6;
+
+  --sidebar: #040f11;
+  --sidebar-foreground: #b9cbc6;
+  --sidebar-primary: #f2a93b;
+  --sidebar-primary-foreground: #1a1204;
+  --sidebar-accent: #10292c;
+  --sidebar-accent-foreground: #f6f0e3;
+  --sidebar-border: #142c2f;
+  --sidebar-ring: #f2a93b;
 
   /* Domain colours */
-  --risk-low: #facc15;
-  --risk-moderate: #f97316;
-  --risk-high: #ef4444;
-  --status-ok: #34d399;
-  --status-warn: #f59e0b;
-  --status-error: #ef4444;
-  --status-idle: #64748b;
+  --risk-low: #6e5a2a;
+  --risk-moderate: #b07f1a;
+  --risk-high: #efb53c;
+  --status-ok: #4fcf8f;
+  --status-warn: #f2a93b;
+  --status-error: #f0715f;
+  --status-idle: #6f8a85;
 
   /* Globe */
-  --globe-space: #04070f;
-  --globe-land: #15203a;
-  --globe-border: #2b3a5a;
-  --globe-hover: #22d3ee;
+  --globe-space: #030b0d;
+  --globe-ocean: #07242a;
+  --globe-land: #0f2f33;
+  --globe-border: #2a5558;
+  --globe-hover: #f2a93b;
+
+  /* Surfaces with depth */
+  --panel-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.025), rgb(255 255 255 / 0) 40%);
+  --panel-shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 12px 32px -18px rgb(0 0 0 / 0.7);
 }
 
 @layer base {
@@ -124,6 +134,14 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-image:
+      radial-gradient(1200px 600px at 85% -10%, rgb(79 207 189 / 0.06), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgb(242 169 59 / 0.04), transparent 60%);
+    background-attachment: fixed;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.01em;
   }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;
@@ -147,5 +165,34 @@
   /* Tabular numbers for every metric display. */
   .metric {
     font-variant-numeric: tabular-nums;
+  }
+  /* The one card surface used on every page. */
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    background: var(--panel-sheen), var(--card);
+    box-shadow: var(--panel-shadow);
+  }
+  /* Floating panel over the globe or map. */
+  .panel-glass {
+    border: 1px solid rgb(79 207 189 / 0.14);
+    border-radius: var(--radius-xl);
+    background: color-mix(in oklab, var(--card) 78%, transparent);
+    box-shadow: 0 16px 40px -20px rgb(0 0 0 / 0.8);
+    backdrop-filter: blur(14px) saturate(1.2);
+  }
+  /* Small uppercase section label. */
+  .eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  /* Large numeric readout. */
+  .readout {
+    font-family: var(--font-heading);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
 }

@@ -46,7 +46,7 @@ export function ReportView() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6">
       <Back />
-      {!r && <div className="h-40 animate-pulse rounded-lg border border-border bg-card" />}
+      {!r && <div className="h-40 animate-pulse panel" />}
       {r && (
         <>
           <header className="flex flex-wrap items-start justify-between gap-3">
@@ -78,7 +78,7 @@ export function ReportView() {
           {verify.error && <QueryError error={verify.error} />}
           {verify.data && <VerifyResult v={verify.data} />}
 
-          <section className="rounded-lg border border-border bg-card p-4">
+          <section className="panel p-4">
             <h2 className="text-sm font-medium">Weekly test positivity</h2>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
               From the report&apos;s stored facts; the highlighted span is the report period.
@@ -104,7 +104,7 @@ export function ReportView() {
             </div>
           </section>
 
-          <article className="rounded-lg border border-border bg-card p-5">
+          <article className="panel p-5">
             <MarkdownView md={r.rendered_md} />
           </article>
           <p className="text-[11px] text-muted-foreground">
@@ -138,7 +138,7 @@ function Check({ ok, label }: { ok: boolean; label: string }) {
 
 function VerifyResult({ v }: { v: Verification }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4 text-xs">
+    <section className="panel p-4 text-xs">
       <h2 className="text-sm font-medium">Reproducibility check</h2>
       <ul className="mt-2 space-y-1.5">
         <Check ok={v.rendering_identical} label="Stored facts re-render to the stored Markdown, byte for byte" />

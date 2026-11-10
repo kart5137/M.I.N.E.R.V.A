@@ -56,7 +56,7 @@ export function PlatformStatusPanel() {
   const flu = status?.diseases.find((d) => d.key === "influenza");
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="panel p-4">
       <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         Platform readiness
       </h2>

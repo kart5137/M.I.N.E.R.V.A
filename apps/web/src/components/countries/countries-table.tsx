@@ -88,7 +88,7 @@ export function CountriesTable() {
       {list.error && <QueryError error={list.error} />}
 
       <div
-        className="overflow-x-auto rounded-lg border border-border bg-card"
+        className="overflow-x-auto panel"
         tabIndex={0}
         role="region"
         aria-label="Countries table"

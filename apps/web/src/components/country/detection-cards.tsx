@@ -29,7 +29,7 @@ function Shell({ title, subtitle, children, actions }: {
   actions?: React.ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="panel p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="text-sm font-medium">{title}</h2>

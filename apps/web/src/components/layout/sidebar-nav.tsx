@@ -8,37 +8,57 @@ import { cn } from "@/lib/utils";
 
 import { NAV_ITEMS } from "./nav-items";
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+function useIsActive() {
   const pathname = usePathname();
+  return (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+}
 
+/** Desktop: a slim icon rail; each item names itself in a tooltip and to screen readers. */
+export function NavRail() {
+  const isActive = useIsActive();
   return (
-    <nav aria-label="Main" className="flex flex-col gap-0.5 px-2">
+    <nav aria-label="Main" className="flex flex-col items-center gap-1.5">
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon;
-        const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-        const base =
-          "flex h-9 items-center gap-3 rounded-md px-2.5 text-[13px] font-medium transition-colors";
+        const active = isActive(item.href);
+        return (
+          <Tooltip key={item.href}>
+            <TooltipTrigger asChild>
+              <Link
+                href={item.href}
+                aria-label={item.label}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "group relative grid size-11 place-items-center rounded-xl transition-colors",
+                  active
+                    ? "bg-primary/12 text-primary"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                )}
+              >
+                {active && (
+                  <span className="absolute -left-3.5 top-2 h-7 w-1 rounded-r-full bg-primary" aria-hidden />
+                )}
+                <Icon className="size-[19px]" strokeWidth={active ? 2.1 : 1.8} aria-hidden />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={10}>
+              {item.label}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </nav>
+  );
+}
 
-        if (item.plannedFor) {
-          return (
-            <Tooltip key={item.href}>
-              <TooltipTrigger asChild>
-                <span
-                  aria-disabled="true"
-                  className={cn(base, "cursor-default text-sidebar-foreground/40")}
-                >
-                  <Icon className="size-4 shrink-0" aria-hidden />
-                  <span className="flex-1 truncate">{item.label}</span>
-                  <span className="rounded border border-sidebar-border px-1 text-[10px] font-semibold tracking-wide">
-                    {item.plannedFor}
-                  </span>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="right">Planned for milestone {item.plannedFor}</TooltipContent>
-            </Tooltip>
-          );
-        }
-
+/** Mobile sheet: full labels. */
+export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+  const isActive = useIsActive();
+  return (
+    <nav aria-label="Main" className="flex flex-col gap-1 px-3">
+      {NAV_ITEMS.map((item) => {
+        const Icon = item.icon;
+        const active = isActive(item.href);
         return (
           <Link
             key={item.href}
@@ -46,13 +66,13 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={cn(
-              base,
+              "flex h-10 items-center gap-3 rounded-lg px-3 text-[13.5px] font-medium transition-colors",
               active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_2px_0_0_var(--sidebar-primary)]"
-                : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                ? "bg-primary/12 text-primary"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
             )}
           >
-            <Icon className={cn("size-4 shrink-0", active && "text-sidebar-primary")} aria-hidden />
+            <Icon className="size-[18px] shrink-0" aria-hidden />
             <span className="truncate">{item.label}</span>
           </Link>
         );

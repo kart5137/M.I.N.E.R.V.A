@@ -13,7 +13,7 @@ import { ALERT_LABEL } from "./alert-ui";
 
 function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="panel p-4">
       <h2 className="text-sm font-medium">{title}</h2>
       {subtitle && <p className="mt-0.5 text-[11px] text-muted-foreground">{subtitle}</p>}
       <div className="mt-3">{children}</div>
@@ -35,7 +35,7 @@ export function AboutView() {
         description="Where every number comes from, how it is processed, and what it cannot tell you."
       />
       {q.error && <QueryError error={q.error} />}
-      {!d && !q.error && <div className="h-60 animate-pulse rounded-lg border border-border bg-card" />}
+      {!d && !q.error && <div className="h-60 animate-pulse panel" />}
       {d && (
         <>
           <p className="rounded-md border border-status-warn/40 bg-status-warn/10 px-3 py-2 text-xs">
@@ -66,7 +66,7 @@ function Sources({ d }: { d: About }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {d.sources.map((s) => (
-        <section key={s.key} className="flex flex-col rounded-lg border border-border bg-card p-4">
+        <section key={s.key} className="flex flex-col panel p-4">
           <h2 className="text-sm font-medium">{s.name}</h2>
           <dl className="mt-2 space-y-1.5 text-xs">
             <div className="flex justify-between gap-3">

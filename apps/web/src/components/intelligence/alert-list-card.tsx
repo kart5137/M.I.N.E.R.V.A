@@ -29,7 +29,7 @@ export function AlertListCard({
   const q = useAlerts({ region, iso3, to, status: "active", pageSize: limit });
   const d = q.data;
   return (
-    <section className={cn("flex flex-col rounded-lg border border-border bg-card", className)}>
+    <section className={cn("flex flex-col panel", className)}>
       <header className="flex items-start justify-between gap-2 border-b border-border p-4 pb-3">
         <div>
           <h2 className="text-sm font-medium">{iso3 ? "Alerts" : "Latest alerts"}</h2>

@@ -1,26 +1,28 @@
 /**
  * Colour classes for the detection layers (M6). Validated with the dataviz palette
- * validator against the globe land colour #15203a (dark mode):
+ * validator against the globe land colour #0f2f33 (dark mode):
  *
- * - Hot/cold (Gi*) and forecast change: diverging blue ↔ red with a neutral grey middle.
- *   Poles #3987e5 / #e66767 pass all checks; each arm (#24538f→#3987e5, #8f3d3d→#e66767)
- *   passes the ordinal checks (one hue, monotone lightness, light end ≥ 2:1).
- * - Local Moran: HH red, LL blue, outliers aqua #199e70 — all-pairs CVD 6.5 (warn band),
- *   so classes are always named in the legend and tooltip (secondary encoding).
- * - Risk: ordinal single-hue amber (#7a6a2c → #c98500 → #f2b23a), passes ordinal checks.
- * - Anomalies: neutral near-white rings; severity is the ring size, not a colour.
+ * - Hot/cold (Gi*) and forecast change: diverging blue ↔ coral with a neutral teal-grey
+ *   middle. The four arm colours pass the categorical CVD and normal-vision checks; each
+ *   arm (#2b689e→#4c97e0, #9c4439→#e0675a) passes the ordinal checks (one hue, monotone
+ *   lightness, light end ≥ 2:1).
+ * - Local Moran: HH coral, LL blue, outliers olive-gold #c2b03c — all-pairs CVD ≥ 10.1 and
+ *   normal-vision ≥ 19.4. It sits above the categorical lightness band (L 0.75); accepted
+ *   for map fills, which already use light steps. Classes are always named in the legend.
+ * - Risk: ordinal single-hue amber (#6e5a2a → #b07f1a → #efb53c), passes ordinal checks.
+ * - Anomalies: neutral ivory rings; severity is the ring size, not a colour.
  *
  * Class index 0 is always "participating but not significant / neutral"; countries with
  * no class get the land colour ("no data").
  */
 import type { HotspotItem, RiskLevel, Severity } from "@/lib/types";
 
-export const NEUTRAL = "#3b4457";
-export const HOT = "#e66767";
-export const HOT_WEAK = "#8f3d3d";
-export const COLD = "#3987e5";
-export const COLD_WEAK = "#24538f";
-export const OUTLIER = "#199e70";
+export const NEUTRAL = "#3d5654";
+export const HOT = "#e0675a";
+export const HOT_WEAK = "#9c4439";
+export const COLD = "#4c97e0";
+export const COLD_WEAK = "#2b689e";
+export const OUTLIER = "#c2b03c";
 
 export interface ClassScale {
   colors: string[];
@@ -82,7 +84,7 @@ export const GI_LABEL: Record<string, string> = {
 
 /** Risk: 0 low · 1 moderate · 2 high. */
 export const RISK_SCALE: ClassScale = {
-  colors: ["#7a6a2c", "#c98500", "#f2b23a"],
+  colors: ["#6e5a2a", "#b07f1a", "#efb53c"],
   labels: ["Low", "Moderate", "High"],
 };
 
@@ -106,7 +108,7 @@ export function changeClass(pp: number): number {
   return 0;
 }
 
-export const ANOMALY_RING = "#f1f5f9";
+export const ANOMALY_RING = "#f6f0e3";
 /** Ring radius (m) by severity, so severity is never colour-only. */
 export const SEVERITY_RADIUS: Record<Severity, number> = {
   moderate: 160_000,

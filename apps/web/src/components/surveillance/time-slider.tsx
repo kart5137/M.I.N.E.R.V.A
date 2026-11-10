@@ -71,7 +71,7 @@ export function TimeSlider({ meta, week, onChange, onPrefetch, className }: Time
   const atEnd = shown >= meta.latest_week;
 
   return (
-    <div className={cn("rounded-lg border border-border bg-card/90 p-3 backdrop-blur", className)}>
+    <div className={cn("panel-glass p-3", className)}>
       <div className="flex items-center gap-2">
         <button
           type="button"
