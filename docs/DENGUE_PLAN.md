@@ -3,7 +3,9 @@
 Status: **approved 2026-11-10.** D1 (ingestion) built 2026-11-10 — see
 [datasets/dengue.md](datasets/dengue.md) and the generated
 [datasets/dengue_profile.md](datasets/dengue_profile.md). D2 (dashboard) built 2026-11-10 —
-rules in [datasets/dengue.md](datasets/dengue.md#dashboard-values-d2). D3–D4 not started.
+rules in [datasets/dengue.md](datasets/dengue.md#dashboard-values-d2). D3 (weather) built
+2026-11-10 — [datasets/weather.md](datasets/weather.md); NASA POWER was evaluated as a
+quota-free alternative and rejected (drift against ERA5). D4 not started.
 
 ## 1. Sources (verified 2026-11-09)
 
@@ -57,7 +59,7 @@ the missing case values (8,954) are periods not yet reported.
 |---|---|---|
 | D1 ✓ | WHO dengue ingestion with validation report, coverage tiers, revisions; profile doc | Weekly job loads dengue; validation numbers documented |
 | D2 ✓ | Multi-disease API + disease selector; Overview, Surveillance, Countries, country page for dengue | Dengue browsable on the live site with correct units |
-| D3 | Open-Meteo weather ingestion + weekly weather features; weather panel | Weather stored for all dengue countries; panel shown |
+| D3 ✓ | Open-Meteo weather ingestion + weekly weather features; weather panel | Weather stored for all dengue countries; panel shown |
 | D4 | Dengue forecasting (with/without weather), detection, alerts, reports | Backtest report shows whether weather helps; dengue in alerts and reports |
 
 Each milestone ends with the usual report and waits for approval.
@@ -66,6 +68,7 @@ Each milestone ends with the usual report and waits for approval.
 
 - WHO marks the global system as under development with uneven sensitivity between countries.
 - Open-Meteo's free tier is for non-commercial use; a commercial deployment would need a plan.
+  Its daily quota means the weather history loads over about a week (D3).
 - Weekly job time grows (weather download, second set of models); the estimate is +10–15
   minutes, within the 120-minute limit.
 - Neon free storage: dengue adds an estimated 20–40 MB including weather.

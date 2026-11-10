@@ -10,6 +10,7 @@ from app.core.db import get_session
 from app.core.errors import ApiError
 from app.queries import cases
 from app.queries import countries as q
+from app.queries import weather as wq
 from app.queries.common import (
     MIN_SPECIMENS_FOR_RATE,
     WEEK,
@@ -22,6 +23,7 @@ from app.queries.common import (
 from app.queries.seasons import country_seasons
 from app.queries.surveillance import country_window
 from app.schemas.countries import CountryList, CountryProfile, CountrySeasons, CountryTimeseries
+from app.schemas.weather import CountryWeather
 
 router = APIRouter(prefix="/countries", tags=["countries"])
 
@@ -130,3 +132,32 @@ def country_seasons_endpoint(
         min_specimens_for_peak=MIN_SPECIMENS_FOR_RATE,
         seasons=country_seasons(session, ctx, c["iso3"], season_type, n),
     )
+
+
+@router.get("/{iso3}/weather", response_model=CountryWeather,
+            summary="Weekly weather at the country's representative point, with normals")
+def country_weather(
+    iso3: str,
+    session: Session = Depends(get_session),
+    from_: Annotated[date | None, Query(alias="from")] = None,
+    to: date | None = None,
+    weeks: Annotated[int, Query(ge=1, le=1000,
+                                description="Weeks up to `to` when `from` is not given")] = 104,
+) -> CountryWeather:
+    """Complete ISO weeks only. Default range: the latest `weeks` weeks with weather. Areas
+    without a weather point (no dengue reports) return an empty series."""
+    c = q.country_row(session, iso3)
+    found = wq.point(session, c["iso3"])
+    first, latest, loading = wq.extent(session, c["iso3"])
+    out = CountryWeather(iso3=c["iso3"], point=found[0] if found else None,
+                         source=found[1] if found else None, baseline_years=wq.BASELINE_YEARS,
+                         first_week=first, latest_week=latest,
+                         loading=loading, weeks=[])
+    if latest is None:
+        return out
+    end = min(monday(to), latest) if to else latest
+    start = max(monday(from_), first) if from_ else max(first, end - WEEK * (weeks - 1))
+    if start > end:
+        raise ApiError(422, "invalid_range", "'from' must not be after 'to'.")
+    out.weeks = wq.weeks(session, c["iso3"], start, end)
+    return out

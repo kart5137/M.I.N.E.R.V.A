@@ -108,7 +108,9 @@ cd apps/web; npm run lint; npm run typecheck; npm test; npm run build
 
 CI runs the same checks plus a Docker build and smoke test
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)); the scheduled weekly job is
-[.github/workflows/weekly.yml](.github/workflows/weekly.yml).
+[.github/workflows/weekly.yml](.github/workflows/weekly.yml), and the weather history is
+loaded within Open-Meteo's free quota by [.github/workflows/weather.yml](.github/workflows/weather.yml)
+([docs/datasets/weather.md](docs/datasets/weather.md)).
 
 ## Data profiling
 

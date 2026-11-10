@@ -341,6 +341,33 @@ export interface CountryTimeseries {
   monthly?: MonthPoint[];
 }
 
+/* ---------- Weather (D3) ---------- */
+
+export interface WeatherWeek {
+  week_start: string;
+  /** °C, mean of daily means. */
+  temperature: number;
+  /** mm, weekly total. */
+  precipitation: number;
+  /** %, mean of daily means. */
+  humidity: number;
+  temperature_normal: number | null;
+  precipitation_normal: number | null;
+  humidity_normal: number | null;
+}
+
+export interface CountryWeather {
+  iso3: string;
+  point: { lat: number; lon: number; basis: "label_point" | "main_town"; elevation_m: number | null } | null;
+  source: SourceRef | null;
+  baseline_years: [number, number];
+  first_week: string | null;
+  latest_week: string | null;
+  /** History is still being loaded (free API, daily quota). */
+  loading: boolean;
+  weeks: WeatherWeek[];
+}
+
 /* ---------- Forecasting (M5) ---------- */
 
 export interface Metrics {

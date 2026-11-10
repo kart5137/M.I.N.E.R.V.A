@@ -110,8 +110,8 @@ def fake_jobs(monkeypatch):
         return run
 
     monkeypatch.setattr(cli, "make_engine", lambda: "ENGINE")
-    monkeypatch.setattr(cli, "_run_step", lambda engine, s, refresh: (
-        calls.append((s, {"refresh": refresh})) or {"inserted": 1}))
+    monkeypatch.setattr(cli, "_run_step", lambda engine, s, refresh, **opts: (
+        calls.append((s, {"refresh": refresh, **opts})) or {"inserted": 1}))
     import ei_pipeline.detection.run as det
     import ei_pipeline.forecasting.run as fc
     monkeypatch.setattr(fc, "run_forecast", step("forecast", {"run_key": "k", "x": 1}))
@@ -143,6 +143,26 @@ def test_weekly_stops_on_failure(fake_jobs, monkeypatch):
     with pytest.raises(RuntimeError, match="model failed"):
         cli.main(["weekly"])
     assert "detect" not in [c[0] for c in fake_jobs]
+
+
+def test_weekly_continues_when_optional_weather_fails(fake_jobs, monkeypatch):
+    real = cli._run_step
+
+    def run_step(engine, s, refresh, **opts):
+        if s == "weather":
+            raise RuntimeError("Open-Meteo down")
+        return real(engine, s, refresh, **opts)
+
+    monkeypatch.setattr(cli, "_run_step", run_step)
+    assert cli.OPTIONAL == ("weather",)
+    assert cli.main(["weekly"]) == 0
+    assert [c[0] for c in fake_jobs][-3:] == ["forecast", "detect", "prune"]
+
+
+def test_ingest_weather_passes_budget_options(fake_jobs):
+    assert cli.main(["ingest", "weather", "--budget", "100", "--backfill-only"]) == 0
+    assert fake_jobs == [("weather", {"refresh": False, "budget": 100.0,
+                                      "backfill_only": True})]
 
 
 def test_cli_single_commands(fake_jobs, capsys):

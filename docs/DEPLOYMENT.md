@@ -9,6 +9,7 @@ check the provider's current terms before relying on them.
 | API | Render (Docker) | `services/api/Dockerfile` | `render.yaml` |
 | Web | Vercel | `apps/web` (Next.js) | Vercel project settings |
 | Weekly job | GitHub Actions | `.github/workflows/weekly.yml` → `pipeline/scripts/weekly.sh` | `DATABASE_URL` secret |
+| Weather backfill | GitHub Actions, twice daily | `.github/workflows/weather.yml` (`ei ingest weather --backfill-only`) | `DATABASE_URL` secret |
 
 ```
 browser ──► Vercel (web) ──fetch──► Render (API) ──► Neon (PostGIS)
@@ -72,8 +73,8 @@ the database keeps what the app needs (registry, metrics, forecasts, explanation
 
 ## Schema changes
 
-The API does not migrate on start. After merging a migration, run the weekly workflow (it
-migrates first), or locally:
+The API does not migrate on start. After merging a migration, run the weekly workflow or
+the weather backfill workflow (both migrate first), or locally:
 
 ```bash
 DATABASE_URL=<direct url> alembic -c packages/ei_db/alembic.ini upgrade head

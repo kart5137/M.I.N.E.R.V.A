@@ -148,4 +148,4 @@ the laboratory fields null.
   World Bank population, so no incidence.
 - **Negative corrections** are excluded, so the adjacent positive weeks may overstate
   cases slightly for those countries.
-- **Weather** (D3) is not loaded yet.
+- **Weather** (D3): ERA5 at one point per area, see [weather.md](weather.md).

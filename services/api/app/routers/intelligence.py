@@ -130,6 +130,7 @@ def about(session: Session = Depends(get_session), disease: Disease = "influenza
                     + (SELECT count(*) FROM surveillance_monthly m WHERE m.source_id = ds.id)
                     + (SELECT count(*) FROM population_annual p WHERE p.source_id = ds.id)
                     + (SELECT count(*) FROM health_indicators h WHERE h.source_id = ds.id)
+                    + (SELECT count(*) FROM weather_weekly w WHERE w.source_id = ds.id)
                END AS stored_rows
         FROM data_sources ds
         LEFT JOIN LATERAL (

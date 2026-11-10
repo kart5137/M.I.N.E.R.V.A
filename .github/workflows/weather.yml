@@ -1,0 +1,70 @@
+name: Weather backfill
+
+# Loads ERA5 weather history for dengue areas from the free Open-Meteo API, which allows
+# ~10,000 weighted calls a day; the full history is ~360 per area (docs/datasets/weather.md).
+# Each run continues where the previous one stopped (forecast-ready countries first) and
+# stops cleanly at its budget, so two runs a day finish the history in about a week.
+# Once every area is complete a run makes no requests; the weekly job keeps weather
+# current from then on.
+
+on:
+  schedule:
+    - cron: "20 1 * * *"   # 01:20 and 13:20 UTC: separate hourly windows
+    - cron: "20 13 * * *"
+  workflow_dispatch:
+    inputs:
+      budget:
+        description: "Weighted Open-Meteo calls this run may use"
+        type: number
+        default: 4400
+
+concurrency:
+  group: weather-backfill
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      PYTHONIOENCODING: utf-8
+      EI_ROOT: ${{ github.workspace }}
+    steps:
+      - name: Require the production database
+        if: env.DATABASE_URL == ''
+        run: |
+          echo "::notice::No DATABASE_URL secret; nothing to backfill."
+          exit 0
+
+      - uses: actions/checkout@v7
+        if: env.DATABASE_URL != ''
+
+      - uses: actions/setup-python@v7
+        if: env.DATABASE_URL != ''
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            packages/ei_db/pyproject.toml
+            pipeline/pyproject.toml
+
+      - name: Install
+        if: env.DATABASE_URL != ''
+        run: |
+          python -m pip install --upgrade pip
+          pip install ./packages/ei_db ./pipeline
+
+      - name: Backfill
+        if: env.DATABASE_URL != ''
+        shell: bash
+        run: |
+          set -eo pipefail
+          alembic -c packages/ei_db/alembic.ini upgrade head
+          ei ingest reference
+          ei ingest weather --backfill-only --budget "${{ inputs.budget || 4400 }}" 2>&1 \
+            | tee weather.log
+          { echo '```'; grep -E '^\[' weather.log || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

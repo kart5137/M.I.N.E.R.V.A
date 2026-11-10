@@ -95,6 +95,22 @@ def _seed(conn) -> None:
           VALUES (2, 'AAA', '2024-01-01', 310, false, 3, 2),
                  (2, 'CCC', '2024-01-01', 62, false, 3, 2),
                  (2, 'CCC', '2024-02-01', 29, true, 3, 2);
+        -- Weather (D3) for AAA only. Baseline 2013–2022: ISO week 2 → 10 and 14 (normal
+        -- 12); week 52 → 20 and week 53 (counted as 52) → 30 (normal 25). 2023 is
+        -- outside the baseline and must not move the normals.
+        INSERT INTO data_sources (id, key, name, attribution_text)
+          VALUES (4, 'open_meteo_era5', 'Open-Meteo ERA5', 'Weather: ERA5.');
+        INSERT INTO ingestion_runs (id, source_id, status) VALUES (3, 4, 'success');
+        INSERT INTO weather_points (iso3, lat, lon, basis, elevation_m, source_id)
+          VALUES ('AAA', 0.5, 0.5, 'label_point', 12, 4);
+        INSERT INTO weather_weekly (iso3, week_start, iso_year, iso_week, temperature,
+                                    precipitation, humidity, source_id, ingestion_run_id)
+          VALUES ('AAA', '2013-01-07', 2013, 2, 10, 5, 70, 4, 3),
+                 ('AAA', '2014-01-06', 2014, 2, 14, 15, 80, 4, 3),
+                 ('AAA', '2015-12-21', 2015, 52, 20, 0, 60, 4, 3),
+                 ('AAA', '2020-12-28', 2020, 53, 30, 40, 90, 4, 3),
+                 ('AAA', '2023-01-09', 2023, 2, 100, 100, 100, 4, 3),
+                 ('AAA', '2024-01-08', 2024, 2, 15, 7, 75, 4, 3);
     """))
     for i, wk in enumerate(W):
         y, n, _ = wk.isocalendar()

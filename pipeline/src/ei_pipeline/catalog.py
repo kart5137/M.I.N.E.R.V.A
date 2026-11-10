@@ -45,6 +45,18 @@ DATA_SOURCES = [
         "confirmed), weekly or monthly. Compare within a country over time, not across "
         "countries.",
     },
+    {
+        "key": "open_meteo_era5",
+        "name": "Open-Meteo Historical Weather API (ERA5 reanalysis)",
+        "url": "https://open-meteo.com/en/docs/historical-weather-api",
+        "licence": "CC BY 4.0 (Open-Meteo); ERA5: Copernicus licence, attribution required. "
+        "Free API for non-commercial use.",
+        "attribution_text": "Weather: Open-Meteo.com (CC BY 4.0), ERA5 reanalysis — "
+        "Hersbach et al. (2020), Copernicus Climate Change Service (C3S).",
+        "notes": "Daily mean 2 m temperature, precipitation and mean 2 m relative humidity "
+        "at one point per country (ERA5, 0.25° grid), aggregated to ISO weeks. A single "
+        "point does not represent large or climatically varied countries.",
+    },
 ]
 
 DISEASES = [

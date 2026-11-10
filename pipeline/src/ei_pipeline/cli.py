@@ -6,12 +6,15 @@
     ei ingest health [--refresh]     World Bank → health_indicators
     ei ingest flunet [--refresh]     WHO FluNet → surveillance_weekly
     ei ingest dengue [--refresh]     WHO dengue → surveillance_weekly / _monthly (D1)
+    ei ingest weather [--refresh] [--budget N] [--backfill-only]
+                                     Open-Meteo ERA5 → weather_weekly for dengue areas
+                                     (D3); resumable within N weighted API calls
     ei ingest all [--refresh]        all of the above, in order
     ei forecast run [--fast]         backtest, select, train and store forecasts (M5)
     ei detect run                    thresholds, risk, anomalies, hotspots (M6), alerts (M7)
     ei prune [--keep N]              drop per-country detail of old forecast runs (M8)
-    ei weekly [--fast]               the scheduled job: ingest (FluNet, dengue refreshed),
-                                     forecast, detect, prune (M8)
+    ei weekly [--fast]               the scheduled job: ingest (FluNet, dengue refreshed,
+                                     weather topped up), forecast, detect, prune (M8)
 """
 
 from __future__ import annotations
@@ -30,21 +33,31 @@ from ei_pipeline.ingest.dengue import ingest_dengue
 from ei_pipeline.ingest.flunet import ingest_flunet
 from ei_pipeline.ingest.health import ingest_health
 from ei_pipeline.ingest.population import ingest_population
+from ei_pipeline.ingest.weather import DEFAULT_BUDGET, ingest_weather
 from ei_pipeline.maintenance import DEFAULT_KEEP, prune_runs
 
-STEPS = ("reference", "boundaries", "population", "health", "flunet", "dengue")
+log = logging.getLogger(__name__)
+
+STEPS = ("reference", "boundaries", "population", "health", "flunet", "dengue", "weather")
 #: Surveillance sources re-downloaded by every weekly run; reference files only when
 #: missing.
 REFRESHED = ("flunet", "dengue")
+#: Steps whose failure is logged without stopping the weekly job: weather is context
+#: only until dengue forecasting (D4) uses it.
+OPTIONAL = ("weather",)
 SUMMARY_KEYS = ("inserted", "updated", "unchanged", "revisions_recorded", "rows_excluded",
                 "reference_week", "reference_month", "coverage_tiers", "areas", "latest_year",
-                "countries_without_population", "indicators")
+                "countries_without_population", "indicators", "latest_week",
+                "areas_updated", "areas_still_behind", "areas_failed", "weighted_calls",
+                "stopped_early")
 
 
-def _run_step(engine, step: str, refresh: bool) -> dict:
+def _run_step(engine, step: str, refresh: bool, **weather_opts) -> dict:
     if step == "reference":
         with session_scope(engine) as s:
             return seed_reference(s)
+    if step == "weather":
+        return ingest_weather(engine, refresh=refresh, **weather_opts)
     job = {"boundaries": ingest_boundaries, "population": ingest_population,
            "health": ingest_health, "flunet": ingest_flunet, "dengue": ingest_dengue}[step]
     return job(engine, refresh=refresh)
@@ -56,6 +69,8 @@ def _summary(report: dict) -> dict:
         out["rows_excluded"] = report["validation"]["rows_excluded"]
     if isinstance(out.get("countries_without_population", "indicators"), list):
         out["countries_without_population"] = len(out["countries_without_population"])
+    if isinstance(out.get("areas_failed"), dict):
+        out["areas_failed"] = len(out["areas_failed"])
     if isinstance(out.get("indicators"), dict):
         out["indicators"] = {k: v["countries_with_value"] for k, v in out["indicators"].items()}
     return out or report
@@ -77,7 +92,12 @@ def _weekly(engine, *, fast: bool, keep: int) -> int:
     from ei_pipeline.forecasting.run import run_forecast
 
     for step in STEPS:
-        _timed(step, lambda s=step: _summary(_run_step(engine, s, refresh=s in REFRESHED)))
+        try:
+            _timed(step, lambda s=step: _summary(_run_step(engine, s, refresh=s in REFRESHED)))
+        except Exception:
+            if step not in OPTIONAL:
+                raise
+            log.exception("Optional step %s failed; continuing", step)
     _timed("forecast", lambda: {k: v for k, v in run_forecast(engine, fast=fast).items()
                                 if k in ("run_key", "reference_week", "forecasts", "active")})
     _timed("detect", lambda: run_detection(engine))
@@ -91,6 +111,10 @@ def main(argv: list[str] | None = None) -> int:
     ingest = sub.add_parser("ingest", help="load source data into the database")
     ingest.add_argument("step", choices=(*STEPS, "all"))
     ingest.add_argument("--refresh", action="store_true", help="re-download source files")
+    ingest.add_argument("--budget", type=float, default=DEFAULT_BUDGET,
+                        help="weather: weighted Open-Meteo calls this run may use")
+    ingest.add_argument("--backfill-only", action="store_true",
+                        help="weather: only areas whose history is still incomplete")
     forecast = sub.add_parser("forecast", help="backtest, train and store forecasts")
     forecast.add_argument("step", choices=("run",))
     forecast.add_argument("--fast", action="store_true",
@@ -131,7 +155,9 @@ def main(argv: list[str] | None = None) -> int:
     steps = STEPS if args.step == "all" else (args.step,)
     for step in steps:
         t0 = time.perf_counter()
-        report = _run_step(engine, step, args.refresh)
+        opts = ({"budget": args.budget, "backfill_only": args.backfill_only}
+                if step == "weather" else {})
+        report = _run_step(engine, step, args.refresh, **opts)
         print(f"[{step}] {time.perf_counter() - t0:.1f}s "
               f"{json.dumps(_summary(report), default=str)}")
     return 0

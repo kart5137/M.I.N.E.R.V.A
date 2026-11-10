@@ -6,6 +6,7 @@ import { apiGet } from "@/lib/api";
 import { DEFAULT_DISEASE, type DiseaseKey } from "@/lib/diseases";
 import { type Filters, diseaseParam, filterQuery, withParams } from "@/lib/filters";
 import type {
+  CountryWeather,
   CountryList,
   CountryProfile,
   CountrySeasons,
@@ -120,6 +121,17 @@ export function useCountryTimeseries(
       apiGet<CountryTimeseries>(
         withParams(`/countries/${iso3}/timeseries?from=${from}&to=${to}`, diseaseParam(disease)),
       ),
+    enabled: !!iso3,
+    placeholderData: keepPreviousData,
+    staleTime: STALE,
+  });
+}
+
+/** Weekly weather at the country's representative point, latest `weeks` weeks. */
+export function useCountryWeather(iso3: string | null, weeks: number) {
+  return useQuery({
+    queryKey: ["country", iso3, "weather", weeks],
+    queryFn: () => apiGet<CountryWeather>(`/countries/${iso3}/weather?weeks=${weeks}`),
     enabled: !!iso3,
     placeholderData: keepPreviousData,
     staleTime: STALE,

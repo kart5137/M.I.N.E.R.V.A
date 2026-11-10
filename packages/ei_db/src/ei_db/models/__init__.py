@@ -32,6 +32,7 @@ from ei_db.models.reference import (
     Disease,
     IngestionRun,
 )
+from ei_db.models.weather import WeatherPoint, WeatherWeekly
 
 __all__ = [
     "Alert",
@@ -59,4 +60,6 @@ __all__ = [
     "SurveillanceMonthlyRevision",
     "SurveillanceRevision",
     "SurveillanceWeekly",
+    "WeatherPoint",
+    "WeatherWeekly",
 ]
