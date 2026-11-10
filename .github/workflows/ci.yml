@@ -17,7 +17,7 @@ jobs:
           POSTGRES_DB: minerva
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U ei -d minerva"
+          --health-cmd "pg_isready -h 127.0.0.1 -U ei -d minerva"
           --health-interval 5s --health-timeout 5s --health-retries 20
     env:
       DATABASE_URL: postgresql+psycopg://ei:ei@localhost:5432/minerva
@@ -80,7 +80,8 @@ jobs:
         run: |
           docker network create ei
           docker run -d --name db --network ei -e POSTGRES_USER=ei -e POSTGRES_PASSWORD=ei             -e POSTGRES_DB=minerva postgis/postgis:16-3.4
-          until docker exec db pg_isready -U ei -d minerva; do sleep 2; done
+          # TCP check: the init-time server listens on the socket only, then restarts.
+          until docker exec db pg_isready -h 127.0.0.1 -U ei -d minerva; do sleep 2; done
           URL=postgresql://ei:ei@db:5432/minerva  # plain URL, as hosts give it
           docker run --rm --network ei -e DATABASE_URL=$URL ei-api             alembic -c packages/ei_db/alembic.ini upgrade head
           docker run --rm --network ei -e DATABASE_URL=$URL ei-pipeline ei ingest reference
