@@ -34,13 +34,13 @@ jobs:
         env:
           POSTGRES_USER: ei
           POSTGRES_PASSWORD: ei
-          POSTGRES_DB: epidemic_intelligence
+          POSTGRES_DB: minerva
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U ei -d epidemic_intelligence"
+          --health-cmd "pg_isready -U ei -d minerva"
           --health-interval 5s --health-timeout 5s --health-retries 20
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql+psycopg://ei:ei@localhost:5432/epidemic_intelligence' }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql+psycopg://ei:ei@localhost:5432/minerva' }}
       EI_WEEKLY_ARGS: ${{ inputs.fast && '--fast' || '' }}
       PYTHONIOENCODING: utf-8
       EI_ROOT: ${{ github.workspace }}  # packages are installed, not editable

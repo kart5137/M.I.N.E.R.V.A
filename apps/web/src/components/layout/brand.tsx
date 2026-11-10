@@ -26,7 +26,7 @@ export function Wordmark({ className }: { className?: string }) {
     <div className={cn("leading-none", className)} title={EXPANSION}>
       <div className="font-heading text-[15px] font-semibold tracking-[0.16em] text-foreground">M.I.N.E.R.V.A.</div>
       <div className="mt-1 text-[9.5px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-        Epidemic intelligence
+        Disease surveillance
       </div>
     </div>
   );

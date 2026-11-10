@@ -5,7 +5,7 @@ import os
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-DEFAULT_URL = "postgresql+psycopg://ei:ei@localhost:5432/epidemic_intelligence"
+DEFAULT_URL = "postgresql+psycopg://ei:ei@localhost:5432/minerva"
 
 
 def normalize_url(url: str) -> str:

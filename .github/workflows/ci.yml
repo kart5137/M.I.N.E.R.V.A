@@ -14,13 +14,13 @@ jobs:
         env:
           POSTGRES_USER: ei
           POSTGRES_PASSWORD: ei
-          POSTGRES_DB: epidemic_intelligence
+          POSTGRES_DB: minerva
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U ei -d epidemic_intelligence"
+          --health-cmd "pg_isready -U ei -d minerva"
           --health-interval 5s --health-timeout 5s --health-retries 20
     env:
-      DATABASE_URL: postgresql+psycopg://ei:ei@localhost:5432/epidemic_intelligence
+      DATABASE_URL: postgresql+psycopg://ei:ei@localhost:5432/minerva
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -79,9 +79,9 @@ jobs:
       - name: Smoke test (migrate, seed, serve, query)
         run: |
           docker network create ei
-          docker run -d --name db --network ei -e POSTGRES_USER=ei -e POSTGRES_PASSWORD=ei             -e POSTGRES_DB=epidemic_intelligence postgis/postgis:16-3.4
-          until docker exec db pg_isready -U ei -d epidemic_intelligence; do sleep 2; done
-          URL=postgresql://ei:ei@db:5432/epidemic_intelligence  # plain URL, as hosts give it
+          docker run -d --name db --network ei -e POSTGRES_USER=ei -e POSTGRES_PASSWORD=ei             -e POSTGRES_DB=minerva postgis/postgis:16-3.4
+          until docker exec db pg_isready -U ei -d minerva; do sleep 2; done
+          URL=postgresql://ei:ei@db:5432/minerva  # plain URL, as hosts give it
           docker run --rm --network ei -e DATABASE_URL=$URL ei-api             alembic -c packages/ei_db/alembic.ini upgrade head
           docker run --rm --network ei -e DATABASE_URL=$URL ei-pipeline ei ingest reference
           docker run -d --name api --network ei -p 8000:8000 -e DATABASE_URL=$URL ei-api

@@ -12,7 +12,7 @@ from sqlalchemy.exc import OperationalError
 from ei_db.session import get_database_url
 from ei_pipeline.config import ROOT
 
-TEST_DB = "epidemic_intelligence_test"
+TEST_DB = "minerva_test"
 
 
 def make_raw(weeks: int = 40, start: date = date(2024, 1, 1),

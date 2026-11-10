@@ -42,7 +42,7 @@ from app.core.db import get_session
 from app.main import create_app
 from ei_db.session import get_database_url
 
-TEST_DB = "epidemic_intelligence_api_test"
+TEST_DB = "minerva_api_test"
 ALEMBIC_INI = Path(__file__).resolve().parents[3] / "packages" / "ei_db" / "alembic.ini"
 W = [date(2024, 1, 1) + timedelta(weeks=i) for i in range(8)]
 

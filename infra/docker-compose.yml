@@ -1,4 +1,4 @@
-name: epidemic-intelligence
+name: minerva
 
 # `docker compose up -d` starts only the database (local development).
 # Full stack from images:   docker compose --profile app up -d --build
@@ -10,7 +10,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ei}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ei}
-      POSTGRES_DB: ${POSTGRES_DB:-epidemic_intelligence}
+      POSTGRES_DB: ${POSTGRES_DB:-minerva}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -28,7 +28,7 @@ services:
       context: ..
       dockerfile: services/api/Dockerfile
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ei}:${POSTGRES_PASSWORD:-ei}@db:5432/${POSTGRES_DB:-epidemic_intelligence}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ei}:${POSTGRES_PASSWORD:-ei}@db:5432/${POSTGRES_DB:-minerva}
       API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost:3000}
     ports:
       - "${API_PORT:-8000}:8000"
@@ -54,7 +54,7 @@ services:
       context: ..
       dockerfile: pipeline/Dockerfile
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ei}:${POSTGRES_PASSWORD:-ei}@db:5432/${POSTGRES_DB:-epidemic_intelligence}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-ei}:${POSTGRES_PASSWORD:-ei}@db:5432/${POSTGRES_DB:-minerva}
       EI_WEEKLY_ARGS: ${EI_WEEKLY_ARGS:-}
     volumes:
       - raw_data:/app/data/raw

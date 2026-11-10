@@ -474,7 +474,7 @@ pooled metrics and forecasts). Deployment: [DEPLOYMENT.md](DEPLOYMENT.md).
 ## 8. Folder structure
 
 ```
-epidemic-intelligence/
+M.I.N.E.R.V.A/
 ├── apps/
 │   └── web/                       Next.js app
 │       ├── src/app/               routes (see §4)
