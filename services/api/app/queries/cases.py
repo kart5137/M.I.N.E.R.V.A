@@ -43,6 +43,9 @@ _POP = """
 #: Case fatality rate (deaths ÷ cases in the window) only from this many cases (cholera,
 #: C2): a rate from a handful of cases is misleading.
 CFR_MIN_CASES = 20
+#: Diseases with a case fatality rate. Not COVID-19 (C3): since 2023 most infections are
+#: never tested or reported, so deaths ÷ reported cases overstates how deadly it is.
+CFR_DISEASES = frozenset({"cholera"})
 
 _WEEKLY = f"""
   wk AS (
@@ -86,7 +89,7 @@ _COUNTRY_WINDOW = text(f"""
       p.population::bigint AS population,
       x.cases / (x.days / 7.0) / NULLIF(p.population, 0) * 100000 AS incidence,
       x.deaths,
-      CASE WHEN x.cases >= :cfr_min THEN x.deaths / x.cases END AS cfr
+      CASE WHEN :cfr AND x.cases >= :cfr_min THEN x.deaths / x.cases END AS cfr
     FROM x
     JOIN countries c ON c.iso3 = x.iso3
     LEFT JOIN pop p ON p.iso3 = x.iso3
@@ -100,7 +103,7 @@ def country_window(session: Session, ctx: DiseaseContext, w: Window, region: str
                    iso3: str | None = None) -> list[CountryWindowValue]:
     rows = session.execute(_COUNTRY_WINDOW, {
         "d": ctx.id, "start": w.start, "end": w.end, "region": region, "iso3": iso3,
-        "cfr_min": CFR_MIN_CASES,
+        "cfr_min": CFR_MIN_CASES, "cfr": ctx.key in CFR_DISEASES,
     }).mappings()
     return [CountryWindowValue(**r) for r in rows]
 

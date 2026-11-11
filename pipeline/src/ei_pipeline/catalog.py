@@ -92,6 +92,17 @@ DATA_SOURCES = [
         "notes": "Yearly reported cases, deaths and case fatality rate; the series ends in "
         "2016.",
     },
+    {
+        "key": "who_covid_dashboard",
+        "name": "WHO COVID-19 dashboard — weekly cases and deaths by country",
+        "url": "https://data.who.int/dashboards/covid19/data",
+        "licence": "WHO dataset terms: CC BY 4.0 with attribution (data.who.int)",
+        "attribution_text": "COVID-19 data: WHO COVID-19 dashboard (cases and deaths "
+        "reported to WHO by Member States).",
+        "notes": "Weekly new cases and deaths reported to WHO since January 2020. Since "
+        "2023 many countries test and report far less, so reported cases understate "
+        "infections more than before; a week without a report is unknown, not zero.",
+    },
 ]
 
 DISEASES = [
@@ -135,6 +146,17 @@ DISEASES = [
         "native_granularity": "weekly+annual",
         "primary_metric": "cases",
         "metric_label": "Reported cholera cases",
+        "supports_forecast": False,
+        "supports_anomaly": False,
+        "supports_hotspots": False,
+    },
+    {
+        "key": "covid19",
+        "name": "COVID-19",
+        # Weekly reports; the yearly views sum them (no separate yearly source).
+        "native_granularity": "weekly+annual",
+        "primary_metric": "cases",
+        "metric_label": "Reported COVID-19 cases",
         "supports_forecast": False,
         "supports_anomaly": False,
         "supports_hotspots": False,

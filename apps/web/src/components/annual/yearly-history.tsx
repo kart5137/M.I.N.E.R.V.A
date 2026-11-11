@@ -16,8 +16,8 @@ function fullRange(s: AnnualSeries): AnnualSeries["points"] {
   return Array.from({ length: last - first + 1 }, (_, i) => by.get(first + i) ?? { year: first + i, values: {} });
 }
 
-/** Yearly history of reported cases and deaths (cholera): WHO yearly figures to 2016 and
- *  sums of the weekly reports from 2023, with the years in between left empty. */
+/** Yearly reported cases and deaths: cholera's WHO yearly figures to 2016 and sums of the
+ *  weekly reports from 2023 (the years in between left empty); COVID-19's weekly sums. */
 export function YearlyHistory({ iso3 }: { iso3: string }) {
   const disease = useDisease();
   const q = useAnnualSeries(disease, iso3);

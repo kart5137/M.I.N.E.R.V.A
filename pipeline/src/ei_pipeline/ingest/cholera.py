@@ -24,6 +24,7 @@ from ei_db.models import Country, Disease
 from ei_pipeline.db import session_scope, track_run
 from ei_pipeline.ingest.dengue import ENSURE_COUNTRIES
 from ei_pipeline.ingest.malaria import UPSERT as ANNUAL_UPSERT
+from ei_pipeline.ingest.weekly_reports import store_weekly
 from ei_pipeline.sources import cholera, gho
 from ei_pipeline.util import sha256_file
 
@@ -38,44 +39,6 @@ HISTORY = {
     "reported_deaths": "CHOLERA_0000000002",
     "cfr": "CHOLERA_0000000003",
 }
-
-STAGE_DDL = """
-CREATE TEMP TABLE cholera_week_stage (
-    iso3 char(3), week_start date, iso_year smallint, iso_week smallint,
-    cases float8, deaths float8, PRIMARY KEY (iso3, week_start)
-) ON COMMIT DROP
-"""
-REVISIONS = """
-INSERT INTO surveillance_revisions (surveillance_id, previous_values, ingestion_run_id)
-SELECT t.id, jsonb_build_object('cases', t.cases, 'deaths', t.deaths,
-                                'ingestion_run_id', t.ingestion_run_id), :run_id
-FROM surveillance_weekly t
-JOIN cholera_week_stage s ON t.iso3 = s.iso3 AND t.week_start = s.week_start
-WHERE t.disease_id = :disease_id AND (t.cases, t.deaths) IS DISTINCT FROM (s.cases, s.deaths)
-"""
-UPSERT = """
-WITH upserted AS (
-    INSERT INTO surveillance_weekly AS t (
-        disease_id, iso3, week_start, iso_year, iso_week, cases, deaths, source_id,
-        ingestion_run_id)
-    SELECT :disease_id, iso3, week_start, iso_year, iso_week, cases, deaths, :source_id,
-           :run_id
-    FROM cholera_week_stage
-    ON CONFLICT (disease_id, iso3, week_start) DO UPDATE SET
-        cases = EXCLUDED.cases, deaths = EXCLUDED.deaths, source_id = EXCLUDED.source_id,
-        ingestion_run_id = EXCLUDED.ingestion_run_id, updated_at = now()
-    WHERE (t.cases, t.deaths) IS DISTINCT FROM (EXCLUDED.cases, EXCLUDED.deaths)
-    RETURNING (xmax = 0) AS inserted
-)
-SELECT count(*) FILTER (WHERE inserted) AS inserted,
-       count(*) FILTER (WHERE NOT inserted) AS updated
-FROM upserted
-"""
-SET_PROVISIONAL = """
-UPDATE surveillance_weekly SET is_provisional = (week_start > :ref)
-WHERE disease_id = :disease_id AND is_provisional IS DISTINCT FROM (week_start > :ref)
-"""
-
 
 def _history(engine: Engine, disease_id: int, raw_dir: Path | None, refresh: bool) -> dict:
     paths = {}
@@ -138,31 +101,20 @@ def ingest_cholera(engine: Engine, *, refresh: bool = False, path: Path | None =
         weekly, rep = cholera.clean(raw)
         latest = weekly["week_start"].max()
         reference = (latest - timedelta(weeks=PROVISIONAL_WEEKS)).date()
-        stage = weekly.assign(week_start=weekly["week_start"].dt.date)
         with session_scope(engine) as s:
-            params = {"disease_id": disease_id, "source_id": run.source_id, "run_id": run.run_id}
-            areas = stage.drop_duplicates("iso3", keep="last")
+            areas = weekly.drop_duplicates("iso3", keep="last")
             ensured = [s.execute(text(ENSURE_COUNTRIES), {
                 "iso3": r.iso3, "name": r.name, "who_region": r.who_region}).scalar()
                 for r in areas.itertuples()]
-            s.execute(text(STAGE_DDL))
-            cols = ["iso3", "week_start", "iso_year", "iso_week", "cases", "deaths"]
-            s.execute(text("INSERT INTO cholera_week_stage VALUES (:iso3, :week_start,"
-                           " :iso_year, :iso_week, :cases, :deaths)"),
-                      stage[cols].astype(object).where(stage[cols].notna(), None)
-                      .to_dict("records"))
-            revisions = s.execute(text(REVISIONS), params).rowcount
-            counts = dict(s.execute(text(UPSERT), params).mappings().one())
-            flags = s.execute(text(SET_PROVISIONAL),
-                              {"disease_id": disease_id, "ref": reference}).rowcount
+            counts = store_weekly(s, weekly, disease_id=disease_id, source_id=run.source_id,
+                                  run_id=run.run_id, reference=reference)
         run.loaded_rows = counts["inserted"] + counts["updated"]
         run.report.update({
             "job": "cholera_weekly", "source": {"url": cholera.WEEKLY_URL},
             "cleaning": asdict(rep), **counts,
-            "unchanged": len(stage) - counts["inserted"] - counts["updated"],
-            "revisions_recorded": revisions, "provisional_flags_changed": flags,
+            "unchanged": len(weekly) - counts["inserted"] - counts["updated"],
             "latest_week": latest.date().isoformat(), "reference_week": reference.isoformat(),
-            "countries": int(stage["iso3"].nunique()),
+            "countries": int(weekly["iso3"].nunique()),
             "areas_added_without_boundary": sum(1 for x in ensured if x),
         })
         report = run.report

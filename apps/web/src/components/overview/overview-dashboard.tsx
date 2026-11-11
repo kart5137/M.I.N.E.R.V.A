@@ -38,6 +38,7 @@ const INTRO = {
   dengue: "Global dengue surveillance from cases reported to WHO.",
   malaria: "Yearly malaria estimates and reported cases from the WHO World Malaria Report.",
   cholera: "Weekly cholera cases and deaths reported to WHO by countries with outbreaks.",
+  covid19: "Weekly COVID-19 cases and deaths reported to WHO since January 2020.",
 } as const;
 
 /** Yearly diseases (malaria) have their own overview; weekly ones use the dashboard below. */
@@ -154,6 +155,7 @@ function Hero({
         measure={info.caseBased ? "incidence" : "positivity"}
         layers={{ positivity: true, detections: true }}
         palette={info.caseBased ? rampFor(info.key) : null}
+        caseFatality={info.caseFatality}
         pitch={24}
         clouds
         onCountryClick={(c) => router.push(`${surveillanceHref}&country=${c.iso3}`)}

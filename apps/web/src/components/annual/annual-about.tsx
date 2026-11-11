@@ -57,12 +57,22 @@ export function AnnualAbout() {
                 </>
               ) : (
                 <>
-                  <li>Countries appear while they report an outbreak; a week without a report is unknown, not zero.</li>
                   <li>
-                    The latest 4 weeks are provisional: outbreak reports arrive late. Case fatality is shown only from
-                    20 cases.
+                    {info.key === "cholera"
+                      ? "Countries appear while they report an outbreak; a week without a report is unknown, not zero."
+                      : "A week without a report is unknown, not zero; many countries stopped weekly reporting after 2022."}
                   </li>
-                  <li>Case definitions (suspected or confirmed) differ by country; compare a country with itself.</li>
+                  <li>
+                    The latest 4 weeks are provisional: reports arrive late.
+                    {info.caseFatality
+                      ? " Case fatality is shown only from 20 cases."
+                      : " No case fatality rate is shown: deaths ÷ reported cases misleads when most cases go untested."}
+                  </li>
+                  <li>
+                    {info.key === "cholera"
+                      ? "Case definitions (suspected or confirmed) differ by country; compare a country with itself."
+                      : "Testing and reporting practices differ by country and changed over time; compare a country with itself."}
+                  </li>
                 </>
               )}
             </ul>

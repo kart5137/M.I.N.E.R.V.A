@@ -8,6 +8,7 @@
     ei ingest dengue [--refresh]     WHO dengue → surveillance_weekly / _monthly (D1)
     ei ingest malaria [--refresh]    WHO GHO malaria → surveillance_annual (C1)
     ei ingest cholera [--refresh]    WHO cholera dashboard (weekly) + GHO history (C2)
+    ei ingest covid [--refresh]      WHO COVID-19 dashboard (weekly cases, deaths) (C3)
     ei ingest weather [--refresh] [--budget N] [--backfill-only | --topup-only]
                                      Open-Meteo ERA5 → weather_weekly for dengue areas
                                      (D3); resumable within N weighted API calls
@@ -35,6 +36,7 @@ from ei_pipeline.catalog import seed_reference
 from ei_pipeline.db import session_scope
 from ei_pipeline.ingest.boundaries import ingest_boundaries
 from ei_pipeline.ingest.cholera import ingest_cholera
+from ei_pipeline.ingest.covid import ingest_covid
 from ei_pipeline.ingest.dengue import ingest_dengue
 from ei_pipeline.ingest.flunet import ingest_flunet
 from ei_pipeline.ingest.health import ingest_health
@@ -46,15 +48,16 @@ from ei_pipeline.maintenance import DEFAULT_KEEP, prune_runs
 log = logging.getLogger(__name__)
 
 STEPS = ("reference", "boundaries", "population", "health", "flunet", "dengue", "malaria",
-         "cholera", "weather")
+         "cholera", "covid", "weather")
 #: Surveillance sources re-downloaded by every weekly run; reference files only when
 #: missing.
-REFRESHED = ("flunet", "dengue", "malaria", "cholera")
+REFRESHED = ("flunet", "dengue", "malaria", "cholera", "covid")
 #: Steps whose failure is logged without stopping the weekly job. Weather: dengue
 #: forecasting (D4) reads the weather already stored; a missed top-up only leaves the
 #: newest weeks without weather features (tree models handle missing values). Malaria
-#: (C1) and cholera (C2) feed nothing downstream; stored data stays until the next run.
-OPTIONAL = ("malaria", "cholera", "weather")
+#: (C1), cholera (C2) and COVID-19 (C3) feed nothing downstream; stored data stays until
+#: the next run.
+OPTIONAL = ("malaria", "cholera", "covid", "weather")
 #: Diseases forecast and scanned by the weekly job, in order: influenza first so that its
 #: outputs are stored before the dengue steps run.
 DISEASES = ("influenza", "dengue")
@@ -74,7 +77,7 @@ def _run_step(engine, step: str, refresh: bool, **weather_opts) -> dict:
         return ingest_weather(engine, refresh=refresh, **weather_opts)
     job = {"boundaries": ingest_boundaries, "population": ingest_population,
            "health": ingest_health, "flunet": ingest_flunet, "dengue": ingest_dengue,
-           "malaria": ingest_malaria, "cholera": ingest_cholera}[step]
+           "malaria": ingest_malaria, "cholera": ingest_cholera, "covid": ingest_covid}[step]
     return job(engine, refresh=refresh)
 
 

@@ -33,9 +33,9 @@ and each disease's capabilities follow from what its data can honestly support.
 |---|---|---|---|---|
 | **1 (MVP)** | **Influenza** | WHO FluNet (lab-confirmed positives and specimens tested, not case counts) | Weekly, country, 1995– | Yes — 1/2/4-week horizons |
 | 2 | Dengue | OpenDengue; WHO dengue dashboard | Mixed weekly/monthly/yearly; national + some subnational | Yes where weekly/monthly series exist; climate features |
-| 3 | COVID-19 | WHO COVID-19 dataset / Our World in Data | Weekly (daily history up to ~2023) | Yes, with caveats about atypical dynamics |
 | C1 ✓ | Malaria | WHO GHO (World Malaria Report) — see datasets/malaria.md | Annual, country, 2000– | No — trends and mapping only |
 | C2 ✓ | Cholera | WHO Global Cholera and AWD Dashboard (weekly, 2023–) + GHO (yearly, 1949–2016) — see datasets/cholera.md | Weekly outbreak reports; yearly history | No — trends and mapping only |
+| C3 ✓ | COVID-19 | WHO COVID-19 dashboard (weekly cases and deaths, 2020–) — see datasets/covid19.md | Weekly, country; yearly sums | No — reporting after 2022 too sparse and inconsistent (planned "with caveats"; reasons in datasets/covid19.md) |
 
 Rules:
 - A disease's **capability flags** (`supports_forecast`, `supports_anomaly`,

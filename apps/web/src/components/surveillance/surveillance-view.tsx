@@ -14,7 +14,7 @@ import { elevationNote } from "@/components/globe/elevation";
 import { Switch } from "@/components/ui/switch";
 import { useElementHeight, useMediaQuery } from "@/hooks/use-element-size";
 import { globalQueryOptions, useGlobalSurveillance } from "@/hooks/use-surveillance";
-import { DISEASES } from "@/lib/diseases";
+import { DISEASES, diseaseNoun } from "@/lib/diseases";
 import { useFilters } from "@/lib/filters";
 import { formatInt, windowLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -144,6 +144,7 @@ export function SurveillanceView() {
         measure={caseBased ? "incidence" : "positivity"}
         layers={layers}
         palette={caseBased ? rampFor(info.key) : null}
+        caseFatality={info.caseFatality}
         clouds={clouds}
         fill={detection.fill}
         rings={detection.rings}
@@ -155,7 +156,7 @@ export function SurveillanceView() {
         }}
       />
 
-      <h1 className="sr-only">Global {info.label.toLowerCase()} surveillance</h1>
+      <h1 className="sr-only">Global {diseaseNoun(info)} surveillance</h1>
       <button
         type="button"
         onClick={() => setControlsOpen((o) => !o)}
@@ -254,7 +255,7 @@ export function SurveillanceView() {
             />
           ) : (
             <p className="text-[10.5px] leading-snug text-muted-foreground">
-              {info.unavailable?.detection ?? `Anomaly and hot-spot layers are not available for ${info.label.toLowerCase()}.`}
+              {info.unavailable?.detection ?? `Anomaly and hot-spot layers are not available for ${diseaseNoun(info)}.`}
             </p>
           )}
         </section>

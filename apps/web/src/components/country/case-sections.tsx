@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { WeeklyChart, type WeeklyPoint } from "@/components/charts/weekly-chart";
 import { QueryError } from "@/components/common/query-state";
 import { useCountryTimeseries } from "@/hooks/use-surveillance";
-import type { DiseaseInfo } from "@/lib/diseases";
+import { diseaseNoun, type DiseaseInfo } from "@/lib/diseases";
 import { addWeeks, formatCompact, formatInt, formatPct, formatRate, formatWeek, windowLabel } from "@/lib/format";
 import { monthSpan } from "@/lib/incidence-scale";
 import type { CountryProfile } from "@/lib/types";
@@ -103,7 +103,14 @@ export function CaseRecentStats({ p }: { p: CountryProfile }) {
 }
 
 export function CaseHistory({ iso3, p, info }: { iso3: string; p: CountryProfile; info: DiseaseInfo }) {
-  const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("2y");
+  // Open on the shortest range that still shows the country's latest report (many
+  // countries stopped reporting COVID-19 in 2023).
+  const [range, setRange] = useState<(typeof RANGES)[number]["key"]>(() => {
+    const last = p.surveillance.last_reported_week ?? p.surveillance.last_reported_month;
+    if (!last) return "2y";
+    const weeksAgo = (Date.parse(p.meta.latest_week) - Date.parse(last)) / (7 * 86_400_000);
+    return RANGES.find((r) => r.weeks === null || weeksAgo < r.weeks - 1)!.key;
+  });
   const meta = p.meta;
   const weeks = RANGES.find((r) => r.key === range)!.weeks;
   const to = meta.latest_week;
@@ -169,7 +176,7 @@ export function CaseHistory({ iso3, p, info }: { iso3: string; p: CountryProfile
               seriesName="Cases"
               formatValue={(v) => formatInt(v)}
               formatAxis={(v) => formatCompact(v)}
-              ariaLabel={`Weekly reported ${info.label.toLowerCase()} cases`}
+              ariaLabel={`Weekly reported ${diseaseNoun(info)} cases`}
             />
           </div>
           <h3 className="mt-3 text-[11px] text-muted-foreground">Cases per 100,000 per week</h3>
@@ -181,7 +188,7 @@ export function CaseHistory({ iso3, p, info }: { iso3: string; p: CountryProfile
               seriesName="Per 100k"
               formatValue={(v) => formatRate(v)}
               formatAxis={(v) => formatRate(v)}
-              ariaLabel={`Weekly ${info.label.toLowerCase()} cases per 100,000`}
+              ariaLabel={`Weekly ${diseaseNoun(info)} cases per 100,000`}
             />
           </div>
         </>
@@ -197,7 +204,7 @@ export function CaseHistory({ iso3, p, info }: { iso3: string; p: CountryProfile
               seriesName="Cases"
               formatValue={(v) => formatInt(v)}
               formatAxis={(v) => formatCompact(v)}
-              ariaLabel={`Monthly reported ${info.label.toLowerCase()} cases`}
+              ariaLabel={`Monthly reported ${diseaseNoun(info)} cases`}
             />
           </div>
           <h3 className="mt-3 text-[11px] text-muted-foreground">Cases per 100,000 per week (monthly average)</h3>
@@ -210,7 +217,7 @@ export function CaseHistory({ iso3, p, info }: { iso3: string; p: CountryProfile
               seriesName="Per 100k / week"
               formatValue={(v) => formatRate(v)}
               formatAxis={(v) => formatRate(v)}
-              ariaLabel={`Monthly ${info.label.toLowerCase()} cases per 100,000 per week`}
+              ariaLabel={`Monthly ${diseaseNoun(info)} cases per 100,000 per week`}
             />
           </div>
         </div>
@@ -221,7 +228,16 @@ export function CaseHistory({ iso3, p, info }: { iso3: string; p: CountryProfile
 
 /** `tiers`: the disease has coverage tiers (they decide forecast eligibility; dengue).
  *  Cholera has none: its card shows the reporting record only. */
-export function CaseCoverage({ p, tiers = true }: { p: CountryProfile; tiers?: boolean }) {
+export function CaseCoverage({
+  p,
+  tiers = true,
+  outbreaks = false,
+}: {
+  p: CountryProfile;
+  tiers?: boolean;
+  /** Reporting only while an outbreak lasts (cholera). */
+  outbreaks?: boolean;
+}) {
   const c = tiers ? p.coverage : null;
   const unit = c?.grain === "month" ? "months" : "weeks";
   const s = p.surveillance;
@@ -264,7 +280,7 @@ export function CaseCoverage({ p, tiers = true }: { p: CountryProfile; tiers?: b
       )}
       {!tiers && (
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Countries report while an outbreak lasts; weeks without a report are unknown, not zero.
+          {outbreaks ? "Countries report while an outbreak lasts; weeks" : "Weeks"} without a report are unknown, not zero.
         </p>
       )}
     </Section>

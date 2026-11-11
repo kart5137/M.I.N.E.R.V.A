@@ -5,10 +5,11 @@
  * health-system indicators and stays influenza-only. Malaria (C1) is yearly: World Malaria
  * Report estimates and reported cases on the Overview, Countries and country pages only.
  * Cholera (C2) has weekly outbreak reports since 2023 (maps, trends, deaths) and yearly
- * history to 2016, without forecasting, detection or alerts.
+ * history to 2016, without forecasting, detection or alerts. COVID-19 (C3) has weekly
+ * cases and deaths since 2020 and yearly totals summed from them, likewise without models.
  */
 
-export type DiseaseKey = "influenza" | "dengue" | "malaria" | "cholera";
+export type DiseaseKey = "influenza" | "dengue" | "malaria" | "cholera" | "covid19";
 
 export type Feature = "surveillance" | "forecasting" | "detection" | "analytics" | "reports";
 
@@ -24,6 +25,10 @@ export interface DiseaseInfo {
   unavailable?: Partial<Record<Feature, string>>;
   /** Short attribution shown in page footers. */
   sourceNote: string;
+  /** Case fatality (deaths ÷ reported cases) is meaningful and shown (cholera). */
+  caseFatality?: boolean;
+  /** Country pages show reported cases and deaths by year (weekly sums, history). */
+  yearlyHistory?: boolean;
 }
 
 export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
@@ -92,6 +97,30 @@ export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
         "not support yet.",
     },
     sourceNote: "WHO Global Cholera and AWD Dashboard",
+    caseFatality: true,
+    yearlyHistory: true,
+  },
+  covid19: {
+    key: "covid19",
+    label: "COVID-19",
+    caseBased: true,
+    grain: "week",
+    features: { surveillance: true, forecasting: false, detection: false, analytics: false, reports: false },
+    unavailable: {
+      forecasting:
+        "Since 2023 most countries test and report COVID-19 far less, and many stopped weekly reporting, so " +
+        "reported cases no longer track infections steadily enough for honest forecasts. Weekly trends and yearly " +
+        "totals are on the Overview, Global Surveillance and country pages.",
+      detection:
+        "Anomaly and hot-spot detection compare a week with the same weeks of earlier years. COVID-19 reporting " +
+        "changed too much between the pandemic years and now for that comparison to mean anything.",
+      analytics:
+        "Analytics compares influenza test positivity with health-system indicators; it covers influenza only.",
+      reports:
+        "Alerts and reports are built on outbreak detection, which COVID-19's changing reporting does not support.",
+    },
+    sourceNote: "WHO COVID-19 dashboard",
+    yearlyHistory: true,
   },
 };
 
@@ -105,6 +134,11 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   analytics: "Analytics",
   reports: "Alerts and intelligence reports",
 };
+
+/** The disease name inside a sentence: "dengue", but "COVID-19" stays as written. */
+export function diseaseNoun(info: DiseaseInfo): string {
+  return /[A-Z]{2}/.test(info.label) ? info.label : info.label.toLowerCase();
+}
 
 export function isDiseaseKey(v: string | null | undefined): v is DiseaseKey {
   return v != null && v in DISEASES;

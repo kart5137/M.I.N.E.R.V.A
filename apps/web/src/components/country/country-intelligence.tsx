@@ -13,7 +13,7 @@ import { QueryError } from "@/components/common/query-state";
 import { SEASON_LABEL, TierBadge } from "@/components/countries/countries-table";
 import { useCountryProfile, useCountrySeasons, useCountryTimeseries } from "@/hooks/use-surveillance";
 import { ApiError } from "@/lib/api";
-import { DISEASES, type DiseaseInfo } from "@/lib/diseases";
+import { DISEASES, diseaseNoun, type DiseaseInfo } from "@/lib/diseases";
 import { REGIONS, diseaseParam, useFilters, withParams } from "@/lib/filters";
 import { addWeeks, formatCompact, formatInt, formatPct, formatWeek, windowLabel } from "@/lib/format";
 import { MIN_SPECIMENS } from "@/lib/positivity-scale";
@@ -113,11 +113,11 @@ function WeeklyCountry({ iso3 }: { iso3: string }) {
         {p && !hasCaseReports(p) && (
           <p className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground">
             <TriangleAlert className="size-4 shrink-0" aria-hidden />
-            This area has no {info.label.toLowerCase()} cases reported to WHO. Context indicators are shown where available.
+            This area has no {diseaseNoun(info)} cases reported to WHO. Context indicators are shown where available.
           </p>
         )}
         {p && hasCaseReports(p) && <CaseHistory iso3={iso3} p={p} info={info} />}
-        {info.key === "cholera" && <YearlyHistory iso3={iso3} />}
+        {info.yearlyHistory && <YearlyHistory iso3={iso3} />}
         {info.features.detection && p && p.surveillance.weeks_reported > 0 && <ChannelCard iso3={iso3} />}
         {(info.features.forecasting || info.features.detection) && (
           <div className="grid gap-4 md:grid-cols-3">
@@ -137,7 +137,7 @@ function WeeklyCountry({ iso3 }: { iso3: string }) {
         {p && (
           <div className="grid gap-4 lg:grid-cols-2">
             <Context p={p} />
-            <CaseCoverage p={p} tiers={info.features.forecasting} />
+            <CaseCoverage p={p} tiers={info.features.forecasting} outbreaks={info.key === "cholera"} />
           </div>
         )}
         {p && <Provenance meta={p.meta} />}

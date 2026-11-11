@@ -96,6 +96,8 @@ export interface GlobeProps {
   palette?: readonly string[] | null;
   /** Decorative cloud layer (no data). */
   clouds?: boolean;
+  /** Show case fatality in the hover card (cholera; not where it misleads, e.g. COVID-19). */
+  caseFatality?: boolean;
 }
 
 /** Country boundaries: Natural Earth 1:50m (public domain), served from PostGIS. */
@@ -243,6 +245,7 @@ export function Globe({
   clouds = false,
   elevationByIso3 = null,
   palette = null,
+  caseFatality = false,
 }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -671,7 +674,7 @@ export function Globe({
             <span className="font-medium text-foreground">{hovered.name}</span>
             <span className="font-mono text-[10.5px] text-muted-foreground">{hovered.iso3}</span>
           </div>
-          {values && !fill && (measure === "incidence" ? <HoverCases v={hoveredValue} /> : <HoverValues v={hoveredValue} />)}
+          {values && !fill && (measure === "incidence" ? <HoverCases v={hoveredValue} caseFatality={caseFatality} /> : <HoverValues v={hoveredValue} />)}
           {hoverDetail?.(hover.iso3)}
         </div>
       )}
@@ -695,7 +698,7 @@ function HoverRows({ rows }: { rows: [string, string][] }) {
   );
 }
 
-function HoverCases({ v }: { v: CountryWindowValue | undefined }) {
+function HoverCases({ v, caseFatality }: { v: CountryWindowValue | undefined; caseFatality: boolean }) {
   if (!v) return <div className="mt-1 text-muted-foreground">No report in this window</div>;
   const monthly = v.grain === "month" && v.period_start && v.period_end;
   return (
@@ -713,7 +716,9 @@ function HoverCases({ v }: { v: CountryWindowValue | undefined }) {
         <HoverRows
           rows={[
             ["Reported deaths", formatInt(v.deaths)],
-            ["Case fatality", v.cfr == null ? "Too few cases" : formatPct(v.cfr, 1)],
+            ...(caseFatality
+              ? [["Case fatality", v.cfr == null ? "Too few cases" : formatPct(v.cfr, 1)] as [string, string]]
+              : []),
           ]}
         />
       )}

@@ -3,7 +3,7 @@
 import { CalendarClock } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { DISEASES, type Feature, FEATURE_LABELS } from "@/lib/diseases";
+import { DISEASES, diseaseNoun, type Feature, FEATURE_LABELS } from "@/lib/diseases";
 import { useFilters } from "@/lib/filters";
 
 /**
@@ -29,7 +29,7 @@ export function DiseaseGate({
         <CalendarClock className="mt-0.5 size-5 shrink-0 text-teal" aria-hidden />
         <div>
           <h2 className="text-sm font-semibold">
-            {FEATURE_LABELS[feature]} is not available for {info.label.toLowerCase()}
+            {FEATURE_LABELS[feature]} {feature === "reports" ? "are" : "is"} not available for {diseaseNoun(info)}
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
             {info.unavailable?.[feature] ??

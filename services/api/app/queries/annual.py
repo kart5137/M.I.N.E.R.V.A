@@ -1,4 +1,5 @@
-"""Yearly data from `surveillance_annual` (malaria, C1).
+"""Yearly data from `surveillance_annual` (malaria, C1), plus yearly sums of weekly reports
+(cholera C2 from 2023; COVID-19 C3, which has no separate yearly source).
 
 Rules: values are shown as WHO publishes them. Global and regional totals are WHO's own
 rows (their uncertainty ranges cannot be summed from countries); a country's estimates
@@ -31,12 +32,23 @@ CHOLERA_MEASURES = {
     "reported_deaths": "Reported deaths",
     "cfr": "Case fatality rate (%)",
 }
-MEASURES = {"malaria": MALARIA_MEASURES, "cholera": CHOLERA_MEASURES}
+COVID_MEASURES = {
+    "reported_cases": "Reported cases",
+    "reported_deaths": "Reported deaths",
+}
+MEASURES = {"malaria": MALARIA_MEASURES, "cholera": CHOLERA_MEASURES,
+            "covid19": COVID_MEASURES}
 CHOLERA_NOTES = [
     "1949–2016: cases and deaths reported to WHO each year (WHO Global Health Observatory).",
     "From 2023: sums of the weekly reports in the WHO Global Cholera and AWD Dashboard; the "
     "current year is incomplete.",
     "2017–2022 exist only in WHO's yearly PDF reports and are not shown (a gap, not zero).",
+]
+COVID_NOTES = [
+    "Sums of the weekly cases and deaths reported to WHO (WHO COVID-19 dashboard); the "
+    "current year is incomplete.",
+    "From 2023 many countries test and report far less, so reported cases fall faster than "
+    "infections did; compare years with care.",
 ]
 NOTES = [
     "Estimated cases, deaths and rates are World Malaria Report model estimates with "
@@ -68,7 +80,7 @@ class AnnualContext:
 
     @property
     def notes(self) -> list[str]:
-        return CHOLERA_NOTES if self.key == "cholera" else NOTES
+        return {"cholera": CHOLERA_NOTES, "covid19": COVID_NOTES}.get(self.key, NOTES)
 
 
 def load_annual(session: Session, key: str) -> AnnualContext:
@@ -100,11 +112,11 @@ def load_annual(session: Session, key: str) -> AnnualContext:
     """), {"d": did}).all()
     weekly = "week" in grain
     if weekly:
-        last_week = session.execute(text(
-            "SELECT max(iso_year) FROM surveillance_weekly WHERE disease_id = :d"),
-            {"d": did}).scalar()
+        first_week, last_week = session.execute(text(
+            "SELECT min(iso_year), max(iso_year) FROM surveillance_weekly WHERE disease_id = :d"),
+            {"d": did}).one()
         latest = max((y for y in (latest, last_week) if y is not None), default=None)
-        first = min((y for y in (first, last_week) if y is not None), default=None)
+        first = min((y for y in (first, first_week) if y is not None), default=None)
     if latest is None:
         raise ApiError(404, "no_data", f"No {name.lower()} data is loaded.")
     return AnnualContext(id=did, key=dkey, name=name, first_year=first, latest_year=latest,
