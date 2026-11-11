@@ -86,11 +86,16 @@ export function useCountrySeasons(iso3: string, n = 6, disease: DiseaseKey = DEF
   });
 }
 
-export function useTrends(series: string[], granularity: Granularity, from: string | null) {
-  const qs = new URLSearchParams({ series: series.join(","), granularity });
+export function useTrends(
+  series: string[],
+  granularity: Granularity,
+  from: string | null,
+  disease: DiseaseKey = DEFAULT_DISEASE,
+) {
+  const qs = new URLSearchParams({ series: series.join(","), granularity, disease });
   if (from) qs.set("from", from);
   return useQuery({
-    queryKey: ["analytics", "trends", series, granularity, from],
+    queryKey: ["analytics", "trends", series, granularity, from, disease],
     queryFn: () => apiGet<Trends>(`/analytics/trends?${qs}`),
     enabled: series.length > 0,
     placeholderData: keepPreviousData,
@@ -98,11 +103,13 @@ export function useTrends(series: string[], granularity: Granularity, from: stri
   });
 }
 
-export function useHeatmap(series: string | null, years: number) {
+export function useHeatmap(series: string | null, years: number, disease: DiseaseKey = DEFAULT_DISEASE) {
   return useQuery({
-    queryKey: ["analytics", "heatmap", series, years],
+    queryKey: ["analytics", "heatmap", series, years, disease],
     queryFn: () =>
-      apiGet<Heatmap>(`/analytics/heatmap?series=${encodeURIComponent(series!)}&years=${years}`),
+      apiGet<Heatmap>(
+        `/analytics/heatmap?series=${encodeURIComponent(series!)}&years=${years}&disease=${disease}`,
+      ),
     enabled: !!series,
     placeholderData: keepPreviousData,
     staleTime: STALE,
@@ -128,6 +135,17 @@ export function useCountryTimeseries(
 }
 
 /** Weekly weather at the country's representative point, latest `weeks` weeks. */
+/** Weather for an explicit week range (aligned with another series). */
+export function useCountryWeatherRange(iso3: string | null, from: string | null, to: string | null) {
+  return useQuery({
+    queryKey: ["country", iso3, "weather", from, to],
+    queryFn: () => apiGet<CountryWeather>(`/countries/${iso3}/weather?from=${from}&to=${to}`),
+    enabled: !!iso3 && !!from && !!to,
+    placeholderData: keepPreviousData,
+    staleTime: STALE,
+  });
+}
+
 export function useCountryWeather(iso3: string | null, weeks: number) {
   return useQuery({
     queryKey: ["country", iso3, "weather", weeks],

@@ -38,16 +38,22 @@ export function NavRail() {
                 aria-label={item.label}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "group relative grid size-11 place-items-center rounded-xl transition-colors",
-                  active
-                    ? "bg-primary/12 text-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  // Hover: the tile lifts and glows in the accent colour (motion only when the
+                  // user has not asked for reduced motion).
+                  "group relative grid size-11 place-items-center rounded-xl outline-none transition-[background-color,color,box-shadow,transform] duration-200 ease-out",
+                  "focus-visible:ring-2 focus-visible:ring-ring/60",
+                  "hover:bg-primary/15 hover:text-primary hover:shadow-[0_0_0_1px_color-mix(in_oklab,var(--primary)_40%,transparent),0_6px_18px_-4px_color-mix(in_oklab,var(--primary)_45%,transparent)] motion-safe:hover:scale-110",
+                  active ? "bg-primary/12 text-primary" : "text-sidebar-foreground",
                 )}
               >
                 {active && (
                   <span className="absolute -left-3.5 top-2 h-7 w-1 rounded-r-full bg-primary" aria-hidden />
                 )}
-                <Icon className="size-[19px]" strokeWidth={active ? 2.1 : 1.8} aria-hidden />
+                <Icon
+                  className="size-[19px] transition-transform duration-200 ease-out motion-safe:group-hover:scale-110"
+                  strokeWidth={active ? 2.1 : 1.8}
+                  aria-hidden
+                />
               </Link>
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={10}>
@@ -76,13 +82,14 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex h-10 items-center gap-3 rounded-lg px-3 text-[13.5px] font-medium transition-colors",
-              active
-                ? "bg-primary/12 text-primary"
-                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              "group flex h-10 items-center gap-3 rounded-lg px-3 text-[13.5px] font-medium transition-colors",
+              active ? "bg-primary/12 text-primary" : "text-sidebar-foreground hover:bg-primary/12 hover:text-primary",
             )}
           >
-            <Icon className="size-[18px] shrink-0" aria-hidden />
+            <Icon
+              className="size-[18px] shrink-0 transition-transform duration-200 motion-safe:group-hover:scale-110"
+              aria-hidden
+            />
             <span className="truncate">{item.label}</span>
           </Link>
         );

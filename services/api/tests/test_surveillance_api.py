@@ -129,7 +129,7 @@ def test_country_list_search_and_pagination(api: TestClient):
 @pytest.mark.parametrize(("url", "status", "code"), [
     ("/overview?disease=measles", 404, "unknown_disease"),
     ("/overview?disease=mpox", 404, "no_data"),
-    ("/analytics/trends?disease=dengue&series=global", 422, "not_available"),
+    ("/analytics/trends?disease=dengue&series=global", 422, "invalid_series"),
     ("/overview?region=XYZ", 422, "invalid_region"),
     ("/overview?to=2023-12-01", 422, "out_of_range"),
     ("/countries/ZZZ", 404, "unknown_country"),

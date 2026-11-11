@@ -129,10 +129,12 @@ the laboratory fields null.
 - **Map colours**: 6 amber steps (the validated positivity steps) with breaks at 0.1, 1,
   5, 20 and 50 per 100,000 per week; grey = reported but no population; land colour = no
   report. The legend notes that case definitions differ by country.
-- **Analytics stays influenza-only**: it compares test positivity with health-system
-  indicators and subtype mixes. `/analytics/*?disease=dengue` answers `422 not_available`
-  and the page explains why, with a working switch to influenza. Forecasts, detection,
-  alerts and reports exist for dengue since D4 (below).
+- **Analytics** (every disease since the dashboard polish after C3): `/analytics/trends`
+  and `/analytics/heatmap` with `disease=dengue` return reported cases and cases per
+  100,000 per week (weekly reports only, pooled over the countries that reported) by week,
+  month or year, for the world, WHO regions and countries; the page adds a seasonal
+  incidence heatmap and, per country, incidence beside rainfall and temperature (aligned
+  charts, one measure each; context, not cause). Monthly reporters are not in Analytics.
 
 ## Forecasting and detection (D4)
 

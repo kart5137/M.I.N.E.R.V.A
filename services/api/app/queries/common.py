@@ -127,17 +127,6 @@ def load_disease(session: Session, key: str) -> DiseaseContext:
     )
 
 
-def load_lab_disease(session: Session, key: str, feature: str) -> DiseaseContext:
-    """`load_disease` for endpoints built only on laboratory data (Analytics: positivity
-    against health-system indicators). Case-based diseases get a clear 422."""
-    ctx = load_disease(session, key)
-    if ctx.case_based:
-        raise ApiError(422, "not_available",
-                       f"{feature} uses laboratory test positivity and is available for "
-                       f"influenza only, not {ctx.name}.")
-    return ctx
-
-
 def make_window(ctx: DiseaseContext, end: date | None, weeks: int) -> Window:
     """Window of `weeks` ISO weeks ending at `end` (default: the reference week)."""
     last = monday(end) if end else ctx.reference_week

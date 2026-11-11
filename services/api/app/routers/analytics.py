@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_session
 from app.core.errors import ApiError
 from app.queries import analytics as q
-from app.queries.common import MIN_SPECIMENS_FOR_RATE, WEEK, load_lab_disease, monday
+from app.queries.common import MIN_SPECIMENS_FOR_RATE, WEEK, load_disease, monday
 from app.schemas.analytics import Heatmap, Trends
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -22,7 +22,8 @@ SeriesParam = Annotated[str, Query(
 
 @router.get("/trends", response_model=Trends,
             summary="Weekly / monthly / yearly aggregates per series, with change vs. "
-                    "previous bucket and influenza A/B mix")
+                    "previous bucket: positivity and influenza A/B mix (influenza) or "
+                    "cases, deaths and incidence (case-based diseases)")
 def trends(
     series: SeriesParam,
     session: Session = Depends(get_session),
@@ -31,8 +32,9 @@ def trends(
     from_: Annotated[date | None, Query(alias="from")] = None,
     to: date | None = None,
 ) -> Trends:
-    ctx = load_lab_disease(session, disease, "Analytics")
+    ctx = load_disease(session, disease)
     specs = q.parse_series(session, series.split(","))
+    one = q.case_trend_series if ctx.case_based else q.trend_series
     end = min(monday(to), ctx.latest_week) if to else ctx.latest_week
     default_span = {"week": 103, "month": 260, "year": 520}[granularity]
     start = max(monday(from_), ctx.first_week) if from_ else max(
@@ -43,19 +45,20 @@ def trends(
         raise ApiError(422, "invalid_range", "Weekly trends are limited to 10 years.")
     return Trends(
         meta=ctx.meta(), granularity=granularity, start=start, end=end,
-        series=[q.trend_series(session, ctx, s, granularity, start, end) for s in specs],
+        series=[one(session, ctx, s, granularity, start, end) for s in specs],
     )
 
 
 @router.get("/heatmap", response_model=Heatmap,
-            summary="Positivity by ISO week × ISO year for one series")
+            summary="Positivity (influenza) or incidence (case-based diseases) by ISO "
+                    "week x ISO year for one series")
 def heatmap(
     series: Annotated[str, Query(description="One series: ISO3, `region:<code>` or `world`.")],
     session: Session = Depends(get_session),
     disease: Disease = "influenza",
     years: Annotated[int, Query(ge=1, le=32)] = 10,
 ) -> Heatmap:
-    ctx = load_lab_disease(session, disease, "Analytics")
+    ctx = load_disease(session, disease)
     if "," in series:
         raise ApiError(422, "invalid_series", "The heatmap takes exactly one series.")
     spec = q.parse_series(session, [series])[0]
@@ -64,5 +67,5 @@ def heatmap(
     return Heatmap(
         meta=ctx.meta(), key=spec.key, label=spec.label, years=list(range(first, last + 1)),
         min_specimens=MIN_SPECIMENS_FOR_RATE,
-        cells=q.heatmap(session, ctx, spec, first, last),
+        cells=(q.case_heatmap if ctx.case_based else q.heatmap)(session, ctx, spec, first, last),
     )

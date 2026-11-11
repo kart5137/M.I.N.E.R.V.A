@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 
 import { CHART, EChart, type EChartsOption } from "@/components/charts/echart";
-import { formatInt, formatPct } from "@/lib/format";
+import { formatInt, formatPct, formatRate } from "@/lib/format";
+import { INCIDENCE_BINS } from "@/lib/incidence-scale";
 import { POSITIVITY_BINS } from "@/lib/positivity-scale";
 import type { Heatmap, TrendBucket, TrendSeries } from "@/lib/types";
 
@@ -264,4 +265,84 @@ export function PositivityHeatmap({ data }: { data: Heatmap }) {
     };
   }, [data]);
   return <EChart option={option} ariaLabel={`Weekly test positivity by ISO week and year for ${data.label}`} />;
+}
+
+/**
+ * Case-based diseases: cases per 100,000 per week by ISO week × year, binned like the
+ * globe (same breaks, the disease's own ramp). Grey = reported cases but no population.
+ */
+export function IncidenceHeatmap({ data, palette }: { data: Heatmap; palette: readonly string[] }) {
+  const option = useMemo<EChartsOption>(() => {
+    const weeks = Array.from({ length: 53 }, (_, i) => i + 1);
+    const years = data.years.map(String);
+    const yearIndex = new Map(data.years.map((y, i) => [y, i]));
+    const cells = data.cells.map((c) => ({
+      value: [c.iso_week - 1, yearIndex.get(c.iso_year), c.incidence == null ? -1 : c.incidence],
+      cell: c,
+      itemStyle: c.is_provisional ? { opacity: 0.45 } : undefined,
+    }));
+    const pieces = [
+      { value: -1, color: "#4d6662", label: "No population" },
+      ...INCIDENCE_BINS.map((b, i) => ({
+        gte: i === 0 ? 0 : INCIDENCE_BINS[i - 1].max,
+        ...(b.max === Infinity ? {} : { lt: b.max }),
+        color: palette[i] ?? b.color,
+        label: b.label,
+      })),
+    ];
+    return {
+      animation: false,
+      grid: { left: 44, right: 12, top: 8, bottom: 64 },
+      tooltip: {
+        ...CHART.tooltip,
+        formatter: (p: { data: { cell: Heatmap["cells"][number] } }) => {
+          const c = p.data.cell;
+          return [
+            `<div style="font-weight:600;margin-bottom:4px">${c.iso_year}-W${String(c.iso_week).padStart(2, "0")}${c.is_provisional ? ` <span style="color:#f2a93b;font-weight:400">provisional</span>` : ""}</div>`,
+            `<div>Per 100k / week: ${formatRate(c.incidence)}</div>`,
+            `<div style="color:${CHART.muted}">Reported cases: ${formatInt(c.cases)}</div>`,
+          ].join("");
+        },
+      },
+      xAxis: {
+        type: "category",
+        data: weeks,
+        name: "ISO week",
+        nameLocation: "middle",
+        nameGap: 22,
+        nameTextStyle: { color: CHART.muted, fontSize: 10 },
+        axisLine: { lineStyle: { color: CHART.axis } },
+        axisTick: { show: false },
+        axisLabel: { color: CHART.muted, fontSize: 10, interval: 3 },
+      },
+      yAxis: {
+        type: "category",
+        data: years,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { color: CHART.muted, fontSize: 10 },
+      },
+      visualMap: {
+        type: "piecewise",
+        dimension: 2,
+        pieces,
+        orient: "horizontal",
+        left: "center",
+        bottom: 0,
+        itemWidth: 12,
+        itemHeight: 10,
+        itemGap: 10,
+        textStyle: { color: CHART.muted, fontSize: 10 },
+      },
+      series: [
+        {
+          type: "heatmap",
+          data: cells,
+          itemStyle: { borderColor: "#0b2023", borderWidth: 1, borderRadius: 2 },
+          emphasis: { itemStyle: { borderColor: CHART.ink, borderWidth: 1 } },
+        },
+      ],
+    };
+  }, [data, palette]);
+  return <EChart option={option} ariaLabel={`Weekly cases per 100,000 by ISO week and year for ${data.label}`} />;
 }

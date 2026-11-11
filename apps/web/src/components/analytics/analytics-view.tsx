@@ -10,15 +10,26 @@ import { QueryError } from "@/components/common/query-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { usePlatformStatus } from "@/hooks/use-platform-status";
 import { useCountries, useHeatmap, useTrends } from "@/hooks/use-surveillance";
-import { REGIONS, updateSearchParams } from "@/lib/filters";
-import { addWeeks, formatCompact, formatInt, formatPct, formatSigned } from "@/lib/format";
+import { rampFor } from "@/lib/disease-palette";
+import { DISEASES, type DiseaseInfo, type DiseaseKey } from "@/lib/diseases";
+import { REGIONS, updateSearchParams, useFilters } from "@/lib/filters";
+import { addWeeks, formatCompact, formatInt, formatPct, formatRate, formatSigned } from "@/lib/format";
 import type { Granularity, TrendBucket, TrendSeries } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-import { ComparisonChart, type Metric, PositivityHeatmap, SubtypeChart } from "./analytics-charts";
+import { AnnualAnalytics } from "./annual-analytics";
+import { ComparisonChart, IncidenceHeatmap, type Metric, PositivityHeatmap, SubtypeChart } from "./analytics-charts";
+import { WeatherContext } from "./weather-context";
 
 const MAX_SERIES = CHART.categorical.length;
-const DEFAULT_SERIES = "world,USA,AUS";
+/** Default comparison per disease: the world and steady recent reporters. */
+const DEFAULT_SERIES: Record<DiseaseKey, string> = {
+  influenza: "world,USA,AUS",
+  dengue: "world,BRA,COL",
+  malaria: "",
+  cholera: "world,YEM,NGA",
+  covid19: "world,GBR,POL",
+};
 
 const GRANULARITIES: { key: Granularity; label: string; spans: Span[] }[] = [
   { key: "week", label: "Weekly", spans: ["1y", "2y", "5y"] },
@@ -55,7 +66,41 @@ const METRICS = {
     axis: (v: number) => `${Math.round(v * 100)}%`,
   },
 } satisfies Record<string, Metric>;
-type MetricKey = keyof typeof METRICS;
+
+/** Case-based diseases (weekly reports only). Deaths only where the source has them. */
+const CASE_METRICS = {
+  incidence: {
+    label: "Cases per 100k / week",
+    get: (b: TrendBucket) => b.incidence ?? null,
+    value: (v: number) => formatRate(v),
+    axis: (v: number) => formatRate(v),
+  },
+  cases: {
+    label: "Reported cases",
+    get: (b: TrendBucket) => b.cases ?? null,
+    value: (v: number) => formatInt(v),
+    axis: (v: number) => formatCompact(v),
+  },
+  deaths: {
+    label: "Reported deaths",
+    get: (b: TrendBucket) => b.deaths ?? null,
+    value: (v: number) => formatInt(v),
+    axis: (v: number) => formatCompact(v),
+  },
+} satisfies Record<string, Metric>;
+type MetricKey = string;
+
+function metricsFor(info: DiseaseInfo): Record<string, Metric> {
+  if (!info.caseBased) return METRICS;
+  // Dengue reports carry no deaths.
+  return info.key === "dengue" ? { incidence: CASE_METRICS.incidence, cases: CASE_METRICS.cases } : CASE_METRICS;
+}
+
+const DESCRIPTION = {
+  lab: "Compare countries, WHO regions and the world. Pooled positivity = positives ÷ specimens over reporting countries.",
+  cases:
+    "Compare countries, WHO regions and the world. Weekly reports only; cases per 100,000 per week are pooled over the countries that reported (gaps are not zeros).",
+};
 
 function Segmented<T extends string>({
   value,
@@ -110,12 +155,21 @@ function Card({ title, subtitle, actions, children }: {
 }
 
 export function AnalyticsView() {
+  const [filters] = useFilters();
+  const info = DISEASES[filters.disease];
+  // Yearly diseases (malaria) compare yearly measures; weekly ones compare weekly reports.
+  return info.grain === "year" ? <AnnualAnalytics disease={info.key} /> : <WeeklyAnalytics info={info} />;
+}
+
+function WeeklyAnalytics({ info }: { info: DiseaseInfo }) {
   const params = useSearchParams();
+  const METRIC_SET = metricsFor(info);
+  const defaultMetric = info.caseBased ? "incidence" : "positivity";
   // One URL slot per colour: removing a series leaves an empty slot, so the others keep
   // their colours ("colour follows the entity").
   const slots = useMemo(
-    () => (params.get("series") ?? DEFAULT_SERIES).split(",").slice(0, MAX_SERIES),
-    [params],
+    () => (params.get("series") ?? DEFAULT_SERIES[info.key]).split(",").slice(0, MAX_SERIES),
+    [params, info.key],
   );
   const series = useMemo(() => slots.filter(Boolean), [slots]);
   const colors = useMemo(
@@ -127,8 +181,8 @@ export function AnalyticsView() {
   const gran = GRANULARITIES.find((x) => x.key === g) ?? GRANULARITIES[1];
   const spanParam = params.get("span") as Span | null;
   const span: Span = spanParam && gran.spans.includes(spanParam) ? spanParam : gran.spans[1] ?? gran.spans[0];
-  const metricKey = (params.get("metric") as MetricKey) in METRICS ? (params.get("metric") as MetricKey) : "positivity";
-  const metric = METRICS[metricKey];
+  const metricKey: MetricKey = (params.get("metric") ?? "") in METRIC_SET ? params.get("metric")! : defaultMetric;
+  const metric = METRIC_SET[metricKey];
   const focus = series.includes(params.get("focus") ?? "") ? params.get("focus")! : series[0] ?? null;
 
   const writeSlots = (next: string[]) => {
@@ -147,22 +201,34 @@ export function AnalyticsView() {
 
   // Span → from date, anchored on the latest week in the database.
   const platform = usePlatformStatus();
-  const flu = "status" in platform ? platform.status.diseases.find((d) => d.key === "influenza") : undefined;
+  const status = "status" in platform ? platform.status.diseases.find((d) => d.key === info.key) : undefined;
   const spanWeeks = SPAN_WEEKS[span];
   const from =
-    flu?.latest_week && spanWeeks ? addWeeks(flu.latest_week, -(spanWeeks - 1)) : null; // null = API default / all
-  const trends = useTrends(flu ? series : [], gran.key, spanWeeks ? from : "1995-01-01");
-  const heat = useHeatmap(focus, 12);
-  const countries = useCountries({ region: null, q: "", sort: "name", order: "asc", page: 1, pageSize: 300 });
+    status?.latest_week && spanWeeks ? addWeeks(status.latest_week, -(spanWeeks - 1)) : null; // null = API default / all
+  const trends = useTrends(status ? series : [], gran.key, spanWeeks ? from : "1995-01-01", info.key);
+  const heat = useHeatmap(focus, 12, info.key);
+  const countries = useCountries({
+    disease: info.key,
+    region: null,
+    q: "",
+    sort: "name",
+    order: "asc",
+    page: 1,
+    pageSize: 300,
+  });
 
   const data = trends.data;
   const focusSeries = data?.series.find((s) => s.key === focus);
+  // Weather is per country: the focused series if it is one, else the first country.
+  const weatherSeries =
+    focusSeries?.kind === "country" ? focusSeries : data?.series.find((s) => s.kind === "country");
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6">
       <PageHeader
         title="Analytics"
-        description="Compare countries, WHO regions and the world. Pooled positivity = positives ÷ specimens over reporting countries."
+        eyebrow={`${info.label} surveillance`}
+        description={info.caseBased ? DESCRIPTION.cases : DESCRIPTION.lab}
       />
 
       {/* Series picker */}
@@ -202,9 +268,12 @@ export function AnalyticsView() {
                   </option>
                 ))}
               </optgroup>
-              <optgroup label="Countries with FluNet data">
+              <optgroup label={info.caseBased ? "Countries with weekly reports" : "Countries with FluNet data"}>
                 {countries.data?.items
-                  .filter((c) => c.weeks_reported > 0 && !series.includes(c.iso3))
+                  .filter(
+                    (c) =>
+                      (info.caseBased ? c.last_reported_week != null : c.weeks_reported > 0) && !series.includes(c.iso3),
+                  )
                   .map((c) => (
                     <option key={c.iso3} value={c.iso3}>
                       {c.name}
@@ -244,8 +313,8 @@ export function AnalyticsView() {
               <Segmented
                 label="Metric"
                 value={metricKey}
-                options={(Object.keys(METRICS) as MetricKey[]).map((k) => ({ key: k, label: METRICS[k].label }))}
-                onChange={(v) => updateSearchParams({ metric: v === "positivity" ? null : v })}
+                options={Object.keys(METRIC_SET).map((k) => ({ key: k, label: METRIC_SET[k].label }))}
+                onChange={(v) => updateSearchParams({ metric: v === defaultMetric ? null : v })}
               />
             }
           >
@@ -254,8 +323,42 @@ export function AnalyticsView() {
             </div>
           </Card>
 
-          <GrowthTable series={data.series} colors={colors} granularity={gran.key} />
+          <GrowthTable series={data.series} colors={colors} granularity={gran.key} caseBased={info.caseBased} />
 
+          {info.caseBased ? (
+            <div className={cn("grid gap-4", info.key === "dengue" && "xl:grid-cols-2")}>
+              <Card
+                title={`Seasonal heatmap · ${heat.data?.label ?? ""}`}
+                subtitle="Cases per 100,000 per week by ISO week and year (weekly reports, last 12 years). Faded cells are provisional; empty cells are weeks without a report."
+                actions={<FocusPicker series={data.series} focus={focus} />}
+              >
+                {heat.error && <QueryError error={heat.error} />}
+                <div className="h-72">{heat.data && <IncidenceHeatmap data={heat.data} palette={rampFor(info.key)} />}</div>
+              </Card>
+              {info.key === "dengue" && (
+                <Card
+                  title={`Weather and dengue · ${weatherSeries?.label ?? ""}`}
+                  subtitle="Last 3 years at the country's weather point. Context, not cause: in the backtest, weather did not clearly improve dengue forecasts."
+                  actions={
+                    weatherSeries && (
+                      <FocusPicker
+                        series={data.series.filter((s) => s.kind === "country")}
+                        focus={weatherSeries.key}
+                      />
+                    )
+                  }
+                >
+                  {weatherSeries && status?.latest_week ? (
+                    <WeatherContext iso3={weatherSeries.key} name={weatherSeries.label} latestWeek={status.latest_week} />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Weather is per country: add a country to the series to see its rainfall and temperature.
+                    </p>
+                  )}
+                </Card>
+              )}
+            </div>
+          ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             <Card
               title={`Influenza A / B detections · ${focusSeries?.label ?? ""}`}
@@ -273,6 +376,7 @@ export function AnalyticsView() {
               <div className="h-72">{heat.data && <PositivityHeatmap data={heat.data} />}</div>
             </Card>
           </div>
+          )}
           <Provenance meta={data.meta} />
         </>
       )}
@@ -302,10 +406,12 @@ function GrowthTable({
   series,
   colors,
   granularity,
+  caseBased,
 }: {
   series: TrendSeries[];
   colors: Map<string, string>;
   granularity: Granularity;
+  caseBased: boolean;
 }) {
   return (
     <Card title="Growth" subtitle={`Latest complete ${granularity} vs. the previous ${granularity}. Partial periods are excluded.`}>
@@ -315,9 +421,9 @@ function GrowthTable({
             <tr className="border-b border-border">
               <th className="py-1.5 text-left font-normal">Series</th>
               <th className="py-1.5 text-right font-normal">Period</th>
-              <th className="py-1.5 text-right font-normal">Positivity</th>
-              <th className="py-1.5 text-right font-normal">Change</th>
-              <th className="py-1.5 text-right font-normal">Detections</th>
+              <th className="py-1.5 text-right font-normal">{caseBased ? "Per 100k / week" : "Positivity"}</th>
+              <th className="py-1.5 text-right font-normal">{caseBased ? "Reported cases" : "Change"}</th>
+              <th className="py-1.5 text-right font-normal">{caseBased ? "Deaths" : "Detections"}</th>
               <th className="py-1.5 text-right font-normal">Change</th>
               <th className="py-1.5 text-right font-normal">Countries reporting</th>
             </tr>
@@ -331,7 +437,18 @@ function GrowthTable({
                     <span className="mr-2 inline-block size-2.5 rounded-[2px] align-middle" style={{ background: colors.get(s.key) }} />
                     {s.label}
                   </td>
-                  {b ? (
+                  {b && caseBased ? (
+                    <>
+                      <td className="py-1.5 text-right text-muted-foreground">{b.label}</td>
+                      <td className="py-1.5 text-right">{formatRate(b.incidence)}</td>
+                      <td className="py-1.5 text-right">{formatInt(b.cases)}</td>
+                      <td className="py-1.5 text-right">{b.deaths == null ? "—" : formatInt(b.deaths)}</td>
+                      <td className="py-1.5 text-right text-muted-foreground">
+                        {b.cases_change_pct == null ? "—" : formatSigned(b.cases_change_pct, 0, "%")}
+                      </td>
+                      <td className="py-1.5 text-right text-muted-foreground">{formatInt(b.countries_reporting)}</td>
+                    </>
+                  ) : b ? (
                     <>
                       <td className="py-1.5 text-right text-muted-foreground">{b.label}</td>
                       <td className="py-1.5 text-right">{formatPct(b.positivity)}</td>

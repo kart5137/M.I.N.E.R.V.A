@@ -1,7 +1,7 @@
 "use client";
 
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { PathLayer, ScatterplotLayer, SolidPolygonLayer } from "@deck.gl/layers";
+import { ScatterplotLayer, SolidPolygonLayer } from "@deck.gl/layers";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import {
   type ExpressionSpecification,
@@ -356,6 +356,17 @@ export function Globe({
         source: "countries",
         paint: { "fill-color": token("--globe-land", "#0f2f33") },
       });
+      // Borders sit under the raised countries: an opaque extrusion hides the borders
+      // behind it instead of letting them show through.
+      map.addLayer({
+        id: "country-line",
+        type: "line",
+        source: "countries",
+        paint: {
+          "line-color": ["case", active, accent, token("--globe-border", "#2a5558")],
+          "line-width": ["case", active, 1.6, 0.5],
+        },
+      });
       // Only countries that are raised are in this source (set with their height), so no
       // zero-height 3D faces shimmer against the flat layer.
       map.addSource("raised", { type: "geojson", data: { type: "FeatureCollection", features: [] }, promoteId: "iso3" });
@@ -369,15 +380,6 @@ export function Globe({
           "fill-extrusion-base": 0,
           "fill-extrusion-opacity": 1,
           "fill-extrusion-height-transition": { duration: 600, delay: 0 },
-        },
-      });
-      map.addLayer({
-        id: "country-line",
-        type: "line",
-        source: "countries",
-        paint: {
-          "line-color": ["case", active, accent, token("--globe-border", "#2a5558")],
-          "line-width": ["case", active, 1.6, 0.5],
         },
       });
       setStyleReady(true);
@@ -539,23 +541,6 @@ export function Globe({
     }
   }, [heights, styleReady, projection, countries]);
 
-  // Top edges of raised countries: a thin dark outline at each country's height, so
-  // neighbouring raised countries stay distinguishable (the ground borders are hidden
-  // under the extrusions).
-  const outlines = useMemo(() => {
-    const out: { path: [number, number, number][] }[] = [];
-    if (!countries) return out;
-    for (const f of countries.features) {
-      const h = heights.get(f.properties.iso3) ?? 0;
-      if (h < 20_000) continue;
-      const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
-      for (const poly of polys) {
-        out.push({ path: poly[0].map(([lng, lat]) => [lng, lat, h + 500] as [number, number, number]) });
-      }
-    }
-    return out;
-  }, [countries, heights]);
-
   // Clouds: the texture (~240 KB) is requested only when clouds are first wanted, once
   // the browser is idle after the globe has drawn.
   useEffect(() => {
@@ -600,7 +585,8 @@ export function Globe({
     };
   }, [selectedIso3, styleReady]);
 
-  // Rings and raised-country outlines (deck.gl)
+  // Rings (deck.gl). Raised countries have no drawn outline: the overlay is a separate
+  // canvas, so an outline would show through any raised country in front of it.
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay || !styleReady) return;
@@ -618,16 +604,6 @@ export function Globe({
           getFillColor: [0, 0, 0, 0],
           pickable: false,
         }),
-        new PathLayer<{ path: [number, number, number][] }>({
-          id: "raised-outlines",
-          visible: projection === "globe",
-          data: outlines,
-          getPath: (d) => d.path,
-          getColor: [6, 20, 22, 200],
-          widthUnits: "pixels",
-          getWidth: 1,
-          pickable: false,
-        }),
         new ScatterplotLayer<{ position: [number, number]; radius: number }>({
           id: "rings",
           data: ringData,
@@ -642,7 +618,7 @@ export function Globe({
         }),
       ],
     });
-  }, [byIso3, styleReady, rings, ringColor, projection, outlines]);
+  }, [byIso3, styleReady, rings, ringColor, projection]);
 
   const hovered = hover ? byIso3.get(hover.iso3) : undefined;
   const hoveredValue = hover ? valueByIso3.get(hover.iso3) : undefined;

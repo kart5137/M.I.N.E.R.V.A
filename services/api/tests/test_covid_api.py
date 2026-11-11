@@ -69,3 +69,14 @@ def test_summary_serves_the_about_page(api: TestClient, covid):
     assert d["years"] == [2021, 2022, 2023, 2024]
     assert [s["key"] for s in d["meta"]["sources"]] == ["who_covid_dashboard"]
 
+
+
+def test_analytics_trends_carry_cases_deaths_and_incidence(api: TestClient, covid):
+    t = api.get(f"{V1}/analytics/trends", params={
+        **COV, "series": "AAA", "granularity": "year", "from": "2021-01-04",
+        "to": "2024-01-15"}).json()
+    by = {b["label"]: b for b in t["series"][0]["buckets"]}
+    assert (by["2021"]["cases"], by["2021"]["deaths"]) == (1000, 10)
+    assert (by["2024"]["cases"], by["2024"]["deaths"]) == (240, 3)
+    assert by["2024"]["positivity"] is None and by["2024"]["incidence"] is not None
+    assert by["2024"]["cases_change_pct"] == pytest.approx(-76)

@@ -1,9 +1,10 @@
 /**
  * Diseases the dashboard can show, and which features each one has. Influenza has the
  * full platform. Dengue (post-MVP phase P1) has surveillance, weather, forecasting,
- * detection, alerts and reports (D4); Analytics compares influenza test positivity with
- * health-system indicators and stays influenza-only. Malaria (C1) is yearly: World Malaria
- * Report estimates and reported cases on the Overview, Countries and country pages only.
+ * detection, alerts and reports (D4). Malaria (C1) is yearly: World Malaria Report
+ * estimates and reported cases. Analytics covers every disease: test positivity and
+ * subtypes (influenza), cases, deaths and incidence (weekly case-based diseases, plus
+ * weather for dengue) or yearly measures (malaria).
  * Cholera (C2) has weekly outbreak reports since 2023 (maps, trends, deaths) and yearly
  * history to 2016, without forecasting, detection or alerts. COVID-19 (C3) has weekly
  * cases and deaths since 2020 and yearly totals summed from them, likewise without models.
@@ -45,13 +46,7 @@ export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
     label: "Dengue",
     caseBased: true,
     grain: "week",
-    features: { surveillance: true, forecasting: true, detection: true, analytics: false, reports: true },
-    unavailable: {
-      analytics:
-        "Analytics compares influenza test positivity with health-system indicators and subtype mixes; dengue has " +
-        "reported cases instead, so this page covers influenza only. Dengue trends, forecasts and outbreak " +
-        "detection are on the other pages.",
-    },
+    features: { surveillance: true, forecasting: true, detection: true, analytics: true, reports: true },
     sourceNote: "WHO Global Dengue Surveillance",
   },
   malaria: {
@@ -59,7 +54,7 @@ export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
     label: "Malaria",
     caseBased: true,
     grain: "year",
-    features: { surveillance: false, forecasting: false, detection: false, analytics: false, reports: false },
+    features: { surveillance: false, forecasting: false, detection: false, analytics: true, reports: false },
     unavailable: {
       surveillance:
         "Malaria data are yearly country totals (WHO World Malaria Report), so there is no weekly globe or time " +
@@ -69,8 +64,6 @@ export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
         "there are no malaria forecasts. Trends by year are on the Overview and country pages.",
       detection:
         "Anomaly and hot-spot detection run on weekly series; malaria data are yearly totals, so they do not apply.",
-      analytics:
-        "Analytics compares influenza test positivity with health-system indicators; it covers influenza only.",
       reports:
         "Alerts and reports are built on weekly detection, which yearly malaria data do not support.",
     },
@@ -81,7 +74,7 @@ export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
     label: "Cholera",
     caseBased: true,
     grain: "week",
-    features: { surveillance: true, forecasting: false, detection: false, analytics: false, reports: false },
+    features: { surveillance: true, forecasting: false, detection: false, analytics: true, reports: false },
     unavailable: {
       forecasting:
         "Cholera reports cover outbreaks since January 2023 only, and countries report while an outbreak lasts. " +
@@ -90,8 +83,6 @@ export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
       detection:
         "Anomaly and hot-spot detection need several years of regular weekly reporting; cholera reporting covers " +
         "outbreaks since 2023 only.",
-      analytics:
-        "Analytics compares influenza test positivity with health-system indicators; it covers influenza only.",
       reports:
         "Alerts and reports are built on outbreak detection, which cholera's short outbreak-only reporting does " +
         "not support yet.",
@@ -105,7 +96,7 @@ export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
     label: "COVID-19",
     caseBased: true,
     grain: "week",
-    features: { surveillance: true, forecasting: false, detection: false, analytics: false, reports: false },
+    features: { surveillance: true, forecasting: false, detection: false, analytics: true, reports: false },
     unavailable: {
       forecasting:
         "Since 2023 most countries test and report COVID-19 far less, and many stopped weekly reporting, so " +
@@ -114,8 +105,6 @@ export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
       detection:
         "Anomaly and hot-spot detection compare a week with the same weeks of earlier years. COVID-19 reporting " +
         "changed too much between the pandemic years and now for that comparison to mean anything.",
-      analytics:
-        "Analytics compares influenza test positivity with health-system indicators; it covers influenza only.",
       reports:
         "Alerts and reports are built on outbreak detection, which COVID-19's changing reporting does not support.",
     },

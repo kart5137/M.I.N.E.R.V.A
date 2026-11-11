@@ -2,10 +2,11 @@
 
 import { ChevronDown } from "lucide-react";
 
-import { cn } from "@/lib/utils";
 import { useAnnualSummary } from "@/hooks/use-annual";
-import { DISEASE_KEYS, DISEASES, isDiseaseKey } from "@/lib/diseases";
+import { DISEASES } from "@/lib/diseases";
 import { PERIODS, REGIONS, useFilters } from "@/lib/filters";
+
+import { DiseaseSelect } from "./disease-select";
 
 function Select({
   id,
@@ -13,15 +14,12 @@ function Select({
   value,
   onChange,
   children,
-  accent = false,
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   children: React.ReactNode;
-  /** The disease selector: amber, the dashboard's primary switch. */
-  accent?: boolean;
 }) {
   return (
     <label htmlFor={id} className="flex items-center gap-2 text-xs">
@@ -32,22 +30,11 @@ function Select({
           id={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={cn(
-            "h-8 appearance-none rounded-full border pl-3 pr-8 font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
-            accent
-              ? "border-primary/40 bg-primary/10 text-primary hover:border-primary/70"
-              : "border-input bg-card text-foreground hover:border-primary/40",
-          )}
+          className="h-8 appearance-none rounded-full border border-input bg-card pl-3 pr-8 font-medium text-foreground outline-none transition-colors hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           {children}
         </select>
-        <ChevronDown
-          className={cn(
-            "pointer-events-none absolute right-2.5 top-2 size-4",
-            accent ? "text-primary" : "text-muted-foreground",
-          )}
-          aria-hidden
-        />
+        <ChevronDown className="pointer-events-none absolute right-2.5 top-2 size-4 text-muted-foreground" aria-hidden />
       </span>
     </label>
   );
@@ -62,19 +49,7 @@ export function FilterBar() {
   const years = summary.data?.years ?? [];
   return (
     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-      <Select
-        id="filter-disease"
-        label="Disease"
-        value={filters.disease}
-        onChange={(v) => isDiseaseKey(v) && setFilters({ disease: v })}
-        accent
-      >
-        {DISEASE_KEYS.map((k) => (
-          <option key={k} value={k}>
-            {DISEASES[k].label}
-          </option>
-        ))}
-      </Select>
+      <DiseaseSelect value={filters.disease} onChange={(v) => setFilters({ disease: v })} />
       <Select
         id="filter-region"
         label="Region"

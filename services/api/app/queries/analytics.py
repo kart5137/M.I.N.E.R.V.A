@@ -1,6 +1,13 @@
 """Aggregated comparisons for the Analytics page. Aggregation rules: app/queries/common.py.
 
 A *series* is one of: an ISO3 country code, `region:<WHO code>`, or `world`.
+
+Case-based diseases (dengue, cholera, COVID-19) use weekly reports only, as for the
+dashboard totals (app/queries/cases.py): a monthly report does not fit a week, month or
+year bucket without splitting it. Incidence = cases / population summed over the
+reported country-weeks x 100,000, i.e. cases per 100,000 per week among the countries
+that reported (gaps are not zeros). Population: the latest World Bank value up to the
+end of the range.
 """
 
 from __future__ import annotations
@@ -118,6 +125,83 @@ def trend_series(session: Session, ctx: DiseaseContext, spec: SeriesSpec, granul
         ))
         prev = r
     return TrendSeries(key=spec.key, label=spec.label, kind=spec.kind, buckets=buckets)
+
+
+_CASE_POP = """
+  pop AS (
+    SELECT DISTINCT ON (iso3) iso3, population::float8 AS population
+    FROM population_annual
+    ORDER BY iso3, (year <= extract(year FROM CAST(:end AS date))) DESC,
+             CASE WHEN year <= extract(year FROM CAST(:end AS date)) THEN -year ELSE year END
+  )"""
+
+_CASE_RATE = """
+          sum(s.cases) FILTER (WHERE p.population > 0)
+            / NULLIF(sum(p.population) FILTER (WHERE p.population > 0), 0) * 100000"""
+
+
+def case_trend_series(session: Session, ctx: DiseaseContext, spec: SeriesSpec,
+                      granularity: str, start: date, end: date) -> TrendSeries:
+    bucket = _BUCKET[granularity]
+    rows = session.execute(text(f"""
+        WITH {_CASE_POP}
+        SELECT {bucket} AS period_start,
+          count(DISTINCT s.week_start) AS weeks,
+          count(DISTINCT s.iso3) AS countries_reporting,
+          sum(s.cases) AS cases,
+          sum(s.deaths) AS deaths,
+          {_CASE_RATE} AS incidence
+        FROM surveillance_weekly s
+        JOIN countries c ON c.iso3 = s.iso3
+        LEFT JOIN pop p ON p.iso3 = s.iso3
+        WHERE s.disease_id = :d AND s.cases IS NOT NULL
+          AND s.week_start BETWEEN :start AND :end AND {spec.where}
+        GROUP BY 1 ORDER BY 1
+    """), {"d": ctx.id, "start": start, "end": end, "p": spec.param}).mappings().all()
+
+    buckets: list[TrendBucket] = []
+    prev = None
+    for r in rows:
+        cases = r["cases"]
+        buckets.append(TrendBucket(
+            period_start=r["period_start"], label=_label(r["period_start"], granularity),
+            weeks=r["weeks"], countries_reporting=r["countries_reporting"],
+            specimens_tested=None, positives=None, positivity=None, share_a=None,
+            inf_a=None, inf_b=None, positivity_change_pp=None, positives_change_pct=None,
+            cases=cases, deaths=r["deaths"], incidence=r["incidence"],
+            cases_change_pct=(
+                (cases - prev["cases"]) / prev["cases"] * 100
+                if prev and cases is not None and prev["cases"] else None),
+            partial=_bucket_end(r["period_start"], granularity) > ctx.reference_week,
+        ))
+        prev = r
+    return TrendSeries(key=spec.key, label=spec.label, kind=spec.kind, buckets=buckets)
+
+
+def case_heatmap(session: Session, ctx: DiseaseContext, spec: SeriesSpec, first_year: int,
+                 last_year: int) -> list[HeatmapCell]:
+    rows = session.execute(text(f"""
+        WITH {_CASE_POP}
+        SELECT s.iso_year, s.iso_week, sum(s.cases) AS cases,
+          {_CASE_RATE} AS incidence,
+          min(s.week_start) AS week_start
+        FROM surveillance_weekly s
+        JOIN countries c ON c.iso3 = s.iso3
+        LEFT JOIN pop p ON p.iso3 = s.iso3
+        WHERE s.disease_id = :d AND s.cases IS NOT NULL
+          AND s.iso_year BETWEEN :y0 AND :y1 AND {spec.where}
+        GROUP BY 1, 2 ORDER BY 1, 2
+    """), {"d": ctx.id, "y0": first_year, "y1": last_year, "p": spec.param,
+           "end": date(last_year, 12, 31)}).mappings()
+    prov = ctx.provisional_from
+    return [
+        HeatmapCell(
+            iso_year=r["iso_year"], iso_week=r["iso_week"], positivity=None,
+            specimens_tested=None, cases=r["cases"], incidence=r["incidence"],
+            is_provisional=prov is not None and r["week_start"] >= prov,
+        )
+        for r in rows
+    ]
 
 
 def _bucket_end(start: date, granularity: str) -> date:

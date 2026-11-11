@@ -284,6 +284,12 @@ export interface TrendBucket {
   positivity_change_pp: number | null;
   positives_change_pct: number | null;
   partial: boolean;
+  /** Case-based diseases (dengue, cholera, COVID-19); null for influenza. */
+  cases?: number | null;
+  deaths?: number | null;
+  /** Cases per 100,000 per week over the reported country-weeks. */
+  incidence?: number | null;
+  cases_change_pct?: number | null;
 }
 
 export interface TrendSeries {
@@ -307,6 +313,9 @@ export interface HeatmapCell {
   positivity: number | null;
   specimens_tested: number | null;
   is_provisional: boolean;
+  /** Case-based diseases; null for influenza. */
+  cases?: number | null;
+  incidence?: number | null;
 }
 
 export interface Heatmap {

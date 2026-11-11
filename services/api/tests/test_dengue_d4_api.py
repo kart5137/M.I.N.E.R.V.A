@@ -151,8 +151,18 @@ def test_dengue_about_and_analytics_scope(api: TestClient, dengue_run):
     about = api.get(f"{V1}/about", params=DENGUE).json()
     assert about["tiers"][0]["rule"].startswith("Forecast-ready (weekly)")
     assert any("case definition" in t for t in about["limitations"])
-    r = api.get(f"{V1}/analytics/trends", params={**DENGUE, "series": "global"})
-    assert r.status_code == 422 and "influenza only" in r.json()["error"]["message"]
+    # Analytics: weekly reports only; incidence over countries with population (AAA).
+    t = api.get(f"{V1}/analytics/trends", params={
+        **DENGUE, "series": "world,AAA", "granularity": "week", "from": "2024-01-22",
+        "to": "2024-01-22"}).json()
+    world, aaa = t["series"]
+    wk = world["buckets"][0]
+    assert wk["positivity"] is None and wk["deaths"] is None
+    assert wk["cases"] == aaa["buckets"][0]["cases"] + 5          # BBB adds 5 cases
+    assert wk["incidence"] == pytest.approx(aaa["buckets"][0]["cases"] / 1000 * 100000)
+    h = api.get(f"{V1}/analytics/heatmap", params={**DENGUE, "series": "AAA"}).json()
+    assert any(c["incidence"] for c in h["cells"]) and all(c["positivity"] is None
+                                                            for c in h["cells"])
 
 
 def test_dengue_risk_uses_the_endemic_channel(api: TestClient, dengue_run, seeded_engine):
