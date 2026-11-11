@@ -7,7 +7,7 @@
  */
 
 import { useQueries } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
@@ -21,6 +21,8 @@ import { REGIONS, updateSearchParams, withParams } from "@/lib/filters";
 import { formatCompact, formatInt } from "@/lib/format";
 import type { AnnualSeries } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+import { type SeriesOption, SeriesPicker } from "./series-picker";
 
 const MAX_SERIES = CHART.categorical.length;
 const DEFAULT_SERIES = "GLOBAL,AFR,NGA";
@@ -62,10 +64,28 @@ export function AnnualAnalytics({ disease }: { disease: DiseaseKey }) {
     s.scope === "region" ? (REGIONS.find((r) => r.code === s.area)?.label ?? s.name) : s.name;
   const labels = useMemo(
     () => new Map(loaded.map((s) => [s.area, nameOf(s)])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [loaded],
   );
   const measureLabels = loaded[0]?.measures ?? {};
+  const seriesOptions: SeriesOption[] = [
+    ...(areas.includes("GLOBAL") ? [] : [{ value: "GLOBAL", label: "World", group: "aggregate" as const }]),
+    ...REGIONS.filter((r) => !areas.includes(r.code)).map((r) => ({
+      value: r.code,
+      label: r.label,
+      code: r.code,
+      group: "aggregate" as const,
+    })),
+    ...(countries.data?.items ?? [])
+      .filter((c) => !areas.includes(c.iso3))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((c) => ({
+        value: c.iso3,
+        label: c.name,
+        code: c.iso3,
+        hint: REGIONS.find((r) => r.code === c.who_region)?.label,
+        group: "country" as const,
+      })),
+  ];
 
   const writeSlots = (next: string[]) => {
     while (next.length && !next[next.length - 1]) next.pop();
@@ -137,7 +157,7 @@ export function AnnualAnalytics({ disease }: { disease: DiseaseKey }) {
         splitLine: { lineStyle: { color: CHART.grid } },
         axisLabel: { color: CHART.muted, fontSize: 10, formatter: (v: number) => (RATE[measure] ? String(v) : formatCompact(v)) },
       },
-      series: lines.map(({ ranges: _r, ...l }) => l),
+      series: lines.map((l) => ({ ...l, ranges: undefined })),
     };
   }, [loaded, slots, measure, labels]);
 
@@ -162,34 +182,13 @@ export function AnnualAnalytics({ disease }: { disease: DiseaseKey }) {
           ) : null,
         )}
         {areas.length < MAX_SERIES ? (
-          <label className="relative flex items-center">
-            <Plus className="pointer-events-none absolute left-2 size-3.5 text-muted-foreground" aria-hidden />
-            <select
-              value=""
-              onChange={(e) => add(e.target.value)}
-              aria-label="Add a series"
-              className="h-7 appearance-none rounded-md border border-dashed border-border bg-transparent pl-7 pr-2 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-            >
-              <option value="">Add series…</option>
-              <optgroup label="Aggregates">
-                {!areas.includes("GLOBAL") && <option value="GLOBAL">World</option>}
-                {REGIONS.filter((r) => !areas.includes(r.code)).map((r) => (
-                  <option key={r.code} value={r.code}>
-                    {r.label} ({r.code})
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Countries with malaria data">
-                {countries.data?.items
-                  .filter((c) => !areas.includes(c.iso3))
-                  .map((c) => (
-                    <option key={c.iso3} value={c.iso3}>
-                      {c.name}
-                    </option>
-                  ))}
-              </optgroup>
-            </select>
-          </label>
+          <SeriesPicker
+            options={seriesOptions}
+            onAdd={add}
+            nextColor={CHART.categorical[slots.includes("") ? slots.indexOf("") : slots.length]}
+            countriesLabel="Countries with malaria data"
+            remaining={MAX_SERIES - areas.length}
+          />
         ) : (
           <span className="text-[11px] text-muted-foreground">Maximum of {MAX_SERIES} series</span>
         )}

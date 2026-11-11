@@ -153,10 +153,9 @@ function Hero({
         values={global.data?.countries}
         windowWeeks={global.data?.window.weeks}
         measure={info.caseBased ? "incidence" : "positivity"}
-        layers={{ positivity: true, detections: true }}
+        layers={{ positivity: true }}
         palette={info.caseBased ? rampFor(info.key) : null}
         caseFatality={info.caseFatality}
-        pitch={24}
         clouds
         onCountryClick={(c) => router.push(`${surveillanceHref}&country=${c.iso3}`)}
       />

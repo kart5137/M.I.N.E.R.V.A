@@ -46,8 +46,8 @@ values are updated in place; the run report counts `updated` rows.
 ## Dashboard
 
 - **Overview (yearly):** world map of estimated cases per 1,000 at risk for the selected
-  year (Year selector in the top bar), countries raised by √ estimated cases (capped at 70
-  million a year); world estimates with ranges and change vs the previous year; cases by
+  year (Year selector in the top bar);
+  world estimates with ranges and change vs the previous year; cases by
   WHO region; world cases and deaths by year.
 - **Countries:** every country's estimates (with ranges), rate, deaths, reported cases and
   change vs the previous year, sortable.

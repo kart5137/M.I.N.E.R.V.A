@@ -84,7 +84,8 @@ animation, and any number without a traceable source.
 ### 3D globe (core visual)
 - **MapLibre GL JS** (open source, globe projection) as the base map, with
   **deck.gl** layers on top. No proprietary token required.
-- Layers: country choropleth (incidence), 3D extruded columns (case volume),
+- Layers: country choropleth (incidence), case volume as a "Total cases" fill (replaced
+  3D extruded countries, circles and number labels, none of which read well),
   hotspot significance overlay, anomaly markers, forecast-change layer.
 - Interactions: rotate/zoom/pan, hover tooltips, click-to-select country (opens the
   country panel), smooth fly-to, toggle between globe and flat projection,

@@ -10,7 +10,6 @@ import { QueryError } from "@/components/common/query-state";
 import { Provenance } from "@/components/common/provenance";
 import { FILL_MODES, type FillMode, useDetectionLayers } from "@/components/detection/globe-layers";
 import { Globe, type GlobeLayers } from "@/components/globe";
-import { elevationNote } from "@/components/globe/elevation";
 import { Switch } from "@/components/ui/switch";
 import { useElementHeight, useMediaQuery } from "@/hooks/use-element-size";
 import { globalQueryOptions, useGlobalSurveillance } from "@/hooks/use-surveillance";
@@ -19,12 +18,15 @@ import { useFilters } from "@/lib/filters";
 import { formatInt, windowLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { CountLegend } from "./count-legend";
 import { CountryPanel } from "./country-panel";
 import { IncidenceLegend } from "./incidence-legend";
 import { PositivityLegend } from "./positivity-legend";
 import { TimeSlider } from "./time-slider";
 
 const FILL_PARAM = "fill";
+/** Country fills: the detection fills, weekly totals ("counts"), or none. */
+type Fill = FillMode | "counts" | "none";
 
 function Toggle({
   id,
@@ -69,12 +71,13 @@ export function SurveillanceView() {
   // Small screens: the controls cover the globe, so they start closed behind a button.
   const [controlsOpen, setControlsOpen] = useState(false);
   const [autoRotate, setAutoRotate] = useState(!selected);
-  const [detections, setDetections] = useState(true);
   const [clouds, setClouds] = useState(true);
   const [showAnomalies, setShowAnomalies] = useState(params.get("anomalies") === "1");
   const fillParam = params.get(FILL_PARAM);
-  const [fillMode, setFillModeState] = useState<FillMode | "none">(
-    FILL_MODES.some((m) => m.key === fillParam) || fillParam === "none" ? (fillParam as FillMode | "none") : "positivity",
+  const [fillMode, setFillModeState] = useState<Fill>(
+    FILL_MODES.some((m) => m.key === fillParam) || fillParam === "none" || fillParam === "counts"
+      ? (fillParam as Fill)
+      : "positivity",
   );
   const setParam = useCallback((key: string, value: string | null) => {
     const next = new URLSearchParams(window.location.search);
@@ -82,7 +85,7 @@ export function SurveillanceView() {
     else next.delete(key);
     window.history.replaceState(null, "", `?${next.toString()}`);
   }, []);
-  const setFillMode = (m: FillMode | "none") => {
+  const setFillMode = (m: Fill) => {
     setFillModeState(m);
     setParam(FILL_PARAM, m === "positivity" ? null : m);
   };
@@ -90,22 +93,31 @@ export function SurveillanceView() {
   // The "positivity" fill is the disease's primary measure: test positivity, or cases per
   // 100,000 for case-based diseases (dengue), which have the detection fills too (D4).
   const caseBased = info.caseBased;
-  const activeFill: FillMode | "none" =
-    !info.features.detection && fillMode !== "none" ? "positivity" : fillMode;
+  const activeFill: Fill =
+    !info.features.detection && fillMode !== "none" && fillMode !== "counts" ? "positivity" : fillMode;
   // Only fills the disease has: detection fills need detection, forecast change needs
   // forecasts (cholera has neither), so no option is offered that would show nothing.
-  const fillOptions: { key: FillMode | "none"; label: string }[] = [
+  const fillOptions: { key: Fill; label: string }[] = [
     ...FILL_MODES.filter(
       (m) =>
         m.key === "positivity" ||
         (m.key === "forecast_change" ? info.features.forecasting : info.features.detection),
-    ).map((m) => (m.key === "positivity" && caseBased ? { ...m, label: "Cases per 100,000" } : m)),
+    )
+      .map((m) => (m.key === "positivity" && caseBased ? { ...m, label: "Cases per 100,000" } : m))
+      .flatMap((m) =>
+        m.key === "positivity"
+          ? [m, { key: "counts" as const, label: caseBased ? "Total cases" : "Total detections" }]
+          : [m],
+      ),
     { key: "none", label: "None" },
   ];
   const anomaliesOn = showAnomalies && info.features.detection;
-  const layers: GlobeLayers = { positivity: activeFill === "positivity", detections };
+  const layers: GlobeLayers = {
+    positivity: activeFill === "positivity" || activeFill === "counts",
+    counts: activeFill === "counts",
+  };
   const detection = useDetectionLayers(
-    activeFill === "none" ? "positivity" : activeFill,
+    activeFill === "none" || activeFill === "counts" ? "positivity" : activeFill,
     anomaliesOn,
     filters,
   );
@@ -137,7 +149,6 @@ export function SurveillanceView() {
         className="absolute inset-0"
         projection={projection}
         insets={insets}
-        pitch={32}
         autoRotate={autoRotate}
         values={data?.countries}
         windowWeeks={data?.window.weeks}
@@ -229,13 +240,6 @@ export function SurveillanceView() {
             <SectionTitle>Overlays</SectionTitle>
           </div>
           <Toggle
-            id="layer-detections"
-            label={caseBased ? "Reported cases (raised countries)" : "Detections (raised countries)"}
-            checked={detections}
-            onChange={setDetections}
-            swatch={<span className="h-2 w-3 rounded-[2px] border-t-2 border-[var(--globe-hover)] bg-[var(--globe-land)]" />}
-          />
-          <Toggle
             id="layer-clouds"
             label="Clouds (decorative)"
             checked={clouds}
@@ -261,24 +265,19 @@ export function SurveillanceView() {
         </section>
 
         <section className="max-h-[34vh] overflow-y-auto border-t border-border pt-3">
-          {caseBased ? (
-            activeFill === "positivity" ? (
-              <IncidenceLegend disease={info.label} palette={rampFor(info.key)} showColumns={detections} />
-            ) : (
-              detections && (
-                <p className="text-[11px] text-muted-foreground">{elevationNote("incidence")}</p>
-              )
-            )
-          ) : (
-            <>
-              {fillMode === "positivity" && <PositivityLegend showDetections={detections} />}
-              {fillMode !== "positivity" && detections && <PositivityLegend showDetections hideScale className="mb-2" />}
-            </>
+          {activeFill === "counts" && (
+            <CountLegend
+              measure={caseBased ? "cases" : "detections"}
+              title={caseBased ? `${info.label} reported cases` : "Influenza lab detections"}
+              palette={caseBased ? rampFor(info.key) : null}
+            />
           )}
+          {activeFill === "positivity" &&
+            (caseBased ? <IncidenceLegend disease={info.label} palette={rampFor(info.key)} /> : <PositivityLegend />)}
           {detection.legend}
           {detection.note && <p className="mt-2 text-[10.5px] leading-snug text-muted-foreground">{detection.note}</p>}
           {detection.error && <QueryError error={detection.error} className="mt-2 text-[11px] text-status-error" />}
-          {activeFill === "none" && !detections && !anomaliesOn && (
+          {activeFill === "none" && !anomaliesOn && (
             <p className="text-[11px] text-muted-foreground">All data layers are hidden.</p>
           )}
         </section>

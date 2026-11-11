@@ -42,7 +42,7 @@ deaths since 2023 (0.86% overall); 20 countries reported in the last 8 weeks.
 ## Dashboard
 
 - **Overview, Global Surveillance, Countries:** weekly cases, cases per 100,000 per week
-  (World Bank population), raised countries by weekly cases, deaths and case fatality in
+  (World Bank population), a "Total cases" fill, deaths and case fatality in
   the globe's hover card. Case fatality (deaths ÷ cases in the window) only from 20 cases.
 - **Country page:** weekly cases since 2023, and reported cases and deaths by year from
   1949 with the 2017–2022 gap.

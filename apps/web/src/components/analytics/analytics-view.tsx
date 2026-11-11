@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 
 import { AnnualAnalytics } from "./annual-analytics";
 import { ComparisonChart, IncidenceHeatmap, type Metric, PositivityHeatmap, SubtypeChart } from "./analytics-charts";
+import { type SeriesOption, SeriesPicker } from "./series-picker";
 import { WeatherContext } from "./weather-context";
 
 const MAX_SERIES = CHART.categorical.length;
@@ -217,6 +218,28 @@ function WeeklyAnalytics({ info }: { info: DiseaseInfo }) {
     pageSize: 300,
   });
 
+  const seriesOptions = useMemo<SeriesOption[]>(
+    () => [
+      ...(series.includes("world") ? [] : [{ value: "world", label: "World", group: "aggregate" as const }]),
+      ...REGIONS.filter((r) => !series.includes(`region:${r.code}`)).map((r) => ({
+        value: `region:${r.code}`,
+        label: r.label,
+        code: r.code,
+        group: "aggregate" as const,
+      })),
+      ...(countries.data?.items ?? [])
+        .filter((c) => (info.caseBased ? c.last_reported_week != null : c.weeks_reported > 0) && !series.includes(c.iso3))
+        .map((c) => ({
+          value: c.iso3,
+          label: c.name,
+          code: c.iso3,
+          hint: REGIONS.find((r) => r.code === c.who_region)?.label,
+          group: "country" as const,
+        })),
+    ],
+    [series, countries.data, info.caseBased],
+  );
+
   const data = trends.data;
   const focusSeries = data?.series.find((s) => s.key === focus);
   // Weather is per country: the focused series if it is one, else the first country.
@@ -251,37 +274,13 @@ function WeeklyAnalytics({ info }: { info: DiseaseInfo }) {
           ) : null,
         )}
         {series.length < MAX_SERIES ? (
-          <label className="relative flex items-center">
-            <Plus className="pointer-events-none absolute left-2 size-3.5 text-muted-foreground" aria-hidden />
-            <select
-              value=""
-              onChange={(e) => add(e.target.value)}
-              aria-label="Add a series"
-              className="h-7 appearance-none rounded-md border border-dashed border-border bg-transparent pl-7 pr-2 text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-            >
-              <option value="">Add series…</option>
-              <optgroup label="Aggregates">
-                {!series.includes("world") && <option value="world">World</option>}
-                {REGIONS.filter((r) => !series.includes(`region:${r.code}`)).map((r) => (
-                  <option key={r.code} value={`region:${r.code}`}>
-                    {r.label} ({r.code})
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label={info.caseBased ? "Countries with weekly reports" : "Countries with FluNet data"}>
-                {countries.data?.items
-                  .filter(
-                    (c) =>
-                      (info.caseBased ? c.last_reported_week != null : c.weeks_reported > 0) && !series.includes(c.iso3),
-                  )
-                  .map((c) => (
-                    <option key={c.iso3} value={c.iso3}>
-                      {c.name}
-                    </option>
-                  ))}
-              </optgroup>
-            </select>
-          </label>
+          <SeriesPicker
+            options={seriesOptions}
+            onAdd={add}
+            nextColor={CHART.categorical[slots.includes("") ? slots.indexOf("") : slots.length]}
+            countriesLabel={info.caseBased ? "Countries with weekly reports" : "Countries with FluNet data"}
+            remaining={MAX_SERIES - series.length}
+          />
         ) : (
           <span className="text-[11px] text-muted-foreground">Maximum of {MAX_SERIES} series</span>
         )}

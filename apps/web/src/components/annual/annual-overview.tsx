@@ -7,7 +7,6 @@ import { useMemo } from "react";
 
 import { QueryError } from "@/components/common/query-state";
 import { Globe } from "@/components/globe";
-import { annualElevation } from "@/components/globe/elevation";
 import { useAnnualCountries, useAnnualSeries, useAnnualSummary } from "@/hooks/use-annual";
 import { useMediaQuery } from "@/hooks/use-element-size";
 import {
@@ -195,10 +194,6 @@ export function AnnualOverview() {
     }),
     [byIso3],
   );
-  const elevation = useMemo(
-    () => new Map([...byIso3].map(([iso3, c]) => [iso3, annualElevation(c.values.est_cases?.value)])),
-    [byIso3],
-  );
   const trend = (world.data?.points ?? []).map((p) => p.values.est_cases?.value ?? null);
   const d = summary.data;
   const dq = diseaseParam(filters.disease);
@@ -214,8 +209,6 @@ export function AnnualOverview() {
           className="absolute inset-0"
           insets={insets}
           fill={fill}
-          elevationByIso3={elevation}
-          pitch={24}
           clouds
           hoverDetail={(iso3) => hoverRows(byIso3.get(iso3), year ?? 0)}
           onCountryClick={(c) => router.push(withParams(`/countries/${c.iso3}`, dq, filters.year ? `year=${filters.year}` : ""))}

@@ -3,27 +3,9 @@ import {
   MIN_SPECIMENS,
   POSITIVITY_BINS,
 } from "@/lib/positivity-scale";
-import { elevationNote } from "@/components/globe/elevation";
 import { cn } from "@/lib/utils";
 
-export function PositivityLegend({
-  showDetections = false,
-  hideScale = false,
-  className,
-}: {
-  showDetections?: boolean;
-  /** Only the detections key (another layer owns the fill). */
-  hideScale?: boolean;
-  className?: string;
-}) {
-  if (hideScale) {
-    return showDetections ? (
-      <div className={cn("flex items-center gap-1.5 text-[11px] text-muted-foreground", className)}>
-        <span className="h-2 w-3 rounded-[2px] border-t-2 border-[var(--globe-hover)] bg-[var(--globe-land)]" />
-        {elevationNote("positivity")}
-      </div>
-    ) : null;
-  }
+export function PositivityLegend({ className }: { className?: string }) {
   return (
     <figure className={cn("space-y-2 text-[11px]", className)} aria-label="Map legend">
       <figcaption className="font-medium text-foreground">Influenza test positivity (%)</figcaption>
@@ -45,12 +27,6 @@ export function PositivityLegend({
           No report
         </span>
       </div>
-      {showDetections && (
-        <div className="flex items-center gap-1.5 border-t border-border pt-2 text-muted-foreground">
-          <span className="h-2 w-3 rounded-[2px] border-t-2 border-[var(--globe-hover)] bg-[var(--globe-land)]" />
-          {elevationNote("positivity")}
-        </div>
-      )}
     </figure>
   );
 }

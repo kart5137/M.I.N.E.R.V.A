@@ -1,4 +1,3 @@
-import { elevationNote } from "@/components/globe/elevation";
 import { INCIDENCE_BINS } from "@/lib/incidence-scale";
 import { FEW_SPECIMENS_COLOR } from "@/lib/positivity-scale";
 import { cn } from "@/lib/utils";
@@ -6,14 +5,12 @@ import { cn } from "@/lib/utils";
 /** Legend for reported dengue incidence (case-based diseases). */
 export function IncidenceLegend({
   disease = "Dengue",
-  showColumns = false,
   palette = null,
   className,
 }: {
   disease?: string;
   /** The disease's colour ramp (lib/disease-palette.ts); default: the dengue bins' colours. */
   palette?: readonly string[] | null;
-  showColumns?: boolean;
   className?: string;
 }) {
   return (
@@ -42,12 +39,6 @@ export function IncidenceLegend({
       <p className="text-[10.5px] leading-snug text-muted-foreground">
         Case definitions differ by country; compare a country with itself over time.
       </p>
-      {showColumns && (
-        <div className="flex items-center gap-1.5 border-t border-border pt-2 text-muted-foreground">
-          <span className="h-2 w-3 rounded-[2px] border-t-2 border-[var(--globe-hover)] bg-[var(--globe-land)]" />
-          {elevationNote("incidence")}
-        </div>
-      )}
     </figure>
   );
 }
