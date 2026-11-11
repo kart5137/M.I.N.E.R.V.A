@@ -34,7 +34,7 @@ and each disease's capabilities follow from what its data can honestly support.
 | **1 (MVP)** | **Influenza** | WHO FluNet (lab-confirmed positives and specimens tested, not case counts) | Weekly, country, 1995– | Yes — 1/2/4-week horizons |
 | 2 | Dengue | OpenDengue; WHO dengue dashboard | Mixed weekly/monthly/yearly; national + some subnational | Yes where weekly/monthly series exist; climate features |
 | 3 | COVID-19 | WHO COVID-19 dataset / Our World in Data | Weekly (daily history up to ~2023) | Yes, with caveats about atypical dynamics |
-| Later | Malaria | WHO World Malaria Report | Annual | No — trends and mapping only |
+| C1 ✓ | Malaria | WHO GHO (World Malaria Report) — see datasets/malaria.md | Annual, country, 2000– | No — trends and mapping only |
 | Later | Cholera | WHO Weekly Epidemiological Record | Annual, incomplete | No — trends and mapping only |
 
 Rules:

@@ -119,6 +119,37 @@ class SurveillanceMonthlyRevision(Base):
     ingestion_run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"), nullable=False)
 
 
+class SurveillanceAnnual(Base):
+    """Yearly values for diseases reported annually (malaria, C1), in long form: one row
+    per disease, area, year and measure. `scope` is "country" (area = ISO3, also in
+    `iso3`), "region" (WHO region code) or "global" (area "GLOBAL"): WHO publishes regional
+    and global totals with their own uncertainty ranges, which cannot be summed from
+    countries. `low`/`high` bound modelled estimates; NULL for reported counts and for
+    estimates that are taken from routine reporting."""
+
+    __tablename__ = "surveillance_annual"
+    __table_args__ = (
+        UniqueConstraint("disease_id", "scope", "area", "year", "measure"),
+        Index("ix_surveillance_annual_disease_year", "disease_id", "year"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    disease_id: Mapped[int] = mapped_column(ForeignKey("diseases.id"), nullable=False)
+    scope: Mapped[str] = mapped_column(String(8), nullable=False)
+    area: Mapped[str] = mapped_column(String(8), nullable=False)
+    iso3: Mapped[str | None] = mapped_column(ForeignKey("countries.iso3"), index=True)
+    year: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    measure: Mapped[str] = mapped_column(String(32), nullable=False)
+    value: Mapped[float] = mapped_column(Double, nullable=False)
+    low: Mapped[float | None] = mapped_column(Double)
+    high: Mapped[float | None] = mapped_column(Double)
+    source_id: Mapped[int] = mapped_column(ForeignKey("data_sources.id"), nullable=False)
+    ingestion_run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class PopulationAnnual(Base):
     __tablename__ = "population_annual"
 

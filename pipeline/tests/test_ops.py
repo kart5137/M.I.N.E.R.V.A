@@ -127,7 +127,7 @@ def test_weekly_runs_every_step_in_order(fake_jobs, capsys):
     assert cli.DISEASES == ("influenza", "dengue")
     assert names == [*cli.STEPS, "forecast", "detect", "forecast", "detect", "prune"]
     # Only surveillance sources are re-downloaded; others are fetched only when missing.
-    assert cli.REFRESHED == ("flunet", "dengue")
+    assert cli.REFRESHED == ("flunet", "dengue", "malaria")
     assert [c[1]["refresh"] for c in fake_jobs[:len(cli.STEPS)]] == [
         s in cli.REFRESHED for s in cli.STEPS]
     # Weather history is the backfill workflow's job; the weekly run only tops up.
@@ -160,7 +160,7 @@ def test_weekly_continues_when_optional_weather_fails(fake_jobs, monkeypatch):
         return real(engine, s, refresh, **opts)
 
     monkeypatch.setattr(cli, "_run_step", run_step)
-    assert cli.OPTIONAL == ("weather",)
+    assert cli.OPTIONAL == ("malaria", "weather")
     assert cli.main(["weekly"]) == 0
     assert [c[0] for c in fake_jobs][-5:] == ["forecast", "detect", "forecast", "detect",
                                               "prune"]

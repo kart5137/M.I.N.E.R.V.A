@@ -10,7 +10,7 @@ dashboard, built on public WHO FluNet data.
 
 **Live:** https://m-i-n-e-r-v-a.vercel.app · API https://minerva-api-0d86.onrender.com/docs (free tier: the first request after an idle spell can take up to a minute).
 
-**Status:** MVP complete (M0–M8); post-MVP phase P1 adds dengue with weather, forecasting, detection, alerts and reports (D1–D4, [docs/DENGUE_PLAN.md](docs/DENGUE_PLAN.md)). Data refreshes every Wednesday via [the weekly workflow](.github/workflows/weekly.yml); hosting is described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
+**Status:** MVP complete (M0–M8); post-MVP phase P1 adds dengue with weather, forecasting, detection, alerts and reports (D1–D4, [docs/DENGUE_PLAN.md](docs/DENGUE_PLAN.md)). Malaria (C1) adds yearly WHO World Malaria Report estimates and reported cases: maps and trends only ([docs/datasets/malaria.md](docs/datasets/malaria.md)). Data refreshes every Wednesday via [the weekly workflow](.github/workflows/weekly.yml); hosting is described in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). See [docs/DESIGN.md](docs/DESIGN.md#9-milestones).
 
 | Doc | |
 |---|---|
@@ -127,5 +127,6 @@ The dengue equivalent is `pipeline\scripts\profile_dengue.py [--download]`
 ## Attribution
 
 - Influenza data: WHO FluNet, Global Influenza Surveillance and Response System (GISRS).
+- Malaria data: WHO Global Health Observatory (World Malaria Report estimates and reported cases).
 - Country boundaries: Natural Earth (public domain).
 - Population: World Bank, World Development Indicators (CC BY 4.0).

@@ -1,5 +1,6 @@
 "use client";
 
+import { AnnualCountries } from "@/components/annual/annual-countries";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -45,6 +46,11 @@ export function TierBadge({ tier }: { tier: string | null }) {
 }
 
 export function CountriesTable() {
+  const [filters] = useFilters();
+  return DISEASES[filters.disease].grain === "year" ? <AnnualCountries /> : <WeeklyCountriesTable />;
+}
+
+function WeeklyCountriesTable() {
   const [filters] = useFilters();
   const params = useSearchParams();
   const sortParam = params.get("sort") as CountrySort | null;

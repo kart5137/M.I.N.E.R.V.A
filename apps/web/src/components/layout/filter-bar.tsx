@@ -3,6 +3,7 @@
 import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useAnnualSummary } from "@/hooks/use-annual";
 import { DISEASE_KEYS, DISEASES, isDiseaseKey } from "@/lib/diseases";
 import { PERIODS, REGIONS, useFilters } from "@/lib/filters";
 
@@ -52,9 +53,13 @@ function Select({
   );
 }
 
-/** Disease, region and period, stored in the URL and shared by every page. */
+/** Disease, region and period (or year, for yearly diseases), stored in the URL and shared
+ *  by every page. */
 export function FilterBar() {
   const [filters, setFilters] = useFilters();
+  const yearly = DISEASES[filters.disease].grain === "year";
+  const summary = useAnnualSummary(filters.disease, null, yearly);
+  const years = summary.data?.years ?? [];
   return (
     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
       <Select
@@ -83,18 +88,34 @@ export function FilterBar() {
           </option>
         ))}
       </Select>
-      <Select
-        id="filter-period"
-        label="Period"
-        value={String(filters.weeks)}
-        onChange={(v) => setFilters({ weeks: Number(v) })}
-      >
-        {PERIODS.map((w) => (
-          <option key={w} value={w}>
-            {w === 1 ? "1 week" : `${w} weeks`}
-          </option>
-        ))}
-      </Select>
+      {yearly ? (
+        <Select
+          id="filter-year"
+          label="Year"
+          value={String(filters.year ?? summary.data?.meta.latest_year ?? "")}
+          onChange={(v) => setFilters({ year: Number(v) === summary.data?.meta.latest_year ? null : Number(v) })}
+        >
+          {years.length === 0 && <option value="">Latest</option>}
+          {[...years].reverse().map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </Select>
+      ) : (
+        <Select
+          id="filter-period"
+          label="Period"
+          value={String(filters.weeks)}
+          onChange={(v) => setFilters({ weeks: Number(v) })}
+        >
+          {PERIODS.map((w) => (
+            <option key={w} value={w}>
+              {w === 1 ? "1 week" : `${w} weeks`}
+            </option>
+          ))}
+        </Select>
+      )}
     </div>
   );
 }

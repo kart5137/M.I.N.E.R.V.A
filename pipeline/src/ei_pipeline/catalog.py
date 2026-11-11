@@ -57,6 +57,18 @@ DATA_SOURCES = [
         "at one point per country (ERA5, 0.25° grid), aggregated to ISO weeks. A single "
         "point does not represent large or climatically varied countries.",
     },
+    {
+        "key": "who_gho_malaria",
+        "name": "WHO Global Health Observatory — malaria (World Malaria Report)",
+        "url": "https://www.who.int/data/gho/data/themes/malaria",
+        "licence": "WHO dataset terms: CC BY 4.0 with attribution (data.who.int); older GHO "
+        "metadata lists CC BY-NC-SA 3.0 IGO. Used non-commercially, unmodified, attributed.",
+        "attribution_text": "Malaria data: WHO Global Health Observatory (World Malaria "
+        "Report estimates and reported cases).",
+        "notes": "Yearly. Estimated cases, deaths and incidence are modelled (with "
+        "uncertainty ranges) and revised each year; reported cases are what national "
+        "programmes reported. The two differ, often widely.",
+    },
 ]
 
 DISEASES = [
@@ -77,6 +89,17 @@ DISEASES = [
         "native_granularity": "weekly+monthly",
         "primary_metric": "cases",
         "metric_label": "Reported dengue cases",
+        "supports_forecast": False,
+        "supports_anomaly": False,
+        "supports_hotspots": False,
+    },
+    {
+        # Yearly data: trends and maps only (no forecasting, anomalies or hotspots).
+        "key": "malaria",
+        "name": "Malaria",
+        "native_granularity": "annual",
+        "primary_metric": "annual",
+        "metric_label": "Estimated malaria cases",
         "supports_forecast": False,
         "supports_anomaly": False,
         "supports_hotspots": False,

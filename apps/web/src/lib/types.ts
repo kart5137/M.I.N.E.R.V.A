@@ -886,3 +886,64 @@ export interface Scorecard {
   origins: OriginScore[];
   recent: ScoredForecast[];
 }
+
+// --- Yearly diseases (malaria, C1) ---------------------------------------------------------
+
+export interface AnnualMeta {
+  disease: string;
+  first_year: number;
+  latest_year: number;
+  sources: SourceRef[];
+  grain: "year";
+}
+
+export interface MeasureValue {
+  value: number;
+  low: number | null;
+  high: number | null;
+}
+
+/** est_cases, est_deaths, est_incidence (per 1,000 at risk), est_mortality (per 100,000),
+ *  confirmed_cases, reported_cases. A missing key means no value for that year. */
+export type AnnualValues = Partial<Record<string, MeasureValue>>;
+
+export interface AreaTotal {
+  area: string;
+  values: AnnualValues;
+  previous: AnnualValues;
+}
+
+export interface AnnualSummary {
+  meta: AnnualMeta;
+  year: number;
+  years: number[];
+  measures: Record<string, string>;
+  world: AreaTotal | null;
+  regions: AreaTotal[];
+  countries_with_estimates: number;
+  countries_reporting: number;
+  notes: string[];
+}
+
+export interface AnnualCountry {
+  iso3: string;
+  name: string;
+  who_region: string | null;
+  values: AnnualValues;
+  previous: AnnualValues;
+}
+
+export interface AnnualCountries {
+  meta: AnnualMeta;
+  year: number;
+  region: string | null;
+  items: AnnualCountry[];
+}
+
+export interface AnnualSeries {
+  meta: AnnualMeta;
+  area: string;
+  name: string;
+  scope: "global" | "region" | "country";
+  points: { year: number; values: AnnualValues }[];
+}

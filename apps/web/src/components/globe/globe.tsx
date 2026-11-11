@@ -89,6 +89,8 @@ export interface GlobeProps {
   ringColor?: [number, number, number];
   /** Extra lines for the hover card (layer-specific values). */
   hoverDetail?: (iso3: string) => React.ReactNode;
+  /** Heights (m) per country, replacing the detections/cases elevation (yearly data). */
+  elevationByIso3?: Map<string, number> | null;
   /** Decorative cloud layer (no data). */
   clouds?: boolean;
 }
@@ -228,6 +230,7 @@ export function Globe({
   ringColor = DEFAULT_RING,
   hoverDetail,
   clouds = false,
+  elevationByIso3 = null,
 }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -475,6 +478,10 @@ export function Globe({
     const ref = ELEVATION_REF[measure];
     for (const f of countries.features) {
       const iso3 = f.properties.iso3;
+      if (elevationByIso3) {
+        map.setFeatureState({ source: "countries", id: iso3 }, { h: elevationByIso3.get(iso3) ?? 0 });
+        continue;
+      }
       const v = valueByIso3.get(iso3);
       const weekly = !layers.detections || !v
         ? 0
@@ -482,7 +489,7 @@ export function Globe({
       const h = weekly > 0 ? ELEVATION_MAX_M * Math.sqrt(Math.min(weekly / ref, 1)) : 0;
       map.setFeatureState({ source: "countries", id: iso3 }, { h });
     }
-  }, [valueByIso3, layers.detections, windowWeeks, measure, styleReady, countries]);
+  }, [valueByIso3, layers.detections, windowWeeks, measure, styleReady, countries, elevationByIso3]);
 
   // Clouds: the texture (~240 KB) is requested only when clouds are first wanted, once
   // the browser is idle after the globe has drawn.

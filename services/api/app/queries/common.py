@@ -84,6 +84,7 @@ def load_disease(session: Session, key: str) -> DiseaseContext:
     row = session.execute(
         text("""
             SELECT d.id, d.key, d.name, d.metric_label, d.primary_metric,
+              d.native_granularity,
               (SELECT min(week_start) FROM surveillance_weekly WHERE disease_id = d.id),
               (SELECT max(week_start) FROM surveillance_weekly WHERE disease_id = d.id),
               (SELECT week_start FROM surveillance_weekly
@@ -98,7 +99,11 @@ def load_disease(session: Session, key: str) -> DiseaseContext:
     ).one_or_none()
     if row is None:
         raise ApiError(404, "unknown_disease", f"Unknown disease '{key}'.")
-    did, dkey, name, label, metric, first, latest, reference, provisional = row
+    did, dkey, name, label, metric, grain, first, latest, reference, provisional = row
+    if grain == "annual":
+        raise ApiError(422, "not_available",
+                       f"{name} is reported yearly, so weekly views do not apply; use the "
+                       "/annual endpoints (yearly estimates and reported cases).")
     if latest is None:
         raise ApiError(404, "no_data",
                        f"No surveillance data is loaded for {name}. Run `ei ingest all`.")

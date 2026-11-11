@@ -9,6 +9,7 @@ from app.core.errors import register_error_handlers
 from app.core.middleware import ResponseHeadersMiddleware
 from app.routers import (
     analytics,
+    annual,
     countries,
     detection,
     geo,
@@ -51,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(models.router, prefix=API_PREFIX)
     app.include_router(detection.router, prefix=API_PREFIX)
     app.include_router(intelligence.router, prefix=API_PREFIX)
+    app.include_router(annual.router, prefix=API_PREFIX)
     return app
 
 

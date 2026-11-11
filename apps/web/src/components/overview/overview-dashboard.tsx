@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { QueryError } from "@/components/common/query-state";
+import { AnnualOverview } from "@/components/annual/annual-overview";
 import { Provenance } from "@/components/common/provenance";
 import { WeeklyChart, type WeeklyPoint } from "@/components/charts/weekly-chart";
 import { Globe } from "@/components/globe";
@@ -34,9 +35,16 @@ import { cn } from "@/lib/utils";
 const INTRO = {
   influenza: "Global influenza surveillance from WHO FluNet laboratory data.",
   dengue: "Global dengue surveillance from cases reported to WHO.",
+  malaria: "Yearly malaria estimates and reported cases from the WHO World Malaria Report.",
 } as const;
 
+/** Yearly diseases (malaria) have their own overview; weekly ones use the dashboard below. */
 export function OverviewDashboard() {
+  const [filters] = useFilters();
+  return DISEASES[filters.disease].grain === "year" ? <AnnualOverview /> : <WeeklyOverview />;
+}
+
+function WeeklyOverview() {
   const platform = usePlatformStatus();
   const [filters, setFilters] = useFilters();
   const overview = useOverview(filters);

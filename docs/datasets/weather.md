@@ -60,7 +60,7 @@ days of the free daily limit. Loading is therefore **resumable**:
   (dengue tier A/B, 52 areas, ~2 days), then the rest;
 - requests are paced client-side below the minute and hour limits (500 / 4,500) and a run
   stops cleanly at its **budget** (`--budget`, default 4,400), its time limit
-  (`--max-minutes`; 30 in the workflow) or when the API reports the hourly/daily limit;
+  (`--max-minutes`; 45 in the workflow: slow API responses, not the budget, ended the 30-minute runs) or when the API reports the hourly/daily limit;
   requests time out after 30 s for a few weeks and up to 90 s for a year of history
   (long requests timed out at 30 s while the API was busy) and are retried; an HTTP 429
   "Too many concurrent requests" waits 30 s and retries instead of ending the run; what

@@ -27,6 +27,8 @@ export interface Filters {
   weeks: number;
   /** Last week of the window; null = the reference week. */
   to: string | null;
+  /** Yearly diseases (malaria): the year shown; null = the latest year. */
+  year: number | null;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -39,11 +41,13 @@ export function useFilters(): [Filters, (patch: Partial<Filters>) => void] {
     const weeks = Number(params.get("weeks"));
     const to = params.get("to");
     const disease = params.get("disease");
+    const year = Number(params.get("year"));
     return {
       disease: isDiseaseKey(disease) ? disease : DEFAULT_DISEASE,
       region: REGIONS.some((r) => r.code === region) ? region : null,
       weeks: (PERIODS as readonly number[]).includes(weeks) ? weeks : DEFAULT_WEEKS,
       to: to && ISO_DATE.test(to) ? to : null,
+      year: Number.isInteger(year) && year >= 1990 && year <= 2100 ? year : null,
     };
   }, [params]);
 
@@ -52,8 +56,10 @@ export function useFilters(): [Filters, (patch: Partial<Filters>) => void] {
     if ("weeks" in patch) next.weeks = patch.weeks === DEFAULT_WEEKS ? null : patch.weeks;
     if ("disease" in patch) {
       next.disease = patch.disease === DEFAULT_DISEASE ? null : patch.disease;
-      // Each disease has its own data range: a chosen end week may not exist for the other.
+      // Each disease has its own data range: a chosen end week or year may not exist for
+      // the other.
       if (!("to" in patch)) next.to = null;
+      if (!("year" in patch)) next.year = null;
     }
     updateSearchParams(next);
   }, []);

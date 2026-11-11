@@ -74,7 +74,8 @@ function Select({ label, value, onChange, children }: {
 }
 
 /** Default country per disease: a large tier-A reporter. */
-const DEFAULT_COUNTRY = { influenza: "USA", dengue: "BRA" } as const;
+/** (Malaria has no forecasts; the page is gated before this is used.) */
+const DEFAULT_COUNTRY = { influenza: "USA", dengue: "BRA", malaria: "NGA" } as const;
 
 export function PredictionCenter() {
   const params = useSearchParams();

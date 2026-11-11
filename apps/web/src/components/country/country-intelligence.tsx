@@ -1,5 +1,6 @@
 "use client";
 
+import { AnnualCountryView } from "@/components/annual/annual-country";
 import { ArrowLeft, Globe2, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -77,7 +78,11 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
 
 export function CountryIntelligence() {
   const { iso3: raw } = useParams<{ iso3: string }>();
-  const iso3 = raw.toUpperCase();
+  const [filters] = useFilters();
+  return DISEASES[filters.disease].grain === "year" ? <AnnualCountryView iso3={raw} /> : <WeeklyCountry iso3={raw.toUpperCase()} />;
+}
+
+function WeeklyCountry({ iso3 }: { iso3: string }) {
   const [filters] = useFilters();
   const info = DISEASES[filters.disease];
   const profile = useCountryProfile(iso3, info.key);

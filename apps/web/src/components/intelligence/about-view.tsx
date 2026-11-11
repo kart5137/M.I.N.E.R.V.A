@@ -1,14 +1,15 @@
 "use client";
 
+import { AnnualAbout } from "@/components/annual/annual-about";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 import { QueryError } from "@/components/common/query-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { useAbout } from "@/hooks/use-intelligence";
-import { diseaseParam, withParams } from "@/lib/filters";
+import { diseaseParam, useFilters, withParams } from "@/lib/filters";
 import { formatInt, formatWeek } from "@/lib/format";
-import { DEFAULT_DISEASE, isDiseaseKey } from "@/lib/diseases";
+import { DEFAULT_DISEASE, isDiseaseKey, DISEASES } from "@/lib/diseases";
 import type { About } from "@/lib/types";
 
 import { ALERT_LABEL } from "./alert-ui";
@@ -28,6 +29,11 @@ function when(iso: string | null): string {
 }
 
 export function AboutView() {
+  const [filters] = useFilters();
+  return DISEASES[filters.disease].grain === "year" ? <AnnualAbout /> : <WeeklyAbout />;
+}
+
+function WeeklyAbout() {
   const q = useAbout();
   const d = q.data;
   return (
