@@ -1,5 +1,6 @@
+import { elevationNote } from "@/components/globe/elevation";
 import { INCIDENCE_BINS } from "@/lib/incidence-scale";
-import { DETECTIONS_COLOR, FEW_SPECIMENS_COLOR } from "@/lib/positivity-scale";
+import { FEW_SPECIMENS_COLOR } from "@/lib/positivity-scale";
 import { cn } from "@/lib/utils";
 
 /** Legend for reported dengue incidence (case-based diseases). */
@@ -40,8 +41,8 @@ export function IncidenceLegend({
       </p>
       {showColumns && (
         <div className="flex items-center gap-1.5 border-t border-border pt-2 text-muted-foreground">
-          <span className="h-3 w-1.5 rounded-t-[2px]" style={{ background: DETECTIONS_COLOR }} />
-          Column height ∝ √ weekly average reported cases
+          <span className="h-2 w-3 rounded-[2px] border-t-2 border-[var(--globe-hover)] bg-[var(--globe-land)]" />
+          {elevationNote("incidence")}
         </div>
       )}
     </figure>

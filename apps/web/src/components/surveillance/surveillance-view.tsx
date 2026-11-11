@@ -9,6 +9,7 @@ import { QueryError } from "@/components/common/query-state";
 import { Provenance } from "@/components/common/provenance";
 import { FILL_MODES, type FillMode, useDetectionLayers } from "@/components/detection/globe-layers";
 import { Globe, type GlobeLayers } from "@/components/globe";
+import { elevationNote } from "@/components/globe/elevation";
 import { Switch } from "@/components/ui/switch";
 import { useElementHeight, useMediaQuery } from "@/hooks/use-element-size";
 import { globalQueryOptions, useGlobalSurveillance } from "@/hooks/use-surveillance";
@@ -68,6 +69,7 @@ export function SurveillanceView() {
   const [controlsOpen, setControlsOpen] = useState(false);
   const [autoRotate, setAutoRotate] = useState(!selected);
   const [detections, setDetections] = useState(true);
+  const [clouds, setClouds] = useState(true);
   const [showAnomalies, setShowAnomalies] = useState(params.get("anomalies") === "1");
   const fillParam = params.get(FILL_PARAM);
   const [fillMode, setFillModeState] = useState<FillMode | "none">(
@@ -134,6 +136,7 @@ export function SurveillanceView() {
         windowWeeks={data?.window.weeks}
         measure={caseBased ? "incidence" : "positivity"}
         layers={layers}
+        clouds={clouds}
         fill={detection.fill}
         rings={detection.rings}
         hoverDetail={detection.hoverDetail}
@@ -218,10 +221,17 @@ export function SurveillanceView() {
           </div>
           <Toggle
             id="layer-detections"
-            label={caseBased ? "Reported cases (3D columns)" : "Detections (3D columns)"}
+            label={caseBased ? "Reported cases (raised countries)" : "Detections (raised countries)"}
             checked={detections}
             onChange={setDetections}
-            swatch={<span className="h-3 w-1.5 rounded-t-[2px] bg-[#4fcfbd]" />}
+            swatch={<span className="h-2 w-3 rounded-[2px] border-t-2 border-[var(--globe-hover)] bg-[var(--globe-land)]" />}
+          />
+          <Toggle
+            id="layer-clouds"
+            label="Clouds (decorative)"
+            checked={clouds}
+            onChange={setClouds}
+            swatch={<span className="size-2.5 rounded-full bg-white/70" />}
           />
           {info.features.detection ? (
             <Toggle
@@ -247,7 +257,7 @@ export function SurveillanceView() {
               <IncidenceLegend disease={info.label} showColumns={detections} />
             ) : (
               detections && (
-                <p className="text-[11px] text-muted-foreground">Column height ∝ √ weekly average reported cases</p>
+                <p className="text-[11px] text-muted-foreground">{elevationNote("incidence")}</p>
               )
             )
           ) : (

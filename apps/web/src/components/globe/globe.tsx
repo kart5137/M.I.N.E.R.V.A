@@ -1,7 +1,7 @@
 "use client";
 
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { ColumnLayer, ScatterplotLayer, SolidPolygonLayer } from "@deck.gl/layers";
+import { ScatterplotLayer, SolidPolygonLayer } from "@deck.gl/layers";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import {
   type ExpressionSpecification,
@@ -15,7 +15,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL } from "@/lib/api";
 import { formatInt, formatPct, formatRate } from "@/lib/format";
 import {
-  DETECTIONS_RGB,
   FEW_SPECIMENS_COLOR,
   MIN_SPECIMENS,
   POSITIVITY_BINS,
@@ -25,6 +24,8 @@ import { incidenceClass, monthSpan, weeklyCases } from "@/lib/incidence-scale";
 import type { CountryWindowValue } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+import { ELEVATION_MAX_M, ELEVATION_REF } from "./elevation";
+
 export type CountryProps = {
   iso3: string;
   name: string;
@@ -33,12 +34,13 @@ export type CountryProps = {
 };
 type Countries = FeatureCollection<Polygon | MultiPolygon, CountryProps>;
 
-/** What the fill and columns show: influenza test positivity and lab detections, or
+/** What the fill and elevation show: influenza test positivity and lab detections, or
  *  reported incidence and cases (case-based diseases such as dengue). */
 export type GlobeMeasure = "positivity" | "incidence";
 
 export interface GlobeLayers {
   positivity: boolean;
+  /** Raise each country in proportion to its weekly detections or cases. */
   detections: boolean;
 }
 
@@ -68,7 +70,7 @@ export interface GlobeProps {
   projection?: "globe" | "mercator";
   /** Overlay insets (px). The globe is centred and sized to the uncovered area. */
   insets?: Partial<GlobeInsets>;
-  /** Initial camera tilt in degrees (makes 3D columns readable). */
+  /** Initial camera tilt in degrees (makes raised countries readable). */
   pitch?: number;
   autoRotate?: boolean;
   interactive?: boolean;
@@ -87,6 +89,8 @@ export interface GlobeProps {
   ringColor?: [number, number, number];
   /** Extra lines for the hover card (layer-specific values). */
   hoverDetail?: (iso3: string) => React.ReactNode;
+  /** Decorative cloud layer (no data). */
+  clouds?: boolean;
 }
 
 /** Country boundaries: Natural Earth 1:50m (public domain), served from PostGIS. */
@@ -96,7 +100,7 @@ const ROTATE_DEG_PER_SEC = 4;
 const RESUME_AFTER_MS = 1000;
 
 // The deck.gl overlay is a separate canvas, so it cannot see MapLibre's globe and
-// would draw columns on the far side straight through it. An invisible sphere drawn
+// would draw rings on the far side straight through it. An invisible sphere drawn
 // first (depth only, alpha 0) occludes them. It is built from small cells so each
 // face follows the curvature, and sits slightly below the surface so flat rings at
 // ground level are not clipped by it.
@@ -120,8 +124,20 @@ const RESUME_RAMP_MS = 1200;
 /** Globe radius as a share of the shorter side of the visible area. */
 const GLOBE_FILL = 0.4;
 const NO_INSETS: GlobeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
-/** Column height (m) per √(weekly average detections). Fixed, so heights compare over time. */
-const METRES_PER_SQRT_DETECTION = 12_000;
+/** Decorative clouds: our own procedural texture (scripts/generate-clouds.mjs), in Web
+ *  Mercator like every MapLibre image source. Raised countries sit above it, so clouds
+ *  show over sea and countries without data and never hide a value. */
+const CLOUD_URL = "/textures/clouds.png";
+const CLOUD_OPACITY = 0.7;
+/** Every country sits slightly above the sphere: a flat extrusion at height 0 z-fights with it. */
+const BASE_M = 3_000;
+/** MapLibre image sources live in Web Mercator, which ends at ±85.05°. */
+const CLOUD_EXTENT: [[number, number], [number, number], [number, number], [number, number]] = [
+  [-180, 85.05],
+  [180, 85.05],
+  [180, -85.05],
+  [-180, -85.05],
+];
 const DEFAULT_LAYERS: GlobeLayers = { positivity: true, detections: false };
 const DEFAULT_RING: [number, number, number] = [246, 240, 227];
 
@@ -211,6 +227,7 @@ export function Globe({
   rings,
   ringColor = DEFAULT_RING,
   hoverDetail,
+  clouds = false,
 }: GlobeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -311,11 +328,18 @@ export function Globe({
 
     map.on("load", () => {
       map.addSource("countries", { type: "geojson", data: countries, promoteId: "iso3" });
+      // Countries are extrusions so they can be raised by volume (height 0 = flat).
       map.addLayer({
         id: "country-fill",
-        type: "fill",
+        type: "fill-extrusion",
         source: "countries",
-        paint: { "fill-color": token("--globe-land", "#0f2f33") },
+        paint: {
+          "fill-extrusion-color": token("--globe-land", "#0f2f33"),
+          "fill-extrusion-height": ["max", ["coalesce", ["feature-state", "h"], 0], BASE_M],
+          "fill-extrusion-base": 0,
+          "fill-extrusion-opacity": 1,
+          "fill-extrusion-height-transition": { duration: 600, delay: 0 },
+        },
       });
       map.addLayer({
         id: "country-line",
@@ -433,12 +457,61 @@ export function Globe({
           : positivityClass(v);
       map.setFeatureState({ source: "countries", id: iso3 }, { cls });
     }
-    map.setPaintProperty(
-      "country-fill",
-      "fill-color",
+    // Raised countries hide their ground outline, so hover and selection tint the
+    // extrusion itself.
+    const accent = token("--globe-hover", "#f2a93b");
+    map.setPaintProperty("country-fill", "fill-extrusion-color", [
+      "case",
+      ["any", ["boolean", ["feature-state", "hover"], false], ["boolean", ["feature-state", "selected"], false]],
+      accent,
       fill ? classColor(fill.colors) : fillColor(layers.positivity),
-    );
+    ] as ExpressionSpecification);
   }, [valueByIso3, layers.positivity, fill, styleReady, countries, measure]);
+
+  // Raised countries: height per country in feature state.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReady || !countries) return;
+    const ref = ELEVATION_REF[measure];
+    for (const f of countries.features) {
+      const iso3 = f.properties.iso3;
+      const v = valueByIso3.get(iso3);
+      const weekly = !layers.detections || !v
+        ? 0
+        : measure === "incidence" ? (weeklyCases(v) ?? 0) : (v.positives ?? 0) / windowWeeks;
+      const h = weekly > 0 ? ELEVATION_MAX_M * Math.sqrt(Math.min(weekly / ref, 1)) : 0;
+      map.setFeatureState({ source: "countries", id: iso3 }, { h });
+    }
+  }, [valueByIso3, layers.detections, windowWeeks, measure, styleReady, countries]);
+
+  // Clouds: the texture (~240 KB) is requested only when clouds are first wanted, once
+  // the browser is idle after the globe has drawn.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !styleReady) return;
+    const show = clouds && projection === "globe";
+    if (map.getLayer("clouds")) {
+      map.setLayoutProperty("clouds", "visibility", show ? "visible" : "none");
+      return;
+    }
+    if (!show) return;
+    const add = () => {
+      if (mapRef.current !== map || map.getLayer("clouds")) return;
+      map.addSource("clouds", { type: "image", url: CLOUD_URL, coordinates: CLOUD_EXTENT });
+      map.addLayer({
+        id: "clouds",
+        type: "raster",
+        source: "clouds",
+        paint: { "raster-opacity": CLOUD_OPACITY, "raster-fade-duration": 0 },
+      });
+    };
+    const idle = window.requestIdleCallback?.(add, { timeout: 2000 });
+    const timer = idle === undefined ? window.setTimeout(add, 300) : undefined;
+    return () => {
+      if (idle !== undefined) window.cancelIdleCallback(idle);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [clouds, projection, styleReady]);
 
   // Selection outline
   useEffect(() => {
@@ -452,17 +525,10 @@ export function Globe({
     };
   }, [selectedIso3, styleReady]);
 
-  // Detections columns (deck.gl)
+  // Rings (deck.gl)
   useEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay || !styleReady) return;
-    const data = layers.detections
-      ? (values ?? []).flatMap((v) => {
-          const c = byIso3.get(v.iso3);
-          const weekly = measure === "incidence" ? weeklyCases(v) : (v.positives ?? 0) / windowWeeks;
-          return c && weekly ? [{ position: c.label, weekly }] : [];
-        })
-      : [];
     const ringData = (rings ?? []).flatMap((r) => {
       const c = byIso3.get(r.iso3);
       return c ? [{ position: c.label, radius: r.radius }] : [];
@@ -489,20 +555,9 @@ export function Globe({
           getLineWidth: 2,
           radiusUnits: "meters",
         }),
-        new ColumnLayer<{ position: [number, number]; weekly: number }>({
-          id: "detections",
-          data,
-          diskResolution: 12,
-          radius: 70_000,
-          extruded: true,
-          getPosition: (d) => d.position,
-          getElevation: (d) => Math.sqrt(d.weekly) * METRES_PER_SQRT_DETECTION,
-          getFillColor: [...DETECTIONS_RGB, 225],
-          material: false,
-        }),
       ],
     });
-  }, [layers.detections, values, windowWeeks, byIso3, styleReady, rings, ringColor, projection, measure]);
+  }, [byIso3, styleReady, rings, ringColor, projection]);
 
   const hovered = hover ? byIso3.get(hover.iso3) : undefined;
   const hoveredValue = hover ? valueByIso3.get(hover.iso3) : undefined;

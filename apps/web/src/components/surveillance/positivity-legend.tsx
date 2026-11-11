@@ -1,9 +1,9 @@
 import {
-  DETECTIONS_COLOR,
   FEW_SPECIMENS_COLOR,
   MIN_SPECIMENS,
   POSITIVITY_BINS,
 } from "@/lib/positivity-scale";
+import { elevationNote } from "@/components/globe/elevation";
 import { cn } from "@/lib/utils";
 
 export function PositivityLegend({
@@ -19,8 +19,8 @@ export function PositivityLegend({
   if (hideScale) {
     return showDetections ? (
       <div className={cn("flex items-center gap-1.5 text-[11px] text-muted-foreground", className)}>
-        <span className="h-3 w-1.5 rounded-t-[2px]" style={{ background: DETECTIONS_COLOR }} />
-        Column height ∝ √ weekly average lab-confirmed detections
+        <span className="h-2 w-3 rounded-[2px] border-t-2 border-[var(--globe-hover)] bg-[var(--globe-land)]" />
+        {elevationNote("positivity")}
       </div>
     ) : null;
   }
@@ -47,8 +47,8 @@ export function PositivityLegend({
       </div>
       {showDetections && (
         <div className="flex items-center gap-1.5 border-t border-border pt-2 text-muted-foreground">
-          <span className="h-3 w-1.5 rounded-t-[2px]" style={{ background: DETECTIONS_COLOR }} />
-          Column height ∝ √ weekly average lab-confirmed detections
+          <span className="h-2 w-3 rounded-[2px] border-t-2 border-[var(--globe-hover)] bg-[var(--globe-land)]" />
+          {elevationNote("positivity")}
         </div>
       )}
     </figure>

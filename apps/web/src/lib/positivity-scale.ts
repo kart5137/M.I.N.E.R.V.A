@@ -20,9 +20,6 @@ export const POSITIVITY_BINS = [
 
 /** Reported, but too few specimens for a stable rate. */
 export const FEW_SPECIMENS_COLOR = "#4d6662";
-/** Detections columns: teal, a hue the amber fill never uses (categorical slot 1, lifted for 3D). */
-export const DETECTIONS_RGB: [number, number, number] = [79, 207, 189];
-export const DETECTIONS_COLOR = "#4fcfbd";
 
 /** -1 = no data (land colour), 0 = too few specimens, 1..n = positivity bin. */
 export function positivityClass(v: CountryWindowValue | undefined): number {
