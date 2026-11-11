@@ -40,11 +40,16 @@ _POP = """
              CASE WHEN year <= extract(year FROM CAST(:end AS date)) THEN -year ELSE year END
   )"""
 
+#: Case fatality rate (deaths ÷ cases in the window) only from this many cases (cholera,
+#: C2): a rate from a handful of cases is misleading.
+CFR_MIN_CASES = 20
+
 _WEEKLY = f"""
   wk AS (
     SELECT s.iso3, sum(s.cases) AS cases, count(*) AS periods, count(*) * 7 AS days,
       count(*) FILTER (WHERE s.is_provisional) AS provisional,
-      min(s.week_start) AS period_start, max(s.week_start) + 6 AS period_end
+      min(s.week_start) AS period_start, max(s.week_start) + 6 AS period_end,
+      sum(s.deaths) AS deaths
     FROM surveillance_weekly s
     WHERE s.disease_id = :d AND s.cases IS NOT NULL
       AND s.week_start BETWEEN :start AND :end AND {_ISO3}
@@ -56,7 +61,8 @@ _MONTHLY = f"""
     SELECT s.iso3, sum(s.cases) AS cases, count(*) AS periods,
       sum({_MONTH_END} - s.month_start) AS days,
       count(*) FILTER (WHERE s.is_provisional) AS provisional,
-      min(s.month_start) AS period_start, max({_MONTH_END}) - 1 AS period_end
+      min(s.month_start) AS period_start, max({_MONTH_END}) - 1 AS period_end,
+      NULL::float8 AS deaths
     FROM surveillance_monthly s
     WHERE s.disease_id = :d AND s.cases IS NOT NULL
       AND s.month_start <= CAST(:end AS date) + 6 AND {_MONTH_END} > :start AND {_ISO3}
@@ -78,7 +84,9 @@ _COUNTRY_WINDOW = text(f"""
       x.provisional AS provisional_weeks, lp.tier,
       x.cases, x.grain, x.periods AS periods_reported, x.period_start, x.period_end,
       p.population::bigint AS population,
-      x.cases / (x.days / 7.0) / NULLIF(p.population, 0) * 100000 AS incidence
+      x.cases / (x.days / 7.0) / NULLIF(p.population, 0) * 100000 AS incidence,
+      x.deaths,
+      CASE WHEN x.cases >= :cfr_min THEN x.deaths / x.cases END AS cfr
     FROM x
     JOIN countries c ON c.iso3 = x.iso3
     LEFT JOIN pop p ON p.iso3 = x.iso3
@@ -92,6 +100,7 @@ def country_window(session: Session, ctx: DiseaseContext, w: Window, region: str
                    iso3: str | None = None) -> list[CountryWindowValue]:
     rows = session.execute(_COUNTRY_WINDOW, {
         "d": ctx.id, "start": w.start, "end": w.end, "region": region, "iso3": iso3,
+        "cfr_min": CFR_MIN_CASES,
     }).mappings()
     return [CountryWindowValue(**r) for r in rows]
 
@@ -287,7 +296,7 @@ def timeseries(session: Session, ctx: DiseaseContext, iso3: str, w: Window
         )
         SELECT w.week_start, s.cases IS NOT NULL AS reported,
           NULL AS specimens_tested, NULL AS positives, NULL AS positivity,
-          s.cases, s.cases / NULLIF(p.population, 0) * 100000 AS incidence,
+          s.cases, s.cases / NULLIF(p.population, 0) * 100000 AS incidence, s.deaths,
           coalesce(s.is_provisional, w.week_start >= CAST(:prov AS date), false) AS is_provisional
         FROM weeks w
         LEFT JOIN surveillance_weekly s

@@ -39,6 +39,10 @@ class CountryWindowValue(BaseModel):
     periods_reported: int | None = None
     period_start: date | None = None
     period_end: date | None = None
+    #: Reported deaths in the window (cholera); null where the source has none.
+    deaths: float | None = None
+    #: deaths ÷ cases in the window, from ≥ 20 cases (null otherwise).
+    cfr: float | None = None
 
 
 class GlobalSurveillance(BaseModel):

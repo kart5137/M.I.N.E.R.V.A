@@ -2,9 +2,10 @@
  * Raised countries on the globe: height ∝ √(weekly average detections or reported cases)
  * on a fixed scale per measure, so heights compare over time. A country reaches
  * ELEVATION_MAX_M at ELEVATION_REF a week (a high but not record week); the rare weeks
- * above it are capped, and the legends say so. Today's largest countries stand ~250 km tall.
+ * above it are capped, and the legends say so. Today's largest countries stand ~500 km tall, enough to read as steps
+ * on a tilted globe.
  */
-export const ELEVATION_MAX_M = 700_000;
+export const ELEVATION_MAX_M = 1_400_000;
 export const ELEVATION_REF = { positivity: 25_000, incidence: 150_000 } as const;
 /** Yearly estimated malaria cases at which a country reaches ELEVATION_MAX_M (Nigeria,
  *  the largest, had ~68 million in 2024). */

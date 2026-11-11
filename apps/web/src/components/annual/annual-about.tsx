@@ -16,7 +16,7 @@ export function AnnualAbout() {
     <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6">
       <PageHeader
         title="About the Data"
-        eyebrow={`${info.label} · yearly estimates`}
+        eyebrow={info.grain === "year" ? `${info.label} · yearly estimates` : `${info.label} surveillance`}
         description="Where every number comes from, how it is processed, and what it cannot tell you."
       />
       {q.error && <QueryError error={q.error} />}
@@ -29,8 +29,9 @@ export function AnnualAbout() {
                 <li key={s.key}>{s.attribution ?? s.name}</li>
               ))}
               <li>
-                Years {d.meta.first_year}–{d.meta.latest_year}; loaded weekly from the WHO Global Health Observatory API,
-                checked (no negative values, estimates inside their ranges, known countries) and stored as published.
+                Years {d.meta.first_year}–{d.meta.latest_year}; loaded weekly and checked (no negative values
+                {info.grain === "year" ? ", estimates inside their ranges" : ", week dates aligned to ISO weeks"}, known
+                countries), then stored as published.
               </li>
             </ul>
             <h2 className="mt-4 text-sm font-medium">Measures</h2>
@@ -49,8 +50,21 @@ export function AnnualAbout() {
               {d.notes.map((n) => (
                 <li key={n}>{n}</li>
               ))}
-              <li>World and regional totals are WHO&apos;s own estimates, not sums of countries.</li>
-              <li>Countries that are not malaria-endemic have no estimates; a zero means no indigenous cases.</li>
+              {info.grain === "year" ? (
+                <>
+                  <li>World and regional totals are WHO&apos;s own estimates, not sums of countries.</li>
+                  <li>Countries that are not malaria-endemic have no estimates; a zero means no indigenous cases.</li>
+                </>
+              ) : (
+                <>
+                  <li>Countries appear while they report an outbreak; a week without a report is unknown, not zero.</li>
+                  <li>
+                    The latest 4 weeks are provisional: outbreak reports arrive late. Case fatality is shown only from
+                    20 cases.
+                  </li>
+                  <li>Case definitions (suspected or confirmed) differ by country; compare a country with itself.</li>
+                </>
+              )}
             </ul>
           </section>
         </div>

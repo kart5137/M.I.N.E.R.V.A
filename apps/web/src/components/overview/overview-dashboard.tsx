@@ -1,5 +1,6 @@
 "use client";
 
+import { rampFor } from "@/lib/disease-palette";
 import { ArrowDownRight, ArrowRight, ArrowUpRight, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,6 +37,7 @@ const INTRO = {
   influenza: "Global influenza surveillance from WHO FluNet laboratory data.",
   dengue: "Global dengue surveillance from cases reported to WHO.",
   malaria: "Yearly malaria estimates and reported cases from the WHO World Malaria Report.",
+  cholera: "Weekly cholera cases and deaths reported to WHO by countries with outbreaks.",
 } as const;
 
 /** Yearly diseases (malaria) have their own overview; weekly ones use the dashboard below. */
@@ -49,6 +51,7 @@ function WeeklyOverview() {
   const [filters, setFilters] = useFilters();
   const overview = useOverview(filters);
   const caseBased = DISEASES[filters.disease].caseBased;
+  const features = DISEASES[filters.disease].features;
   const intro = INTRO[filters.disease];
 
   if (platform.kind !== "ready") {
@@ -87,13 +90,13 @@ function WeeklyOverview() {
         {data?.window.includes_provisional && <ProvisionalNotice />}
         <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
           <KpiTiles data={data} weeks={filters.weeks} caseBased={caseBased} />
-          {data && <Signals kpis={data.kpis} weeks={filters.weeks} filters={filters} />}
+          {data && features.detection && <Signals kpis={data.kpis} weeks={filters.weeks} filters={filters} />}
         </div>
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
           <TrendCard key={filters.disease} data={data} caseBased={caseBased} />
           {caseBased ? <TopIncidenceMovers data={data} /> : <TopMovers data={data} />}
         </div>
-        <AlertListCard region={filters.region} to={data?.window.end ?? null} limit={5} />
+        {features.reports && <AlertListCard region={filters.region} to={data?.window.end ?? null} limit={5} />}
         {data && <Provenance meta={data.meta} />}
       </Page>
     </div>
@@ -150,7 +153,8 @@ function Hero({
         windowWeeks={global.data?.window.weeks}
         measure={info.caseBased ? "incidence" : "positivity"}
         layers={{ positivity: true, detections: true }}
-        pitch={12}
+        palette={info.caseBased ? rampFor(info.key) : null}
+        pitch={24}
         clouds
         onCountryClick={(c) => router.push(`${surveillanceHref}&country=${c.iso3}`)}
       />
@@ -191,7 +195,7 @@ function Hero({
           </div>
           <div className="flex-1" />
           <div className="hidden w-[320px] flex-col gap-3 xl:flex">
-            {data && <Signals kpis={data.kpis} weeks={filters.weeks} filters={filters} glass />}
+            {data && info.features.detection && <Signals kpis={data.kpis} weeks={filters.weeks} filters={filters} glass />}
             <Link href={surveillanceHref} className={cn(CTA, "h-10 px-4 text-[13px]")}>
               Explore Global Surveillance <ArrowRight className="size-4" aria-hidden />
             </Link>
@@ -201,7 +205,7 @@ function Hero({
         <div className="flex items-end justify-between gap-3">
           {/* lg+: sit beside the KPI column (280px + 16px gap), not under it. */}
           <div className="panel-glass pointer-events-auto w-64 rounded-xl p-3 lg:ml-[296px]">
-            {info.caseBased ? <IncidenceLegend disease={info.label} /> : <PositivityLegend />}
+            {info.caseBased ? <IncidenceLegend disease={info.label} palette={rampFor(info.key)} /> : <PositivityLegend />}
           </div>
           {global.error && <QueryError error={global.error} className="pointer-events-auto text-xs text-status-error" />}
         </div>

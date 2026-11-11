@@ -1,6 +1,7 @@
 "use client";
 
 import { AnnualCountryView } from "@/components/annual/annual-country";
+import { YearlyHistory } from "@/components/annual/yearly-history";
 import { ArrowLeft, Globe2, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -116,15 +117,18 @@ function WeeklyCountry({ iso3 }: { iso3: string }) {
           </p>
         )}
         {p && hasCaseReports(p) && <CaseHistory iso3={iso3} p={p} info={info} />}
-        {p && p.surveillance.weeks_reported > 0 && <ChannelCard iso3={iso3} />}
-        <div className="grid gap-4 md:grid-cols-3">
-          <ForecastSummary iso3={iso3} />
-          <RiskCard iso3={iso3} />
-          <HotspotCard iso3={iso3} />
-        </div>
-        {p && p.surveillance.weeks_reported > 0 && <AnomalyTimeline iso3={iso3} />}
-        {p && hasCaseReports(p) && <WeatherPanel iso3={iso3} />}
-        {p && hasCaseReports(p) && (
+        {info.key === "cholera" && <YearlyHistory iso3={iso3} />}
+        {info.features.detection && p && p.surveillance.weeks_reported > 0 && <ChannelCard iso3={iso3} />}
+        {(info.features.forecasting || info.features.detection) && (
+          <div className="grid gap-4 md:grid-cols-3">
+            <ForecastSummary iso3={iso3} />
+            <RiskCard iso3={iso3} />
+            <HotspotCard iso3={iso3} />
+          </div>
+        )}
+        {info.features.detection && p && p.surveillance.weeks_reported > 0 && <AnomalyTimeline iso3={iso3} />}
+        {info.key === "dengue" && p && hasCaseReports(p) && <WeatherPanel iso3={iso3} />}
+        {info.features.reports && p && hasCaseReports(p) && (
           <AlertListCard iso3={iso3} limit={5}>
             <h3 className="mb-2 text-xs font-medium">Country report</h3>
             <GenerateReportForm fixedIso3={iso3} />
@@ -133,7 +137,7 @@ function WeeklyCountry({ iso3 }: { iso3: string }) {
         {p && (
           <div className="grid gap-4 lg:grid-cols-2">
             <Context p={p} />
-            <CaseCoverage p={p} />
+            <CaseCoverage p={p} tiers={info.features.forecasting} />
           </div>
         )}
         {p && <Provenance meta={p.meta} />}

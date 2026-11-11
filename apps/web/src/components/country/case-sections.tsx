@@ -219,15 +219,19 @@ export function CaseHistory({ iso3, p, info }: { iso3: string; p: CountryProfile
   );
 }
 
-export function CaseCoverage({ p }: { p: CountryProfile }) {
-  const c = p.coverage;
+/** `tiers`: the disease has coverage tiers (they decide forecast eligibility; dengue).
+ *  Cholera has none: its card shows the reporting record only. */
+export function CaseCoverage({ p, tiers = true }: { p: CountryProfile; tiers?: boolean }) {
+  const c = tiers ? p.coverage : null;
   const unit = c?.grain === "month" ? "months" : "weeks";
   const s = p.surveillance;
   const since = [s.first_week, s.first_month].filter(Boolean).sort()[0] ?? null;
   const rows: [string, string][] = [
     ["Reporting since", since ? (since === s.first_month ? monthSpan(since, since) : formatWeek(since)) : "—"],
     ["Weeks reported", formatInt(s.weeks_reported)],
-    ["Months reported", formatInt(s.months_reported ?? 0)],
+    ...(tiers || (s.months_reported ?? 0) > 0
+      ? ([["Months reported", formatInt(s.months_reported ?? 0)]] as [string, string][])
+      : []),
     ...(c
       ? ([
           ["Coverage tier", c.tier],
@@ -248,14 +252,21 @@ export function CaseCoverage({ p }: { p: CountryProfile }) {
           </div>
         ))}
       </dl>
-      {!c && <p className="mt-2 text-[11px] text-muted-foreground">No coverage profile: no reports to WHO.</p>}
-      <ul className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
-        {Object.entries(TIER_RULES).map(([t, rule]) => (
-          <li key={t} className={cn(c?.tier === t && "text-foreground")}>
-            <span className="font-semibold">{t}</span> — {rule}
-          </li>
-        ))}
-      </ul>
+      {tiers && !c && <p className="mt-2 text-[11px] text-muted-foreground">No coverage profile: no reports to WHO.</p>}
+      {tiers && (
+        <ul className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
+          {Object.entries(TIER_RULES).map(([t, rule]) => (
+            <li key={t} className={cn(c?.tier === t && "text-foreground")}>
+              <span className="font-semibold">{t}</span> — {rule}
+            </li>
+          ))}
+        </ul>
+      )}
+      {!tiers && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Countries report while an outbreak lasts; weeks without a report are unknown, not zero.
+        </p>
+      )}
     </Section>
   );
 }

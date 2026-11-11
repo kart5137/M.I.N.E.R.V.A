@@ -1,13 +1,14 @@
 /**
  * Yearly malaria (C1): binned scale for estimated cases per 1,000 population at risk, and
- * formatting for estimates with uncertainty ranges. Same validated amber steps as the
- * other choropleths (lib/positivity-scale.ts). Breaks are roughly logarithmic: most
+ * formatting for estimates with uncertainty ranges. Malaria's validated green ramp
+ * (lib/disease-palette.ts). Breaks are roughly logarithmic: most
  * endemic countries outside Africa are under 10, high-burden African countries 100–500
  * (WHO World Malaria Report estimates, 2024). A real zero (no indigenous cases) has its
  * own neutral class, distinct from "no estimate".
  */
 import { formatCompact, formatInt } from "@/lib/format";
-import { FEW_SPECIMENS_COLOR, POSITIVITY_BINS } from "@/lib/positivity-scale";
+import { RAMPS } from "@/lib/disease-palette";
+import { FEW_SPECIMENS_COLOR } from "@/lib/positivity-scale";
 import type { AnnualValues, MeasureValue } from "@/lib/types";
 
 const BREAKS = [
@@ -20,7 +21,7 @@ const BREAKS = [
 ] as const;
 
 export const ZERO_COLOR = FEW_SPECIMENS_COLOR;
-export const MALARIA_BINS = BREAKS.map((b, i) => ({ ...b, color: POSITIVITY_BINS[i].color }));
+export const MALARIA_BINS = BREAKS.map((b, i) => ({ ...b, color: RAMPS.malaria[i] }));
 /** Fill colours by class: 0 = zero cases, 1..6 = bins. */
 export const MALARIA_FILL_COLORS = [ZERO_COLOR, ...MALARIA_BINS.map((b) => b.color)];
 

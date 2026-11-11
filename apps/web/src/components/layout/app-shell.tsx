@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 
 import { Brand, BrandMark, Wordmark } from "./brand";
 import { DataStatus } from "./data-status";
+import { HomeLink } from "./home-link";
 import { FilterBar } from "./filter-bar";
 import { NavRail, SidebarNav } from "./sidebar-nav";
 import { WakeNotice } from "./wake-notice";
@@ -30,9 +31,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label="Sidebar"
         className="sticky top-0 hidden h-dvh w-[72px] shrink-0 flex-col items-center gap-6 border-r border-sidebar-border bg-sidebar/95 py-4 lg:flex"
       >
-        <Link href="/" aria-label="M.I.N.E.R.V.A. home" className="rounded-xl p-1 transition-transform hover:scale-105">
-          <BrandMark className="size-9" />
-        </Link>
+        <Suspense
+          fallback={
+            <Link href="/" aria-label="M.I.N.E.R.V.A. home" className="rounded-xl p-1">
+              <BrandMark className="size-9" />
+            </Link>
+          }
+        >
+          <HomeLink className="rounded-xl p-1 transition-transform hover:scale-105">
+            <BrandMark className="size-9" />
+          </HomeLink>
+        </Suspense>
         {/* usePathname needs a Suspense boundary under Cache Components. */}
         <Suspense fallback={null}>
           <NavRail />
@@ -63,8 +72,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             </SheetContent>
           </Sheet>
 
-          <BrandMark className="size-7 sm:hidden" />
-          <Wordmark className="hidden sm:block" />
+          {/* The logo and name lead home (the Overview), keeping the selected disease. */}
+          <Suspense
+            fallback={
+              <Link href="/" aria-label="M.I.N.E.R.V.A. home" className="flex items-center">
+                <BrandMark className="size-7 sm:hidden" />
+                <Wordmark className="hidden sm:block" />
+              </Link>
+            }
+          >
+            <HomeLink className="flex items-center rounded-md transition-opacity hover:opacity-85">
+              <BrandMark className="size-7 sm:hidden" />
+              <Wordmark className="hidden sm:block" />
+            </HomeLink>
+          </Suspense>
           <span className="hidden h-7 w-px bg-border sm:block" aria-hidden />
 
           {/* Phones: disease and filters take their own row under the menu, logo and status. */}

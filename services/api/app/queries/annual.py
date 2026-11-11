@@ -18,7 +18,7 @@ from app.core.errors import ApiError
 from app.schemas.annual import AnnualMeta, MeasureValue
 from app.schemas.common import SourceRef
 
-MEASURES = {
+MALARIA_MEASURES = {
     "est_cases": "Estimated cases",
     "est_deaths": "Estimated deaths",
     "est_incidence": "Estimated cases per 1,000 population at risk",
@@ -26,6 +26,18 @@ MEASURES = {
     "confirmed_cases": "Reported confirmed cases",
     "reported_cases": "Reported cases (confirmed + presumed)",
 }
+CHOLERA_MEASURES = {
+    "reported_cases": "Reported cases",
+    "reported_deaths": "Reported deaths",
+    "cfr": "Case fatality rate (%)",
+}
+MEASURES = {"malaria": MALARIA_MEASURES, "cholera": CHOLERA_MEASURES}
+CHOLERA_NOTES = [
+    "1949–2016: cases and deaths reported to WHO each year (WHO Global Health Observatory).",
+    "From 2023: sums of the weekly reports in the WHO Global Cholera and AWD Dashboard; the "
+    "current year is incomplete.",
+    "2017–2022 exist only in WHO's yearly PDF reports and are not shown (a gap, not zero).",
+]
 NOTES = [
     "Estimated cases, deaths and rates are World Malaria Report model estimates with "
     "uncertainty ranges; WHO revises the whole series each year.",
@@ -43,10 +55,20 @@ class AnnualContext:
     first_year: int
     latest_year: int
     sources: tuple[SourceRef, ...]
+    #: Diseases with weekly reports too (cholera): yearly sums of them are added to series.
+    weekly: bool = False
 
     def meta(self) -> AnnualMeta:
         return AnnualMeta(disease=self.key, first_year=self.first_year,
                           latest_year=self.latest_year, sources=list(self.sources))
+
+    @property
+    def measures(self) -> dict[str, str]:
+        return MEASURES.get(self.key, MALARIA_MEASURES)
+
+    @property
+    def notes(self) -> list[str]:
+        return CHOLERA_NOTES if self.key == "cholera" else NOTES
 
 
 def load_annual(session: Session, key: str) -> AnnualContext:
@@ -54,27 +76,40 @@ def load_annual(session: Session, key: str) -> AnnualContext:
         SELECT d.id, d.key, d.name, d.native_granularity,
           (SELECT min(year) FROM surveillance_annual WHERE disease_id = d.id
              AND scope = 'country'),
-          (SELECT max(year) FROM surveillance_annual WHERE disease_id = d.id
-             AND scope = 'country' AND measure = 'est_cases')
+          coalesce(
+            (SELECT max(year) FROM surveillance_annual WHERE disease_id = d.id
+               AND scope = 'country' AND measure = 'est_cases'),
+            (SELECT max(year) FROM surveillance_annual WHERE disease_id = d.id
+               AND scope = 'country'))
         FROM diseases d WHERE d.key = :k
     """), {"k": key}).one_or_none()
     if row is None:
         raise ApiError(404, "unknown_disease", f"Unknown disease '{key}'.")
     did, dkey, name, grain, first, latest = row
-    if grain != "annual":
+    if "annual" not in grain:
         raise ApiError(422, "not_available",
                        f"{name} is reported weekly; yearly views are for yearly diseases.")
-    if latest is None:
+    if latest is None and "week" not in grain:
         raise ApiError(404, "no_data",
                        f"No {name.lower()} data is loaded. Run `ei ingest malaria`.")
     sources = session.execute(text("""
         SELECT key, name, attribution_text FROM data_sources WHERE id IN
-          (SELECT DISTINCT source_id FROM surveillance_annual WHERE disease_id = :d)
+          (SELECT DISTINCT source_id FROM surveillance_annual WHERE disease_id = :d
+           UNION SELECT DISTINCT source_id FROM surveillance_weekly WHERE disease_id = :d)
         ORDER BY key
     """), {"d": did}).all()
+    weekly = "week" in grain
+    if weekly:
+        last_week = session.execute(text(
+            "SELECT max(iso_year) FROM surveillance_weekly WHERE disease_id = :d"),
+            {"d": did}).scalar()
+        latest = max((y for y in (latest, last_week) if y is not None), default=None)
+        first = min((y for y in (first, last_week) if y is not None), default=None)
+    if latest is None:
+        raise ApiError(404, "no_data", f"No {name.lower()} data is loaded.")
     return AnnualContext(id=did, key=dkey, name=name, first_year=first, latest_year=latest,
                          sources=tuple(SourceRef(key=k, name=n, attribution=a)
-                                       for k, n, a in sources))
+                                       for k, n, a in sources), weekly=weekly)
 
 
 def check_year(ctx: AnnualContext, year: int | None) -> int:
@@ -135,6 +170,21 @@ def series(session: Session, ctx: AnnualContext, area: str) -> tuple[str, str, l
     by_year: dict[int, list] = defaultdict(list)
     for r in rows:
         by_year[r["year"]].append(r)
+    if ctx.weekly and scope == "country":
+        # Weekly-reporting diseases (cholera): yearly sums of the weekly reports, for years
+        # without a yearly figure.
+        for r in session.execute(text("""
+            SELECT iso_year AS year, sum(cases) AS cases, sum(deaths) AS deaths
+            FROM surveillance_weekly WHERE disease_id = :d AND iso3 = :a
+            GROUP BY iso_year ORDER BY iso_year
+        """), {"d": ctx.id, "a": area}).mappings():
+            if r["year"] in by_year:
+                continue
+            for measure, value in (("reported_cases", r["cases"]),
+                                   ("reported_deaths", r["deaths"])):
+                if value is not None:
+                    by_year[r["year"]].append({"measure": measure, "value": value,
+                                               "low": None, "high": None})
     if scope == "country":
         name = session.execute(text("SELECT name FROM countries WHERE iso3 = :a"),
                                {"a": area}).scalar() or area

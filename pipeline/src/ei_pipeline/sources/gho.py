@@ -9,6 +9,7 @@ estimates, Low/High. Verified 2026-11-11 (docs/datasets/malaria.md).
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -34,6 +35,18 @@ def download(indicator: str, dest: Path | None = None) -> Path:
     return _download(url(indicator), dest or raw_path(indicator), timeout=180)
 
 
+_PLAIN_NUMBER = re.compile(r"-?\d+(\.\d+)?")
+
+
+def numeric(r: dict) -> float | None:
+    """NumericValue, or the display Value when it is a plain number (some indicators, e.g.
+    cholera cases, leave NumericValue empty and carry the count only in Value)."""
+    if r.get("NumericValue") is not None:
+        return float(r["NumericValue"])
+    text = str(r.get("Value") or "").replace(" ", "").replace(",", "")
+    return float(text) if _PLAIN_NUMBER.fullmatch(text) else None
+
+
 def load(path: Path) -> pd.DataFrame:
     """Rows as (scope, area, year, value, low, high); other area types (e.g. income
     groups) and rows without a numeric value are dropped. Non-WHO region codes are
@@ -44,13 +57,14 @@ def load(path: Path) -> pd.DataFrame:
     rows = []
     for r in doc["value"]:
         scope = SCOPES.get(r.get("SpatialDimType"))
-        if scope is None or r.get("NumericValue") is None or r.get("TimeDimType") != "YEAR":
+        value = numeric(r)
+        if scope is None or value is None or r.get("TimeDimType") != "YEAR":
             continue
         area = str(r.get("SpatialDim") or "")
         if scope == "region" and area not in WHO_REGIONS:
             continue
         rows.append({"scope": scope, "area": area, "year": int(r["TimeDim"]),
-                     "value": float(r["NumericValue"]),
+                     "value": value,
                      "low": None if r.get("Low") is None else float(r["Low"]),
                      "high": None if r.get("High") is None else float(r["High"])})
     df = pd.DataFrame(rows, columns=["scope", "area", "year", "value", "low", "high"])

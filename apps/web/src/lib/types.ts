@@ -70,6 +70,10 @@ export interface CountryWindowValue {
   periods_reported?: number | null;
   period_start?: string | null;
   period_end?: string | null;
+  /** Reported deaths in the window (cholera). */
+  deaths?: number | null;
+  /** deaths ÷ cases, from ≥ 20 cases. */
+  cfr?: number | null;
 }
 
 export interface GlobalSurveillance {
@@ -941,6 +945,9 @@ export interface AnnualCountries {
 }
 
 export interface AnnualSeries {
+  partial_year: number | null;
+  measures: Record<string, string>;
+  notes: string[];
   meta: AnnualMeta;
   area: string;
   name: string;

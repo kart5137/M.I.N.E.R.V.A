@@ -215,7 +215,7 @@ export function AnnualOverview() {
           insets={insets}
           fill={fill}
           elevationByIso3={elevation}
-          pitch={12}
+          pitch={24}
           clouds
           hoverDetail={(iso3) => hoverRows(byIso3.get(iso3), year ?? 0)}
           onCountryClick={(c) => router.push(withParams(`/countries/${c.iso3}`, dq, filters.year ? `year=${filters.year}` : ""))}

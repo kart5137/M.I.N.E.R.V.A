@@ -1,5 +1,6 @@
 "use client";
 
+import { rampFor } from "@/lib/disease-palette";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { SlidersHorizontal, X } from "lucide-react";
@@ -91,8 +92,14 @@ export function SurveillanceView() {
   const caseBased = info.caseBased;
   const activeFill: FillMode | "none" =
     !info.features.detection && fillMode !== "none" ? "positivity" : fillMode;
+  // Only fills the disease has: detection fills need detection, forecast change needs
+  // forecasts (cholera has neither), so no option is offered that would show nothing.
   const fillOptions: { key: FillMode | "none"; label: string }[] = [
-    ...FILL_MODES.map((m) => (m.key === "positivity" && caseBased ? { ...m, label: "Cases per 100,000" } : m)),
+    ...FILL_MODES.filter(
+      (m) =>
+        m.key === "positivity" ||
+        (m.key === "forecast_change" ? info.features.forecasting : info.features.detection),
+    ).map((m) => (m.key === "positivity" && caseBased ? { ...m, label: "Cases per 100,000" } : m)),
     { key: "none", label: "None" },
   ];
   const anomaliesOn = showAnomalies && info.features.detection;
@@ -130,12 +137,13 @@ export function SurveillanceView() {
         className="absolute inset-0"
         projection={projection}
         insets={insets}
-        pitch={20}
+        pitch={32}
         autoRotate={autoRotate}
         values={data?.countries}
         windowWeeks={data?.window.weeks}
         measure={caseBased ? "incidence" : "positivity"}
         layers={layers}
+        palette={caseBased ? rampFor(info.key) : null}
         clouds={clouds}
         fill={detection.fill}
         rings={detection.rings}
@@ -246,7 +254,7 @@ export function SurveillanceView() {
             />
           ) : (
             <p className="text-[10.5px] leading-snug text-muted-foreground">
-              Anomaly and hot-spot layers for {info.label.toLowerCase()} are planned for a later phase.
+              {info.unavailable?.detection ?? `Anomaly and hot-spot layers are not available for ${info.label.toLowerCase()}.`}
             </p>
           )}
         </section>
@@ -254,7 +262,7 @@ export function SurveillanceView() {
         <section className="max-h-[34vh] overflow-y-auto border-t border-border pt-3">
           {caseBased ? (
             activeFill === "positivity" ? (
-              <IncidenceLegend disease={info.label} showColumns={detections} />
+              <IncidenceLegend disease={info.label} palette={rampFor(info.key)} showColumns={detections} />
             ) : (
               detections && (
                 <p className="text-[11px] text-muted-foreground">{elevationNote("incidence")}</p>

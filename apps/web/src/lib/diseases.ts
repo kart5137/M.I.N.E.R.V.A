@@ -4,9 +4,11 @@
  * detection, alerts and reports (D4); Analytics compares influenza test positivity with
  * health-system indicators and stays influenza-only. Malaria (C1) is yearly: World Malaria
  * Report estimates and reported cases on the Overview, Countries and country pages only.
+ * Cholera (C2) has weekly outbreak reports since 2023 (maps, trends, deaths) and yearly
+ * history to 2016, without forecasting, detection or alerts.
  */
 
-export type DiseaseKey = "influenza" | "dengue" | "malaria";
+export type DiseaseKey = "influenza" | "dengue" | "malaria" | "cholera";
 
 export type Feature = "surveillance" | "forecasting" | "detection" | "analytics" | "reports";
 
@@ -68,6 +70,28 @@ export const DISEASES: Record<DiseaseKey, DiseaseInfo> = {
         "Alerts and reports are built on weekly detection, which yearly malaria data do not support.",
     },
     sourceNote: "WHO Global Health Observatory (World Malaria Report)",
+  },
+  cholera: {
+    key: "cholera",
+    label: "Cholera",
+    caseBased: true,
+    grain: "week",
+    features: { surveillance: true, forecasting: false, detection: false, analytics: false, reports: false },
+    unavailable: {
+      forecasting:
+        "Cholera reports cover outbreaks since January 2023 only, and countries report while an outbreak lasts. " +
+        "That is too short and patchy for honest forecasts. Weekly trends and yearly history are on the Overview, " +
+        "Global Surveillance and country pages.",
+      detection:
+        "Anomaly and hot-spot detection need several years of regular weekly reporting; cholera reporting covers " +
+        "outbreaks since 2023 only.",
+      analytics:
+        "Analytics compares influenza test positivity with health-system indicators; it covers influenza only.",
+      reports:
+        "Alerts and reports are built on outbreak detection, which cholera's short outbreak-only reporting does " +
+        "not support yet.",
+    },
+    sourceNote: "WHO Global Cholera and AWD Dashboard",
   },
 };
 

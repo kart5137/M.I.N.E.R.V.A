@@ -104,6 +104,7 @@ class SeriesPoint(BaseModel):
     is_provisional: bool
     cases: float | None = None
     incidence: float | None = None  # cases per 100,000 that week
+    deaths: float | None = None  # reported deaths that week (cholera)
 
 
 class MonthPoint(BaseModel):

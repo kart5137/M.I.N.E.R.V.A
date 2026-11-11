@@ -30,7 +30,13 @@ function when(iso: string | null): string {
 
 export function AboutView() {
   const [filters] = useFilters();
-  return DISEASES[filters.disease].grain === "year" ? <AnnualAbout /> : <WeeklyAbout />;
+  const info = DISEASES[filters.disease];
+  // Diseases without models or detection (malaria, cholera) have a sources-and-limits page.
+  return info.grain === "year" || (!info.features.forecasting && !info.features.detection) ? (
+    <AnnualAbout />
+  ) : (
+    <WeeklyAbout />
+  );
 }
 
 function WeeklyAbout() {

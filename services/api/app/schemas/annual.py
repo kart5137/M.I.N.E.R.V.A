@@ -73,3 +73,7 @@ class AnnualSeries(BaseModel):
     name: str
     scope: str
     points: list[SeriesPoint]
+    #: A year still accumulating weekly reports (cholera: the current year); null if none.
+    partial_year: int | None = None
+    measures: dict[str, str] = {}
+    notes: list[str] = []

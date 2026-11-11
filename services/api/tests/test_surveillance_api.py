@@ -113,7 +113,7 @@ def test_timeseries_marks_gaps_instead_of_zero_filling(api: TestClient):
     assert pts["2024-02-19"] == {"week_start": "2024-02-19", "reported": False,
                                  "specimens_tested": None, "positives": None,
                                  "positivity": None, "is_provisional": True,
-                                 "cases": None, "incidence": None}
+                                 "cases": None, "incidence": None, "deaths": None}
 
 
 def test_country_list_search_and_pagination(api: TestClient):

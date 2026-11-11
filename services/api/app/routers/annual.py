@@ -39,13 +39,13 @@ def summary(session: Session = Depends(get_session), disease: Disease = "malaria
     with_est, reporting = q.counts(session, ctx, y)
     return AnnualSummary(
         meta=ctx.meta(), year=y, years=list(range(ctx.first_year, ctx.latest_year + 1)),
-        measures=q.MEASURES,
+        measures=ctx.measures,
         world=(AreaTotal(area="GLOBAL", values=glob[("GLOBAL", y)],
                            previous=glob.get(("GLOBAL", y - 1), {}))
                  if ("GLOBAL", y) in glob else None),
         regions=[AreaTotal(area=r, values=regs.get((r, y), {}), previous=regs.get((r, y - 1), {}))
                  for r in regions if (r, y) in regs],
-        countries_with_estimates=with_est, countries_reporting=reporting, notes=q.NOTES)
+        countries_with_estimates=with_est, countries_reporting=reporting, notes=ctx.notes)
 
 
 @router.get("/annual/countries", response_model=AnnualCountries,
@@ -71,5 +71,7 @@ def series(area: Annotated[str, Query(description="GLOBAL, a WHO region code or 
     if code != "GLOBAL" and code not in WHO_REGIONS:
         code = country_row(session, code)["iso3"]  # 404 for an unknown country
     scope, name, pts = q.series(session, ctx, code)
+    partial = ctx.latest_year if ctx.weekly else None
     return AnnualSeries(meta=ctx.meta(), area=code, name=name, scope=scope,
-                        points=[SeriesPoint(year=y, values=v) for y, v in pts])
+                        points=[SeriesPoint(year=y, values=v) for y, v in pts],
+                        partial_year=partial, notes=ctx.notes, measures=ctx.measures)

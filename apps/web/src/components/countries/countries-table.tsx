@@ -55,6 +55,8 @@ function WeeklyCountriesTable() {
   const params = useSearchParams();
   const sortParam = params.get("sort") as CountrySort | null;
   const caseBased = DISEASES[filters.disease].caseBased;
+  // Coverage tiers exist where they decide forecast eligibility (influenza, dengue).
+  const showTier = DISEASES[filters.disease].features.forecasting;
   const sorts = caseBased ? CASE_SORTS : SORTS;
   const sort: CountrySort = sortParam && sorts.includes(sortParam) ? sortParam : "name";
   const order = params.get("order") === "desc" ? "desc" : "asc";
@@ -126,7 +128,7 @@ function WeeklyCountriesTable() {
               <SortHeader label="Country" k="name" sort={sort} order={order} onSort={setSort} align="left" />
               <th className="px-3 py-2 text-left font-normal">Region</th>
               <th className="px-3 py-2 text-left font-normal">{caseBased ? "Reports" : "Season"}</th>
-              <SortHeader label="Tier" k="tier" sort={sort} order={order} onSort={setSort} align="center" />
+              {showTier && <SortHeader label="Tier" k="tier" sort={sort} order={order} onSort={setSort} align="center" />}
               {caseBased ? (
                 <>
                   <SortHeader label="Per 100k / week" k="incidence" sort={sort} order={order} onSort={setSort} />
@@ -148,11 +150,11 @@ function WeeklyCountriesTable() {
           </thead>
           <tbody className={cn("metric", list.isPlaceholderData && "opacity-60")}>
             {data?.items.map((c) =>
-              caseBased ? <CaseRow key={c.iso3} c={c} disease={filters.disease} /> : <Row key={c.iso3} c={c} />,
+              caseBased ? <CaseRow key={c.iso3} c={c} disease={filters.disease} showTier={showTier} /> : <Row key={c.iso3} c={c} />,
             )}
             {data && data.items.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={showTier ? 8 : 7} className="px-3 py-6 text-center text-muted-foreground">
                   No country matches “{q}”.
                 </td>
               </tr>
@@ -263,7 +265,7 @@ function Row({ c }: { c: CountryListItem }) {
   );
 }
 
-function CaseRow({ c, disease }: { c: CountryListItem; disease: DiseaseKey }) {
+function CaseRow({ c, disease, showTier }: { c: CountryListItem; disease: DiseaseKey; showTier: boolean }) {
   const lastMonth = c.last_reported_month;
   const lastWeek = c.last_reported_week;
   // The more recent of the two report types.
@@ -289,9 +291,11 @@ function CaseRow({ c, disease }: { c: CountryListItem; disease: DiseaseKey }) {
       <td className="px-3 py-2 text-muted-foreground">
         {cadence === "month" ? "Monthly" : cadence === "week" ? "Weekly" : "—"}
       </td>
-      <td className="px-3 py-2 text-center">
+      {showTier && (
+        <td className="px-3 py-2 text-center">
         <TierBadge tier={c.tier} />
       </td>
+      )}
       <td className="px-3 py-2 text-right">{formatRate(c.incidence)}</td>
       <td className="px-3 py-2 text-right">{formatInt(c.cases)}</td>
       <td className="px-3 py-2 text-right text-muted-foreground">{last}</td>

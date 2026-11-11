@@ -7,9 +7,12 @@ import { cn } from "@/lib/utils";
 export function IncidenceLegend({
   disease = "Dengue",
   showColumns = false,
+  palette = null,
   className,
 }: {
   disease?: string;
+  /** The disease's colour ramp (lib/disease-palette.ts); default: the dengue bins' colours. */
+  palette?: readonly string[] | null;
   showColumns?: boolean;
   className?: string;
 }) {
@@ -19,9 +22,9 @@ export function IncidenceLegend({
         {disease} cases per 100,000 per week
       </figcaption>
       <div className="flex">
-        {INCIDENCE_BINS.map((b) => (
+        {INCIDENCE_BINS.map((b, i) => (
           <div key={b.label} className="flex-1">
-            <div className="h-2.5 border-r-2 border-card last:border-r-0" style={{ background: b.color }} />
+            <div className="h-2.5 border-r-2 border-card last:border-r-0" style={{ background: palette?.[i] ?? b.color }} />
             <div className="metric mt-1 text-center text-[10px] text-muted-foreground">{b.label}</div>
           </div>
         ))}

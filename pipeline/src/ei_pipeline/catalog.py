@@ -69,6 +69,29 @@ DATA_SOURCES = [
         "uncertainty ranges) and revised each year; reported cases are what national "
         "programmes reported. The two differ, often widely.",
     },
+    {
+        "key": "who_cholera_dashboard",
+        "name": "WHO Global Cholera and AWD Dashboard — weekly cases by country",
+        "url": "https://who-global-cholera-and-awd-dashboard-1-who.hub.arcgis.com/",
+        "licence": "CC BY-IGO (WHO, via the Humanitarian Data Exchange) — reuse with "
+        "attribution",
+        "attribution_text": "Cholera data: WHO Global Cholera and AWD Dashboard "
+        "(preliminary weekly reports from Member States).",
+        "notes": "Weekly cholera cases and deaths reported by countries with outbreaks, "
+        "since January 2023. Preliminary and subject to revision; a week without a report "
+        "is unknown, not zero.",
+    },
+    {
+        "key": "who_gho_cholera",
+        "name": "WHO Global Health Observatory — cholera (yearly, to 2016)",
+        "url": "https://www.who.int/data/gho/data/themes/topics/cholera",
+        "licence": "WHO dataset terms: CC BY 4.0 with attribution (data.who.int); older GHO "
+        "metadata lists CC BY-NC-SA 3.0 IGO. Used non-commercially, unmodified, attributed.",
+        "attribution_text": "Cholera history: WHO Global Health Observatory (cases and "
+        "deaths reported to WHO, 1949–2016).",
+        "notes": "Yearly reported cases, deaths and case fatality rate; the series ends in "
+        "2016.",
+    },
 ]
 
 DISEASES = [
@@ -100,6 +123,18 @@ DISEASES = [
         "native_granularity": "annual",
         "primary_metric": "annual",
         "metric_label": "Estimated malaria cases",
+        "supports_forecast": False,
+        "supports_anomaly": False,
+        "supports_hotspots": False,
+    },
+    {
+        # Weekly outbreak reporting since 2023 (too short and patchy for forecasting or
+        # detection) plus yearly history to 2016 (C2).
+        "key": "cholera",
+        "name": "Cholera",
+        "native_granularity": "weekly+annual",
+        "primary_metric": "cases",
+        "metric_label": "Reported cholera cases",
         "supports_forecast": False,
         "supports_anomaly": False,
         "supports_hotspots": False,

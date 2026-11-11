@@ -46,6 +46,8 @@ class SurveillanceWeekly(Base):
     specimens_tested: Mapped[float | None] = mapped_column(Double)
     positives: Mapped[float | None] = mapped_column(Double)
     cases: Mapped[float | None] = mapped_column(Double)
+    #: Reported deaths (cholera, C2); NULL where the source has none.
+    deaths: Mapped[float | None] = mapped_column(Double)
     positivity: Mapped[float | None] = mapped_column(Double)
     breakdown: Mapped[dict | None] = mapped_column(JSONB)
     is_provisional: Mapped[bool] = mapped_column(
