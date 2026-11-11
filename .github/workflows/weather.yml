@@ -3,21 +3,22 @@ name: Weather backfill
 # Loads ERA5 weather history for dengue areas from the free Open-Meteo API, which allows
 # ~10,000 weighted calls a day; the full history is ~360 per area (docs/datasets/weather.md).
 # Each run continues where the previous one stopped (forecast-ready countries first) and
-# stops cleanly at its budget, so two runs a day finish the history in about a week.
+# stops cleanly at its budget. Four runs a day of 2,400 calls stay within the daily limit
+# and lose only a quarter of the day's progress when GitHub delays or skips a scheduled
+# run (two runs of 4,400 often became one).
 # Once every area is complete a run makes no requests; the weekly job (top-up only,
 # never long history requests, so the two do not compete for the API) keeps weather
 # current from then on.
 
 on:
   schedule:
-    - cron: "20 1 * * *"   # 01:20 and 13:20 UTC: separate hourly windows
-    - cron: "20 13 * * *"
+    - cron: "20 1,7,13,19 * * *"   # every 6 hours: separate hourly windows
   workflow_dispatch:
     inputs:
       budget:
         description: "Weighted Open-Meteo calls this run may use"
         type: number
-        default: 4400
+        default: 2400
 
 concurrency:
   group: weather-backfill
@@ -66,7 +67,7 @@ jobs:
           set -eo pipefail
           alembic -c packages/ei_db/alembic.ini upgrade head
           ei ingest reference
-          ei ingest weather --backfill-only --budget "${{ inputs.budget || 4400 }}" \
+          ei ingest weather --backfill-only --budget "${{ inputs.budget || 2400 }}" \
             --max-minutes 30 2>&1 \
             | tee weather.log
           { echo '```'; grep -E '^\[' weather.log || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

@@ -9,7 +9,8 @@ check the provider's current terms before relying on them.
 | API | Render (Docker) | `services/api/Dockerfile` | `render.yaml` |
 | Web | Vercel | `apps/web` (Next.js) | Vercel project settings |
 | Weekly job | GitHub Actions | `.github/workflows/weekly.yml` → `pipeline/scripts/weekly.sh` | `DATABASE_URL` secret |
-| Weather backfill | GitHub Actions, twice daily | `.github/workflows/weather.yml` (`ei ingest weather --backfill-only`) | `DATABASE_URL` secret |
+| Weather backfill | GitHub Actions, every 6 hours | `.github/workflows/weather.yml` (`ei ingest weather --backfill-only`) | `DATABASE_URL` secret |
+| Keep-alive | GitHub Actions, every 10 minutes | `.github/workflows/keepalive.yml` (GET `/api/v1/health`) | optional `API_URL` repository variable |
 
 ```
 browser ──► Vercel (web) ──fetch──► Render (API) ──► Neon (PostGIS)
@@ -45,9 +46,14 @@ GitHub Actions, Wednesdays 06:00 UTC: migrate → ingest → forecast and detect
    - `API_CORS_ORIGINS` — the web URL from step 5 (comma-separated if several);
    - `API_CORS_ORIGIN_REGEX` — optional, to allow Vercel preview URLs.
 
-   Check `https://<service>.onrender.com/api/v1/meta/status`. Free instances sleep when idle,
-   so the first request after a quiet period takes up to a minute; the web app shows
-   "Checking…" meanwhile and then loads.
+   Check `https://<service>.onrender.com/api/v1/meta/status`. Free instances sleep after 15
+   minutes without requests, and the first request then takes up to a minute.
+   `keepalive.yml` requests `/api/v1/health` every 10 minutes (no database access, so Neon
+   still suspends), which keeps the one free service awake within Render's 750 free
+   instance hours a month (~744 used); set the `API_URL` repository variable if the
+   service URL differs from the default in the workflow. GitHub can delay scheduled runs
+   and disables them in a public repository after 60 days without commits; when the API is
+   asleep anyway, the web app shows a "waking up" notice after 5 seconds of loading.
 
 5. **Web (Vercel).** *Add New → Project*, import the repo, set **Root Directory** to
    `apps/web` (framework: Next.js, detected) and add the environment variable

@@ -66,8 +66,10 @@ days of the free daily limit. Loading is therefore **resumable**:
   "Too many concurrent requests" waits 30 s and retries instead of ending the run; what
   arrived is stored, and the run is recorded as succeeded with `stopped_early` in its
   quality report;
-- `.github/workflows/weather.yml` runs `ei ingest weather --backfill-only` twice a day
-  (separate hourly windows). When every area is complete it makes no requests;
+- `.github/workflows/weather.yml` runs `ei ingest weather --backfill-only` every 6 hours
+  with a budget of 2,400 (9,600 a day, under the daily limit; GitHub sometimes delays or
+  skips scheduled runs, so smaller, more frequent runs lose less), in separate hourly
+  windows. When every area is complete it makes no requests;
 - the weekly job (`ei weekly`) runs `--topup-only`: it re-fetches the last **8 weeks**
   (ERA5T revisions) of areas whose history is complete and leaves incomplete areas to the
   backfill workflow. (Until 2026-11-11 it also backfilled; overlapping with the backfill

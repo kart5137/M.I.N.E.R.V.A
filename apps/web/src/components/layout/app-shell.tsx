@@ -10,6 +10,7 @@ import { Brand, BrandMark, Wordmark } from "./brand";
 import { DataStatus } from "./data-status";
 import { FilterBar } from "./filter-bar";
 import { NavRail, SidebarNav } from "./sidebar-nav";
+import { WakeNotice } from "./wake-notice";
 
 const DISCLAIMER = "Analytical tool. Not medical advice or official public-health guidance.";
 
@@ -86,6 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {DISCLAIMER}
         </footer>
       </div>
+      <WakeNotice />
     </div>
   );
 }
