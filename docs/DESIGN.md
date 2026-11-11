@@ -30,7 +30,7 @@ flowchart LR
         FN[WHO FluNet API]
         NE[Natural Earth]
         WB[World Bank API]
-        OM[Open-Meteo<br/>later]
+        OM[Open-Meteo ERA5<br/>dengue weather]
     end
 
     subgraph Pipeline["pipeline/ (Python batch jobs, weekly)"]
@@ -275,6 +275,7 @@ Monday; default = reference week) and `weeks` (1–52). The comparison window is
 | `GET /risk?region` | Risk per country + not-assessed countries with reasons (M6) |
 | `GET /countries/{iso3}/detection` | Thresholds, risk, last-52-week anomalies, hotspot status (M6) |
 | `GET /forecasts/global?horizon` | Active model's latest forecasts for every country (forecast-change layer, M6) |
+| `GET /forecasts/scorecard` | Live track record: each week's published forecasts (latest run per origin week, the model it selected) scored once the target week is settled — MAE, interval coverage, skill vs the same run's last value, next to the backtest (§6.2) |
 | `GET /alerts?region&iso3&type&severity&status&from&to` | Alerts with facet counts and rule texts (M7) |
 | `GET /reports` · `GET /reports/{id}` | Stored reports (M7) |
 | `POST /reports/generate` | Build a template report from stored data; reuses an identical one (M7) |
@@ -341,6 +342,15 @@ which only reads stored results (rate-limited).
 - **Registry:** each training run writes a `model_versions` row, `model_evaluations`
   rows, an artefact under `models/<disease>/<target>/<version>/` (model + config +
   feature list), and a model card in `docs/models/`.
+
+- **Live track record (2026-11-11):** backtests score models on today's revised data at
+  past origins. `GET /forecasts/scorecard` scores what the dashboard actually published:
+  per origin week the latest run's selected model (`selection_note` marks it), against
+  the value reported once the target week is no longer provisional (positivity from ≥ 10
+  specimens; dengue incidence with population). Nothing is stored or estimated: the
+  record starts with the first published run and grows weekly (influenza targets settle
+  about 1 week after the reference week moves, dengue about 8). Shown on the Prediction
+  Center under the backtest table.
 
 ### 6.3 Seasonal thresholds and risk
 - Per country per season, compute an **epidemic threshold** and **intensity levels**

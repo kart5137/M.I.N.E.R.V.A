@@ -112,9 +112,11 @@ def monday(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
-def _plan(rows, *, end: date, refresh: bool, backfill_only: bool) -> tuple[list[dict], list[str]]:
+def _plan(rows, *, end: date, refresh: bool, backfill_only: bool,
+          topup_only: bool = False) -> tuple[list[dict], list[str]]:
     """Point, start week and priority per area. An area is *behind* until its stored
-    weeks reach the revisit window; `backfill_only` keeps just those areas."""
+    weeks reach the revisit window; `backfill_only` keeps just those areas, `topup_only`
+    just the others (short requests for the latest weeks)."""
     revisit_from = monday(end) - timedelta(weeks=REVISIT_WEEKS)
     plan, skipped = [], []
     for r in rows:
@@ -130,7 +132,7 @@ def _plan(rows, *, end: date, refresh: bool, backfill_only: bool) -> tuple[list[
         else:
             start = max(HISTORY_START, min(r.last_week + timedelta(weeks=1), revisit_from))
         behind = start < revisit_from
-        if backfill_only and not behind:
+        if (backfill_only and not behind) or (topup_only and behind):
             continue
         plan.append({"iso3": r.iso3, "lat": lat, "lon": lon, "basis": basis,
                      "start": start, "behind": behind, "priority": r.priority})
@@ -162,20 +164,23 @@ def _store(session: Session, iso3: str, weeks: pd.DataFrame, point: dict,
 
 
 def ingest_weather(engine: Engine, *, refresh: bool = False, backfill_only: bool = False,
+                   topup_only: bool = False,
                    budget: float = DEFAULT_BUDGET, max_minutes: float | None = None,
                    today: date | None = None,
                    fetch: Fetcher = open_meteo.fetch,
                    quota: open_meteo.Quota | None = None) -> dict:
     """Fetch, check, aggregate and upsert weather within `budget` weighted API calls.
     Stops cleanly when the budget, `max_minutes` or the API's hourly/daily limit is
-    reached; the next run continues from the stored weeks."""
+    reached; the next run continues from the stored weeks. The weekly job uses
+    `topup_only` (history is the backfill workflow's job, so the two never download
+    long ranges at the same time)."""
     end = (today or date.today()) - timedelta(days=1)
     quota = quota or open_meteo.Quota(
         budget, max_seconds=None if max_minutes is None else 60 * max_minutes)
     with track_run(engine, SOURCE_KEY) as run:
         with session_scope(engine) as s:
             plan, skipped = _plan(s.execute(text(TARGETS)).all(), end=end, refresh=refresh,
-                                  backfill_only=backfill_only)
+                                  backfill_only=backfill_only, topup_only=topup_only)
         ids = {"source_id": run.source_id, "run_id": run.run_id}
         totals = {"inserted": 0, "updated": 0, "weeks": 0, "dropped": 0}
         daily = weather.DailyReport(missing=dict.fromkeys(weather.VARIABLES, 0),

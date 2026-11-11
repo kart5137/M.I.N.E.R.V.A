@@ -236,6 +236,8 @@ def test_weather_ingest_full_then_incremental(db):
     assert (second["inserted"], second["updated"]) == (0, 0)
     assert ingest.ingest_weather(db, today=TODAY, fetch=FakeApi(),
                                  backfill_only=True)["areas_planned"] == 0
+    assert ingest.ingest_weather(db, today=TODAY, fetch=FakeApi(),
+                                 topup_only=True)["areas_planned"] == 3
 
     # ERA5 revises its preliminary days: recent weeks are updated in place.
     third = ingest.ingest_weather(db, today=TODAY, fetch=FakeApi(bump=0.5))
@@ -248,6 +250,11 @@ def test_weather_ingest_resumes_after_the_quota_runs_out(db):
     first = ingest.ingest_weather(db, today=TODAY, fetch=FakeApi(quota_after=1))
     assert first["stopped_early"] == "Daily API request limit exceeded"
     assert first["inserted"] == 52 and first["areas_still_behind"] == 3
+    # A top-up run (the weekly job) leaves areas with incomplete history alone.
+    topup = FakeApi()
+    assert ingest.ingest_weather(db, today=TODAY, fetch=topup,
+                                 topup_only=True)["areas_planned"] == 0
+    assert topup.calls == []
     assert _q(db, "SELECT status FROM ingestion_runs ORDER BY id DESC LIMIT 1") == "succeeded"
 
     api = FakeApi()
@@ -269,3 +276,39 @@ def test_weather_ingest_survives_one_failed_area_but_not_all(db):
         ingest.ingest_weather(db, today=TODAY, refresh=True,
                               fetch=FakeApi(fail={reu_lat, 5.0, 6.0}))
     assert _q(db, "SELECT status FROM ingestion_runs ORDER BY id DESC LIMIT 1") == "failed"
+
+
+class _Resp:
+    def __init__(self, status: int, body: dict):
+        self.status_code, self._body = status, body
+        self.content = b"x"
+        self.text = str(body)
+
+    def json(self):
+        return self._body
+
+    def raise_for_status(self):
+        pass
+
+
+def test_fetch_waits_out_concurrent_requests_and_scales_the_timeout(monkeypatch):
+    d = date(2024, 1, 1)
+    answers = [_Resp(429, {"error": True, "reason": "Too many concurrent requests"}),
+               _Resp(200, payload(d, [(20.0, 1.0, 80)] * 7))]
+    seen = []
+
+    def get(url, params, timeout, headers):
+        seen.append(timeout)
+        return answers.pop(0)
+
+    slept = []
+    monkeypatch.setattr(open_meteo.requests, "get", get)
+    q = open_meteo.Quota(budget=100, sleep=slept.append)
+    s = open_meteo.fetch(1.5, 2.5, d, d + timedelta(days=6), quota=q)
+    assert len(s.daily) == 7 and slept == [30] and seen == [31, 31]
+    assert open_meteo.timeout_for(d, d + timedelta(days=open_meteo.MAX_DAYS - 1)) == 90
+
+    # Other 429 reasons still stop the run cleanly (daily or hourly limits).
+    answers[:] = [_Resp(429, {"error": True, "reason": "Daily API request limit exceeded"})]
+    with pytest.raises(open_meteo.QuotaExhausted, match="Daily"):
+        open_meteo.fetch(1.5, 2.5, d, d + timedelta(days=6), quota=q)

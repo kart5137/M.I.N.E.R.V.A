@@ -50,7 +50,16 @@ def run(seeded_engine):
             VALUES (102, 'AAA', '2024-01-29', '2024-02-05', 0.55, NULL, NULL, NULL, NULL, 0.6),
                    (102, 'AAA', '2024-01-15', '2024-01-22', 0.45, 0.4, 0.5, 0.3, 0.6, 0.4);
         """))
-    return "R1"
+    yield "R1"
+    # Later modules (e.g. the scorecard) insert runs of their own.
+    with seeded_engine.begin() as c:
+        c.execute(text("""
+            DELETE FROM forecast_explanations WHERE forecast_id IN (201, 202);
+            DELETE FROM backtest_predictions WHERE model_version_id IN (101, 102);
+            DELETE FROM forecasts WHERE model_version_id IN (101, 102);
+            DELETE FROM model_evaluations WHERE model_version_id IN (101, 102);
+            DELETE FROM model_versions WHERE id IN (101, 102);
+        """))
 
 
 def test_models_lists_current_run(api: TestClient, run):

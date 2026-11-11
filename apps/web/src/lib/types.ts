@@ -832,3 +832,57 @@ export interface About {
   } | null;
   limitations: string[];
 }
+
+export interface HorizonScore {
+  horizon_weeks: number;
+  model_label: string;
+  published: number;
+  scored: number;
+  pending: number;
+  unscorable: number;
+  origins: number;
+  mae: number | null;
+  last_value_mae: number | null;
+  skill_vs_last_value: number | null;
+  coverage_80: number | null;
+  coverage_95: number | null;
+  backtest_mae: number | null;
+  backtest_coverage_80: number | null;
+}
+
+export interface OriginScore {
+  origin_week: string;
+  horizon_weeks: number;
+  run_key: string;
+  model_label: string;
+  published: number;
+  scored: number;
+  mae: number | null;
+  coverage_80: number | null;
+}
+
+export interface ScoredForecast {
+  iso3: string;
+  name: string;
+  origin_week: string;
+  target_week: string;
+  horizon_weeks: number;
+  model_label: string;
+  point: number;
+  lo80: number | null;
+  hi80: number | null;
+  actual: number;
+  last_value: number | null;
+  abs_error: number;
+  in_80: boolean | null;
+}
+
+export interface Scorecard {
+  meta: ResponseMeta;
+  target: string;
+  rule: string;
+  next_target_week: string | null;
+  horizons: HorizonScore[];
+  origins: OriginScore[];
+  recent: ScoredForecast[];
+}

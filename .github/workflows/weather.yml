@@ -4,7 +4,8 @@ name: Weather backfill
 # ~10,000 weighted calls a day; the full history is ~360 per area (docs/datasets/weather.md).
 # Each run continues where the previous one stopped (forecast-ready countries first) and
 # stops cleanly at its budget, so two runs a day finish the history in about a week.
-# Once every area is complete a run makes no requests; the weekly job keeps weather
+# Once every area is complete a run makes no requests; the weekly job (top-up only,
+# never long history requests, so the two do not compete for the API) keeps weather
 # current from then on.
 
 on:

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_session
 from app.core.errors import ApiError
 from app.queries import models as q
+from app.queries import scorecard as sc
 from app.queries.common import check_region, load_disease
 from app.queries.countries import country_row
 from app.schemas.models import (
@@ -18,6 +19,7 @@ from app.schemas.models import (
     GlobalForecasts,
     ModelDetail,
     ModelRun,
+    Scorecard,
 )
 
 router = APIRouter(tags=["forecasting"])
@@ -91,6 +93,16 @@ def forecasts_global(session: Session = Depends(get_session), disease: Disease =
     return GlobalForecasts(meta=ctx.meta(), run_key=run_key, horizon_weeks=horizon,
                            model_type=model, model_label=q.label(model) if model else None,
                            items=items)
+
+
+@router.get("/forecasts/scorecard", response_model=Scorecard,
+            summary="Live accuracy: published forecasts scored once their week settled")
+def forecasts_scorecard(session: Session = Depends(get_session),
+                        disease: Disease = "influenza") -> Scorecard:
+    ctx = load_disease(session, disease)
+    horizons, origins, recent, nxt = sc.scorecard(session, ctx)
+    return Scorecard(meta=ctx.meta(), target=q.target_of(ctx), rule=sc.RULE,
+                     next_target_week=nxt, horizons=horizons, origins=origins, recent=recent)
 
 
 @router.get("/forecasts/{forecast_id}/explanation", response_model=Explanation,

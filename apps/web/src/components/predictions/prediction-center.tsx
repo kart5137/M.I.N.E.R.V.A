@@ -18,6 +18,7 @@ import type { Metrics, ModelSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { BacktestChart, ForecastChart, ShapWaterfall } from "./forecast-charts";
+import { LiveScorecard } from "./live-scorecard";
 
 const HORIZONS = [1, 2, 4] as const;
 const HISTORY_WEEKS = 26;
@@ -288,6 +289,7 @@ export function PredictionCenter() {
           evalEnd={run.data.eval_end}
         />
       )}
+      {run.data && <LiveScorecard m={m} />}
       {run.data && <Provenance meta={run.data.meta} />}
     </div>
   );

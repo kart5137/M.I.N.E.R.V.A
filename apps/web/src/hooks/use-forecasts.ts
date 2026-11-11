@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import { apiGet } from "@/lib/api";
 import { forDisease, useDisease } from "@/lib/filters";
-import type { CountryBacktest, CountryForecasts, Explanation, ModelDetail, ModelRun } from "@/lib/types";
+import type { CountryBacktest, CountryForecasts, Explanation, ModelDetail, ModelRun, Scorecard } from "@/lib/types";
 
 const STALE = 5 * 60_000;
 
@@ -55,6 +55,16 @@ export function useBacktest(iso3: string | null, versionId: number | null) {
       apiGet<CountryBacktest>(forDisease(`/backtest?iso3=${iso3}&model_version_id=${versionId}`, disease)),
     enabled: !!iso3 && versionId != null,
     placeholderData: keepPreviousData,
+    staleTime: STALE,
+  });
+}
+
+/** Live accuracy of published forecasts, scored once their target week settled. */
+export function useScorecard() {
+  const disease = useDisease();
+  return useQuery({
+    queryKey: ["scorecard", disease],
+    queryFn: () => apiGet<Scorecard>(forDisease("/forecasts/scorecard", disease)),
     staleTime: STALE,
   });
 }

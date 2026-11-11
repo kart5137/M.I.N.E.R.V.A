@@ -24,7 +24,7 @@ dashboard, built on public WHO FluNet data.
 ```
 apps/web          Next.js dashboard (3D globe: MapLibre GL + deck.gl)
 services/api      FastAPI REST API
-pipeline          Ingestion, profiling and (later) ML jobs
+pipeline          Ingestion, profiling, forecasting, detection and alerts
 packages/ei_db    Shared SQLAlchemy models + Alembic migrations
 infra             Docker Compose (PostgreSQL 16 + PostGIS 3.4)
 ```

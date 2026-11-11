@@ -130,6 +130,8 @@ def test_weekly_runs_every_step_in_order(fake_jobs, capsys):
     assert cli.REFRESHED == ("flunet", "dengue")
     assert [c[1]["refresh"] for c in fake_jobs[:len(cli.STEPS)]] == [
         s in cli.REFRESHED for s in cli.STEPS]
+    # Weather history is the backfill workflow's job; the weekly run only tops up.
+    assert dict(fake_jobs[:len(cli.STEPS)])["weather"] == {"refresh": False, "topup_only": True}
     assert fake_jobs[-5][1] == {"disease": "influenza", "fast": True}
     assert fake_jobs[-3][1] == {"disease": "dengue", "fast": True}
     out = capsys.readouterr().out
@@ -168,7 +170,8 @@ def test_ingest_weather_passes_budget_options(fake_jobs):
     assert cli.main(["ingest", "weather", "--budget", "100", "--backfill-only",
                      "--max-minutes", "25"]) == 0
     assert fake_jobs == [("weather", {"refresh": False, "budget": 100.0,
-                                      "backfill_only": True, "max_minutes": 25.0})]
+                                      "backfill_only": True, "topup_only": False,
+                                      "max_minutes": 25.0})]
 
 
 def test_cli_single_commands(fake_jobs, capsys):

@@ -6,7 +6,7 @@
     ei ingest health [--refresh]     World Bank → health_indicators
     ei ingest flunet [--refresh]     WHO FluNet → surveillance_weekly
     ei ingest dengue [--refresh]     WHO dengue → surveillance_weekly / _monthly (D1)
-    ei ingest weather [--refresh] [--budget N] [--backfill-only]
+    ei ingest weather [--refresh] [--budget N] [--backfill-only | --topup-only]
                                      Open-Meteo ERA5 → weather_weekly for dengue areas
                                      (D3); resumable within N weighted API calls
     ei ingest all [--refresh]        all of the above, in order
@@ -100,7 +100,9 @@ def _weekly(engine, *, fast: bool, keep: int) -> int:
 
     for step in STEPS:
         try:
-            _timed(step, lambda s=step: _summary(_run_step(engine, s, refresh=s in REFRESHED)))
+            opts = {"topup_only": True} if step == "weather" else {}
+            _timed(step, lambda s=step, o=opts: _summary(
+                _run_step(engine, s, refresh=s in REFRESHED, **o)))
         except Exception:
             if step not in OPTIONAL:
                 raise
@@ -126,6 +128,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="weather: no new requests after this many minutes")
     ingest.add_argument("--backfill-only", action="store_true",
                         help="weather: only areas whose history is still incomplete")
+    ingest.add_argument("--topup-only", action="store_true",
+                        help="weather: only areas whose history is complete (latest weeks)")
     forecast = sub.add_parser("forecast", help="backtest, train and store forecasts")
     forecast.add_argument("step", choices=("run",))
     forecast.add_argument("--fast", action="store_true",
@@ -173,7 +177,7 @@ def main(argv: list[str] | None = None) -> int:
     for step in steps:
         t0 = time.perf_counter()
         opts = ({"budget": args.budget, "backfill_only": args.backfill_only,
-                 "max_minutes": args.max_minutes}
+                 "topup_only": args.topup_only, "max_minutes": args.max_minutes}
                 if step == "weather" else {})
         report = _run_step(engine, step, args.refresh, **opts)
         print(f"[{step}] {time.perf_counter() - t0:.1f}s "

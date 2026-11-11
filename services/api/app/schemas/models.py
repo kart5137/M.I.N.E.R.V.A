@@ -181,3 +181,62 @@ class GlobalForecasts(BaseModel):
     model_type: str | None
     model_label: str | None
     items: list[GlobalForecastItem]
+
+
+class HorizonScore(BaseModel):
+    """Live accuracy of the published forecasts at one horizon (all origins pooled)."""
+    horizon_weeks: int
+    model_label: str
+    #: Published forecasts; scored = target week settled with a valid observation;
+    #: pending = target week not settled yet; unscorable = settled but no valid value.
+    published: int
+    scored: int
+    pending: int
+    unscorable: int
+    origins: int
+    mae: float | None
+    last_value_mae: float | None
+    skill_vs_last_value: float | None
+    coverage_80: float | None
+    coverage_95: float | None
+    #: The latest selected model's pooled backtest, for comparison.
+    backtest_mae: float | None
+    backtest_coverage_80: float | None
+
+
+class OriginScore(BaseModel):
+    origin_week: date
+    horizon_weeks: int
+    run_key: str
+    model_label: str
+    published: int
+    scored: int
+    mae: float | None
+    coverage_80: float | None
+
+
+class ScoredForecast(BaseModel):
+    iso3: str
+    name: str
+    origin_week: date
+    target_week: date
+    horizon_weeks: int
+    model_label: str
+    point: float
+    lo80: float | None
+    hi80: float | None
+    actual: float
+    last_value: float | None
+    abs_error: float
+    in_80: bool | None
+
+
+class Scorecard(BaseModel):
+    meta: ResponseMeta
+    target: str
+    rule: str
+    #: The earliest target week still waiting to settle (scores arrive after it does).
+    next_target_week: date | None
+    horizons: list[HorizonScore]
+    origins: list[OriginScore]
+    recent: list[ScoredForecast]

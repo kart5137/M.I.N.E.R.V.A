@@ -106,9 +106,16 @@ def parse(payload: dict) -> PointSeries:
                        daily=df.sort_values("date", ignore_index=True))
 
 
+def timeout_for(start: date, end: date) -> int:
+    """Read timeout: 30 s for a few weeks, up to 90 s for a year of history (long ranges
+    timed out at 30 s while the API was busy)."""
+    return 30 + round(60 * min((end - start).days + 1, MAX_DAYS) / MAX_DAYS)
+
+
 def fetch(lat: float, lon: float, start: date, end: date, *, quota: Quota,
-          retries: int = 4, timeout: int = 30) -> PointSeries:
+          retries: int = 4, timeout: int | None = None) -> PointSeries:
     """Daily ERA5 values for one point, `start`–`end` inclusive (≤ MAX_DAYS days)."""
+    timeout = timeout or timeout_for(start, end)
     if (end - start).days + 1 > MAX_DAYS:
         raise ValueError(f"request spans more than {MAX_DAYS} days")
     query = {"latitude": f"{lat:.4f}", "longitude": f"{lon:.4f}",
@@ -121,6 +128,11 @@ def fetch(lat: float, lon: float, start: date, end: date, *, quota: Quota,
                                 headers={"User-Agent": USER_AGENT})
             if resp.status_code == 429:
                 reason = (resp.json() or {}).get("reason", "") if resp.content else ""
+                if "concurrent" in reason.lower():
+                    # Another client on the same IP (e.g. a parallel job): wait, retry.
+                    log.info("Open-Meteo: too many concurrent requests; waiting 30 s")
+                    quota.sleep(30)
+                    continue
                 if "Minutely" not in reason:
                     raise QuotaExhausted(f"Open-Meteo: {reason or 'rate limited'}")
                 log.info("Open-Meteo minute limit (shared IP?); waiting 60 s")
@@ -139,4 +151,4 @@ def fetch(lat: float, lon: float, start: date, end: date, *, quota: Quota,
             log.warning("Open-Meteo request failed (%.2f, %.2f), retry in %ss: %s",
                         lat, lon, wait, exc)
             quota.sleep(wait)
-    raise QuotaExhausted("Open-Meteo minute limit persisted")
+    raise QuotaExhausted("Open-Meteo minute or concurrency limit persisted")
